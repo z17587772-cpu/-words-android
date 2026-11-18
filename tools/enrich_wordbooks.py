@@ -100,14 +100,14 @@ def enrich(pack_path: Path, frequency: dict[str, tuple[int, str]]) -> tuple[int,
             item["frequency_source"] = SOURCE_LABEL
             matched += 1
     # Bump the built-in asset pack version so v1 installs are upgraded in-place.
-    pack["version"] = max(2, int(pack.get("version", 1)) + 1)
+    pack["version"] = max(2, int(pack.get("version", 1)))
     pack_path.write_text(json.dumps(pack, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return matched, len(words)
 
 
 def main() -> None:
     root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]
-    books_dir = root / "app/src/main/assets/books"
+    books_dir = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else root / "app/src/main/assets/books"
     licenses_dir = root / "app/src/main/assets/licenses"
     books = sorted(books_dir.glob("*.json"))
     if not books:
@@ -125,7 +125,9 @@ def main() -> None:
         print(f"{path.name}: {matched:,}/{count:,} matched ({matched / count:.1%})")
 
     licenses_dir.mkdir(parents=True, exist_ok=True)
-    (licenses_dir / "english-word-frequencies-MIT.txt").write_bytes(fetch(LICENSE_URL))
+    license_bytes = fetch(LICENSE_URL)
+    (licenses_dir / "english-word-frequencies-MIT.txt").write_bytes(license_bytes)
+    (books_dir / "english-word-frequencies-MIT.txt").write_bytes(license_bytes)
     print(f"Total: {total_matched:,}/{total_words:,} matched ({total_matched / total_words:.1%})")
     print("NOTE: these counts refer to the referenced combined exam + textbook corpus, not an official complete Gaokao-only corpus.")
 
