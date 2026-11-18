@@ -54,6 +54,28 @@ jobs:
           fi
           unzip -q -o words-android-source.zip -d .
 
+      - name: Patch Android source compatibility and default wordbook
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          main = Path("words-android/app/src/main/java/com/words/app/MainActivity.kt")
+          text = main.read_text(encoding="utf-8")
+          old = "ScrollView.LayoutParams("
+          assert old in text, "Expected ScrollView.LayoutParams call was not found"
+          main.write_text(text.replace(old, "ViewGroup.LayoutParams("), encoding="utf-8")
+          db = Path("words-android/app/src/main/java/com/words/app/WordsDatabase.kt")
+          text = db.read_text(encoding="utf-8")
+          text, count = re.subn(
+              r'const val BUILTIN_BOOK_ID\s*=\s*"[^"]+"',
+              'const val BUILTIN_BOOK_ID = "gaokao_standard_2025"',
+              text,
+          )
+          assert count == 1, f"Expected one built-in book ID constant, found {count}"
+          db.write_text(text, encoding="utf-8")
+          print("Patched ScrollView layout params and selected 2025 curriculum book by default.")
+          PY
+
       - name: Install offline wordbooks into Android assets
         run: |
           mkdir -p words-android/app/src/main/assets/books
@@ -66,12 +88,15 @@ jobs:
           python - <<'PY'
           import json, pathlib
           root = pathlib.Path("words-android/app/src/main/assets/books")
+          total = 0
           for path in root.glob("*.json"):
               data = json.loads(path.read_text(encoding="utf-8"))
               words = data.get("words", [])
               assert words, f"{path.name}: no words"
               assert all(w.get("word") and w.get("meaning") for w in words), f"{path.name}: missing word/meaning"
+              total += len(words)
               print(f"{path.name}: {len(words)} words")
+          print(f"Total across independent books (overlap not deduplicated): {total}")
           PY
 
       - name: Build debug APK
