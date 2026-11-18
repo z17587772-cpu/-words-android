@@ -83,6 +83,15 @@ jobs:
           cp wordbooks/KyleBing-LICENSE.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
           cp wordbooks/SOURCES.md "$PROJECT_DIR/app/src/main/assets/licenses/"
 
+          # Persist enriched source wordbooks (not only the copies inside the APK).
+          git add wordbooks
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "data: persist corpus frequency annotations [skip ci]"
+            git push origin HEAD:main
+          fi
+
           # Validate the shipped offline dictionaries before compiling.
           python - "$PROJECT_DIR/app/src/main/assets/books" <<'PY'
           import json, pathlib, sys
@@ -121,7 +130,7 @@ jobs:
             git push origin HEAD:main
           fi
 
-      - name: Build scheduler smoke test
+      - name: Validate wordbook assets
         run: |
           python - <<'PY'
           from pathlib import Path
