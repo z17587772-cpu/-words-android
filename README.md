@@ -1,42 +1,52 @@
-# words — Android English vocabulary app
+# words · Android vocabulary app
 
-An offline-first Android vocabulary app for high-school English learners.
+一款离线优先的高中英语词汇应用。项目把“碎片时间浏览”和“有计划的记忆训练”拆成两个独立入口，避免互相干扰。
 
-## Product structure
+## 两种独立模式
 
-The app has two deliberately separate learning modes:
+### 随刷
+- 底部导航第一项，作为默认首页，入口突出。
+- 无限连续浏览当前词书；每轮覆盖全书、轮内不重复。
+- 不询问“认识 / 模糊 / 不认识”，不写入复习记录，不消耗每日目标。
+- 独立保存浏览位置和最近看过的词；优先展示课标权重高、外部频率参考较高的词。
+- 支持系统 TTS 发音和收藏。
 
-- **Quick Browse / 无限刷词**: an open-ended, low-friction vocabulary stream. It has no daily quota and does not ask learners to self-rate every word. Users can reveal meanings, inspect examples, listen to pronunciation, skip, favorite, and continue indefinitely.
-- **Study / 系统背词**: a structured spaced-repetition workflow with daily goals, progress, and the existing "认识 / 模糊 / 不认识" response model.
+### 背词
+- 独立的每日学习区间，保留每日目标、揭示卡片、掌握度反馈和复习统计。
+- 随刷浏览记录不会影响背词队列、掌握度、每日进度或复习间隔。
 
-These modes must not share a session queue or mastery state in a way that causes quick browsing to alter scheduled study progress.
+两种模式可共用同一本离线词书、收藏和发音能力，但运行队列、状态和统计完全分离。
 
-## Repository layout
+## 词库与排序说明
 
-- `.github/workflows/android-apk.yml` — reproducible Android build.
-- `wordbooks/` — offline JSON wordbooks and source/licence notes.
-- `source_chunks/` — legacy transport fragments used to reconstruct the Android source archive. This is a compatibility layer, not the preferred long-term source layout.
-- `docs/` — product, data, architecture, and maintenance notes.
+- `gaokao_standard_2025.json`：当前收录 2,974 条词目，保留原始课标层级标记；这不是声称已完整覆盖新课标约 3,100 词。
+- `highschool_extension_3743.json`：高中扩展词库。
+- `importance` 表示词表/课标层级权重，不等于历年高考考频。
+- `corpus_frequency` 与 `frequency_rank` 来自固定版本的第三方“高考真题 + 高中教材”综合语料参考。它不是官方完整高考单独语料；缺失词条记为 -1 / 空值，不伪造 0 次。数据来源、许可和限制见 [词频来源说明](wordbooks/FREQUENCY-REFERENCE.md)。
 
-The build reconstructs the Android project under `words-android/`, injects the wordbooks into assets, then builds a debug APK.
+## 仓库结构
 
-## Wordbook data status
+```
+.github/workflows/    自动构建、上传 APK、发布 Release
+android/              标准 Android 工程（可直接阅读和修改）
+tools/                源码升级与词频数据处理脚本
+wordbooks/            原始词书、来源和许可证
+PROJECT_PLAN.md       产品目标与实施记录
+```
 
-- `gaokao_standard_2025.json`: 2,974 identifiable, deduplicated entries extracted from the 2025-revised curriculum appendix. The published appendix specifies 3,100 words; the current extraction gap is 126 and remains explicitly documented.
-- `highschool_extension_3743.json`: 3,743 unique headwords derived from a 6,008-row BSD-3-licensed source list.
+## 本地构建
 
-Curriculum tier markers are not the same as measured examination frequency. Until a traceable past-paper corpus is analyzed, any priority value must be labeled as a curriculum-tier/learning-priority estimate, not an empirical Gaokao frequency rank.
+环境：JDK 17、Android SDK 35、Gradle 8.9。
 
-## Build and download
+```bash
+cd android
+gradle --no-daemon clean assembleDebug
+```
 
-Every push to `main` and manual workflow dispatch builds `app-debug.apk`. Open the repository's Actions tab, select the latest successful **Build words APK** run, and download the `words-debug-apk` artifact.
+APK 输出：`android/app/build/outputs/apk/debug/app-debug.apk`。
 
-The APK is a debug build, not a Play Store release.
+## GitHub 构建与下载
 
-## Maintenance principles
+向 `main` 推送代码或手动运行 Actions 中的 **Build words APK**。构建通过后会上传 `words-debug-apk` 制品并更新 [v1.2.0 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.2.0)。
 
-1. Keep the source tree human-readable and buildable; avoid editing only opaque transport fragments.
-2. Keep wordbook source attribution and licence files alongside the data.
-3. Validate JSON schema, duplicate headwords, missing meanings, and word counts before building.
-4. Keep quick browsing independent from scheduled study.
-5. Do not claim statistical exam-frequency rankings without a reproducible source corpus and method.
+当前发布包为 debug 签名测试版，不是 Play Store 正式发布包。
