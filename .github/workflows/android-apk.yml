@@ -42,11 +42,16 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Reassemble source archive
+      - name: Reassemble and repair source archive
         run: |
           cat source_chunks/part00 source_chunks/part01 source_chunks/part02 source_chunks/part03 source_chunks/part04 source_chunks/part05 source_chunks/part06 source_chunks/part07 source_chunks/part08 source_chunks/part09 > words-android-source.zip.b64
           base64 --decode words-android-source.zip.b64 > words-android-source.zip
-          unzip -t words-android-source.zip
+          if ! unzip -t words-android-source.zip; then
+            echo "Original source archive has a small transport corruption; attempting ZIP recovery."
+            zip -FF words-android-source.zip --out words-android-source.repaired.zip
+            mv words-android-source.repaired.zip words-android-source.zip
+            unzip -t words-android-source.zip
+          fi
           unzip -q -o words-android-source.zip -d .
 
       - name: Install offline wordbooks into Android assets
