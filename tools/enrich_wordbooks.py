@@ -13,6 +13,7 @@ import urllib.request
 import zipfile
 from io import BytesIO
 from pathlib import Path
+import sys
 
 SOURCE_COMMIT = "676ae3cfecfc77e29c2e22317efa8e153aff9c45"
 SOURCE_REPO = "ZhangYixuan-in-BUPT/english-word-frequencies"
@@ -105,7 +106,7 @@ def enrich(pack_path: Path, frequency: dict[str, tuple[int, str]]) -> tuple[int,
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]
     books_dir = root / "app/src/main/assets/books"
     licenses_dir = root / "app/src/main/assets/licenses"
     books = sorted(books_dir.glob("*.json"))
