@@ -1,29 +1,37 @@
-# words Android — Optimization Plan
+# words Android — optimization implementation record
 
-## Product direction
+## Product decision
 
-The app has two independent learning modes:
+The app now has two independent modes:
 
-1. **随刷 (Quick Browse)** — an always-available, unlimited vocabulary stream for short idle moments. It never asks for familiarity ratings, does not consume the daily study quota, and does not alter the spaced-repetition state. Users can reveal the word, meaning, pronunciation, and examples at their own pace, then move on or skip.
-2. **背词 (Study Session)** — the deliberate learning workflow. It keeps the daily goal, concealed/revealed flashcards, "认识 / 模糊 / 不认识" feedback, review scheduling, and study statistics.
+1. **随刷 (Quick Browse)** — unlimited continuous vocabulary browsing for idle moments. No familiarity questions, no daily quota, and no writes to spaced-repetition state.
+2. **背词 (Daily Study)** — deliberate learning with daily goal, reveal flow, 不认识 / 模糊 / 认识 feedback, review scheduling and study statistics.
 
-The modes may share wordbook data, importance metadata, favorites, and text-to-speech, but their session state and metrics remain separate.
+The modes share wordbook data, favorites and TTS, but each has independent queues, state and metrics.
 
-## Implementation sequence
+## Implementation checklist
 
-- [ ] Reconstruct and inspect the current Android project.
-- [ ] Promote the reconstructed project to a normal, readable repository directory; document the build and keep the source archive only as a migration fallback.
-- [ ] Add a prominent Quick Browse entry to the main navigation/home surface.
-- [ ] Add an endless weighted sampler with no adjacent/recent repeats, while isolating it from study progress.
-- [ ] Preserve the original study-session behavior and its review scheduler.
-- [ ] Improve the vocabulary card proportions, typography, spacing, navigation transitions, and launcher icon.
-- [ ] Audit wordbook schema, deduplication, importance tiers, and frequency evidence; label inferred rankings separately from verified corpus frequency.
-- [ ] Build and validate a debug APK; publish the artifact and document known limitations.
+- [x] Reconstruct and inspect the existing Android project.
+- [x] Normalize source into a conventional `android/` tree and remove transport-only source_chunks/ and source_archive/ clutter.
+- [x] Make 随刷 the default first navigation entry.
+- [x] Add an unlimited weighted browse cycle without in-cycle repeats and with a recent-view cooldown.
+- [x] Keep 背词 as a separate daily workflow with its original mastery/review logic.
+- [x] Enlarge vocabulary cards and refine layout hierarchy, spacing, transitions and launcher icon.
+- [x] Add SQLite v1-to-v2 migration for corpus metadata without deleting review history/favorites.
+- [x] Add pinned third-party combined-corpus frequency data and document its evidence limits.
+- [x] Build and validate the debug APK; upload artifacts and publish Release v1.2.0.
 
-## Ranking policy
+## Ranking evidence
 
-Priority tiers must be traceable to an explicit source. Exam relevance and curriculum scope can be used as ranking features. Corpus-frequency counts are only called "verified" when the corpus and counting method are documented. Where evidence is unavailable, use a transparent estimated priority score instead of inventing a frequency number.
+- `importance` is the original curriculum/list tier, not a past-paper count.
+- `corpus_frequency` and `frequency_rank` come from a pinned third-party corpus combining Gaokao papers and high-school textbooks.
+- The upstream source does not fully disclose every source text and tokenization/lemmatization rule; therefore the app does not call these official or exhaustive Gaokao-only frequencies.
+- Unmatched records remain -1 / blank. No invented zero-frequency values are created.
+- Core curriculum extraction has 2,974 entries, leaving approximately 126 records to reconcile against the stated ~3,100-word target.
 
-## Build
+## Build and delivery
 
-The reproducible GitHub Actions workflow is `.github/workflows/android-apk.yml`. The debug APK is produced by `gradle clean assembleDebug`.
+- Canonical Android project: `android/`.
+- Source wordbooks: `wordbooks/`; scripts: `tools/`.
+- Workflow: `.github/workflows/android-apk.yml`.
+- Output: debug-signed `words.apk`, published in GitHub Release `v1.2.0`.
