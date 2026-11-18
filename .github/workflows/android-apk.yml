@@ -63,13 +63,14 @@ jobs:
           fi
 
           # Preserve the original curriculum book as the default selection.
-          python - <<'PY'
+          python - "$PROJECT_DIR" <<'PY'
           from pathlib import Path
-          import re
-          p = Path(PROJECT_DIR) / "app/src/main/java/com/words/app/MainActivity.kt"
+          import re, sys
+          project = Path(sys.argv[1])
+          p = project / "app/src/main/java/com/words/app/MainActivity.kt"
           s = p.read_text(encoding="utf-8").replace("ScrollView.LayoutParams(", "ViewGroup.LayoutParams(")
           p.write_text(s, encoding="utf-8")
-          db = Path(PROJECT_DIR) / "app/src/main/java/com/words/app/WordsDatabase.kt"
+          db = project / "app/src/main/java/com/words/app/WordsDatabase.kt"
           s = db.read_text(encoding="utf-8")
           s, n = re.subn(r'const val BUILTIN_BOOK_ID\s*=\s*"[^"]+"', 'const val BUILTIN_BOOK_ID = "gaokao_standard_2025"', s)
           if n != 1:
