@@ -1,0 +1,22 @@
+words Android V1.0 source package
+
+Created:
+- Native Kotlin Android project
+- Minimal white-first UI and five-area navigation
+- Two-sided vocabulary flashcards with auto-cover option
+- Weighted sampling without replacement + recent-word cooldown
+- Local SQLite persistence for wordbooks, review states, favorites and history
+- JSON offline wordbook importer
+- Built-in 115-entry high-school starter pack
+- Settings and study statistics
+- Pure Kotlin scheduler smoke test (passed locally)
+- GitHub Actions workflow for remote Android APK build and artifact upload
+
+Build status:
+- Local APK build not available here: Android SDK / Gradle are absent and outbound DNS is unavailable.
+- The GitHub Actions workflow is ready, but it must be pushed to a GitHub repository and run on a hosted runner before an APK artifact exists.
+- No APK binary is included in this source package.
+
+Important:
+- The built-in pack is a starter/demo pack, not a complete 3,500-word curriculum list.
+- Importance weights are provisional editorial values, not verified historical Gaokao frequency data.
