@@ -103,6 +103,14 @@ jobs:
         run: gradle --no-daemon --stacktrace clean assembleDebug
         working-directory: words-android
 
+      - name: Upload reconstructed Android source
+        uses: actions/upload-artifact@v4
+        with:
+          name: words-source-tree
+          path: words-android/
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
