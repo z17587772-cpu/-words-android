@@ -78,10 +78,10 @@ jobs:
           PY
 
           mkdir -p "$PROJECT_DIR/app/src/main/assets/books" "$PROJECT_DIR/app/src/main/assets/licenses"
+          python tools/enrich_wordbooks.py "$PROJECT_DIR" wordbooks
           cp wordbooks/*.json "$PROJECT_DIR/app/src/main/assets/books/"
           cp wordbooks/KyleBing-LICENSE.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
           cp wordbooks/SOURCES.md "$PROJECT_DIR/app/src/main/assets/licenses/"
-          python tools/enrich_wordbooks.py "$PROJECT_DIR"
 
           # Validate the shipped offline dictionaries before compiling.
           python - "$PROJECT_DIR/app/src/main/assets/books" <<'PY'
@@ -115,7 +115,7 @@ jobs:
           EOF
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add android
+            git add android wordbooks
             git rm -r -f --ignore-unmatch source_chunks source_archive || true
             git commit -m "chore: normalize Android source layout [skip ci]"
             git push origin HEAD:main
