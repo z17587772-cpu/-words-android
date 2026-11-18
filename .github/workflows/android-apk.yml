@@ -40,10 +40,15 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Prepare source and offline wordbooks
+      - name: Reassemble source archive
         run: |
+          cat source_chunks/part00 source_chunks/part01 source_chunks/part02 source_chunks/part03 source_chunks/part04 source_chunks/part05 source_chunks/part06 source_chunks/part07 source_chunks/part08 source_chunks/part09 > words-android-source.zip.b64
           base64 --decode words-android-source.zip.b64 > words-android-source.zip
+          unzip -t words-android-source.zip
           unzip -q -o words-android-source.zip -d .
+
+      - name: Install offline wordbooks into Android assets
+        run: |
           mkdir -p words-android/app/src/main/assets/books
           mkdir -p words-android/app/src/main/assets/licenses
           cp wordbooks/*.json words-android/app/src/main/assets/books/
@@ -51,6 +56,16 @@ jobs:
           cp wordbooks/SOURCES.md words-android/app/src/main/assets/licenses/
           echo "Wordbook JSON files:"
           ls -lh words-android/app/src/main/assets/books/
+          python - <<'PY'
+          import json, pathlib
+          root = pathlib.Path("words-android/app/src/main/assets/books")
+          for path in root.glob("*.json"):
+              data = json.loads(path.read_text(encoding="utf-8"))
+              words = data.get("words", [])
+              assert words, f"{path.name}: no words"
+              assert all(w.get("word") and w.get("meaning") for w in words), f"{path.name}: missing word/meaning"
+              print(f"{path.name}: {len(words)} words")
+          PY
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace clean assembleDebug
