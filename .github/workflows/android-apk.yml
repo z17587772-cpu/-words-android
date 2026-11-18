@@ -56,8 +56,7 @@ jobs:
               mv /tmp/words-source-repaired.zip /tmp/words-source.zip
               unzip -t /tmp/words-source.zip
             fi
-            mkdir -p words-android
-            unzip -q -o /tmp/words-source.zip -d words-android
+            unzip -q -o /tmp/words-source.zip -d .
             python tools/upgrade_project.py words-android
             PROJECT_DIR=words-android
           fi
