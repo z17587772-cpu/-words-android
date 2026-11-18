@@ -1,27 +1,42 @@
-# words — offline English vocabulary for Android
+# words — Android English vocabulary app
 
-The repository contains the Android project source, offline wordbooks, and an automated APK build.
+An offline-first Android vocabulary app for high-school English learners.
 
-## Project contents
+## Product structure
 
-- `words-android-source.zip.b64`: Base64 transport copy of the project source archive. The Actions workflow decodes and unpacks it.
-- `wordbooks/gaokao_standard_2025.json`: 2,974 deduplicated entries from a machine-readable extraction of the 2025-revised curriculum Appendix 2. The published standard specifies 3,100 words; the 126-entry extraction gap is recorded transparently in `wordbooks/SOURCES.md`.
-- `wordbooks/highschool_extension_3743.json`: 3,743 unique high-school extension headwords, merged from the 6,008-row licensed source list.
-- `wordbooks/SOURCES.md` and `wordbooks/KyleBing-LICENSE.txt`: source notes and BSD 3-Clause licence.
+The app has two deliberately separate learning modes:
 
-## Build APK
+- **Quick Browse / 无限刷词**: an open-ended, low-friction vocabulary stream. It has no daily quota and does not ask learners to self-rate every word. Users can reveal meanings, inspect examples, listen to pronunciation, skip, favorite, and continue indefinitely.
+- **Study / 系统背词**: a structured spaced-repetition workflow with daily goals, progress, and the existing "认识 / 模糊 / 不认识" response model.
 
-Every push to `main` (and manual workflow dispatch) runs **Build words APK**:
+These modes must not share a session queue or mastery state in a way that causes quick browsing to alter scheduled study progress.
 
-1. Decode and unpack the source archive.
-2. Copy both wordbooks and their license/source notes into Android assets.
-3. Build `app-debug.apk` with JDK 17, Android SDK 35, and Gradle 8.9.
-4. Upload the APK as the `words-debug-apk` artifact for 30 days.
+## Repository layout
 
-Open the repository's **Actions** tab, choose the latest **Build words APK** run, and download the `words-debug-apk` artifact when the run succeeds.
+- `.github/workflows/android-apk.yml` — reproducible Android build.
+- `wordbooks/` — offline JSON wordbooks and source/licence notes.
+- `source_chunks/` — legacy transport fragments used to reconstruct the Android source archive. This is a compatibility layer, not the preferred long-term source layout.
+- `docs/` — product, data, architecture, and maintenance notes.
 
-## Data notes
+The build reconstructs the Android project under `words-android/`, injects the wordbooks into assets, then builds a debug APK.
 
-The official standard lists curriculum headwords and tier markers but does not supply phonetics or Chinese definitions. Wordbook definitions are matched from the BSD-3 source where possible and supplemented with concise original glosses. Android TTS reads English words; audio files are not bundled. Curriculum-tier weights are not claimed as statistical Gaokao frequency rankings.
+## Wordbook data status
 
-See the project README in the archive for implementation and local build notes.
+- `gaokao_standard_2025.json`: 2,974 identifiable, deduplicated entries extracted from the 2025-revised curriculum appendix. The published appendix specifies 3,100 words; the current extraction gap is 126 and remains explicitly documented.
+- `highschool_extension_3743.json`: 3,743 unique headwords derived from a 6,008-row BSD-3-licensed source list.
+
+Curriculum tier markers are not the same as measured examination frequency. Until a traceable past-paper corpus is analyzed, any priority value must be labeled as a curriculum-tier/learning-priority estimate, not an empirical Gaokao frequency rank.
+
+## Build and download
+
+Every push to `main` and manual workflow dispatch builds `app-debug.apk`. Open the repository's Actions tab, select the latest successful **Build words APK** run, and download the `words-debug-apk` artifact.
+
+The APK is a debug build, not a Play Store release.
+
+## Maintenance principles
+
+1. Keep the source tree human-readable and buildable; avoid editing only opaque transport fragments.
+2. Keep wordbook source attribution and licence files alongside the data.
+3. Validate JSON schema, duplicate headwords, missing meanings, and word counts before building.
+4. Keep quick browsing independent from scheduled study.
+5. Do not claim statistical exam-frequency rankings without a reproducible source corpus and method.
