@@ -1,0 +1,65 @@
+name: Build words APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: words-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug-apk:
+    name: Build Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source and wordbooks
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Prepare source and offline wordbooks
+        run: |
+          base64 --decode words-android-source.zip.b64 > words-android-source.zip
+          unzip -q -o words-android-source.zip -d .
+          mkdir -p words-android/app/src/main/assets/books
+          mkdir -p words-android/app/src/main/assets/licenses
+          cp wordbooks/*.json words-android/app/src/main/assets/books/
+          cp wordbooks/KyleBing-LICENSE.txt words-android/app/src/main/assets/licenses/
+          cp wordbooks/SOURCES.md words-android/app/src/main/assets/licenses/
+          echo "Wordbook JSON files:"
+          ls -lh words-android/app/src/main/assets/books/
+
+      - name: Build debug APK
+        run: gradle --no-daemon --stacktrace clean assembleDebug
+        working-directory: words-android
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: words-debug-apk
+          path: words-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
