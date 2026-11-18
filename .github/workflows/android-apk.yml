@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: words-android-${{ github.ref }}
@@ -14,12 +14,14 @@ concurrency:
 
 jobs:
   build-debug-apk:
-    name: Build Android debug APK
+    name: Normalize, test and build words
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
-      - name: Check out source and wordbooks
+      - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -27,94 +29,155 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK tools
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: ''
 
       - name: Install Android SDK platform and build tools
-        run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
-          sdkmanager --list_installed
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Reassemble and repair source archive
+      - name: Reconstruct and normalize the Android project
+        shell: bash
         run: |
-          cat source_chunks/part00 source_chunks/part01 source_chunks/part02 source_chunks/part03 source_chunks/part04 source_chunks/part05 source_chunks/part06 source_chunks/part07 source_chunks/part08 source_chunks/part09 > words-android-source.zip.b64
-          base64 --decode words-android-source.zip.b64 > words-android-source.zip
-          if ! unzip -t words-android-source.zip; then
-            echo "Original source archive has a small transport corruption; attempting ZIP recovery."
-            zip -FF words-android-source.zip --out words-android-source.repaired.zip
-            mv words-android-source.repaired.zip words-android-source.zip
-            unzip -t words-android-source.zip
+          set -euo pipefail
+          if [ -d android ]; then
+            PROJECT_DIR=android
+          else
+            cat source_chunks/part00 source_chunks/part01 source_chunks/part02 source_chunks/part03 source_chunks/part04 source_chunks/part05 source_chunks/part06 source_chunks/part07 source_chunks/part08 source_chunks/part09 > /tmp/words-source.zip.b64
+            base64 --decode /tmp/words-source.zip.b64 > /tmp/words-source.zip
+            if ! unzip -t /tmp/words-source.zip; then
+              zip -FF /tmp/words-source.zip --out /tmp/words-source-repaired.zip
+              mv /tmp/words-source-repaired.zip /tmp/words-source.zip
+              unzip -t /tmp/words-source.zip
+            fi
+            mkdir -p words-android
+            unzip -q -o /tmp/words-source.zip -d words-android
+            python tools/upgrade_project.py words-android
+            PROJECT_DIR=words-android
           fi
-          unzip -q -o words-android-source.zip -d .
 
-      - name: Patch Android source compatibility and default wordbook
-        run: |
+          # Preserve the original curriculum book as the default selection.
           python - <<'PY'
           from pathlib import Path
           import re
-          main = Path("words-android/app/src/main/java/com/words/app/MainActivity.kt")
-          text = main.read_text(encoding="utf-8")
-          old = "ScrollView.LayoutParams("
-          assert old in text, "Expected ScrollView.LayoutParams call was not found"
-          main.write_text(text.replace(old, "ViewGroup.LayoutParams("), encoding="utf-8")
-          db = Path("words-android/app/src/main/java/com/words/app/WordsDatabase.kt")
-          text = db.read_text(encoding="utf-8")
-          text, count = re.subn(
-              r'const val BUILTIN_BOOK_ID\s*=\s*"[^"]+"',
-              'const val BUILTIN_BOOK_ID = "gaokao_standard_2025"',
-              text,
-          )
-          assert count == 1, f"Expected one built-in book ID constant, found {count}"
-          db.write_text(text, encoding="utf-8")
-          print("Patched ScrollView layout params and selected 2025 curriculum book by default.")
+          p = Path(PROJECT_DIR) / "app/src/main/java/com/words/app/MainActivity.kt"
+          s = p.read_text(encoding="utf-8").replace("ScrollView.LayoutParams(", "ViewGroup.LayoutParams(")
+          p.write_text(s, encoding="utf-8")
+          db = Path(PROJECT_DIR) / "app/src/main/java/com/words/app/WordsDatabase.kt"
+          s = db.read_text(encoding="utf-8")
+          s, n = re.subn(r'const val BUILTIN_BOOK_ID\s*=\s*"[^"]+"', 'const val BUILTIN_BOOK_ID = "gaokao_standard_2025"', s)
+          if n != 1:
+              raise SystemExit(f"Expected one built-in wordbook ID, found {n}")
+          db.write_text(s, encoding="utf-8")
           PY
 
-      - name: Install offline wordbooks into Android assets
-        run: |
-          mkdir -p words-android/app/src/main/assets/books
-          mkdir -p words-android/app/src/main/assets/licenses
-          cp wordbooks/*.json words-android/app/src/main/assets/books/
-          cp wordbooks/KyleBing-LICENSE.txt words-android/app/src/main/assets/licenses/
-          cp wordbooks/SOURCES.md words-android/app/src/main/assets/licenses/
-          echo "Wordbook JSON files:"
-          ls -lh words-android/app/src/main/assets/books/
-          python - <<'PY'
-          import json, pathlib
-          root = pathlib.Path("words-android/app/src/main/assets/books")
-          total = 0
-          for path in root.glob("*.json"):
-              data = json.loads(path.read_text(encoding="utf-8"))
-              words = data.get("words", [])
+          mkdir -p "$PROJECT_DIR/app/src/main/assets/books" "$PROJECT_DIR/app/src/main/assets/licenses"
+          cp wordbooks/*.json "$PROJECT_DIR/app/src/main/assets/books/"
+          cp wordbooks/KyleBing-LICENSE.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
+          cp wordbooks/SOURCES.md "$PROJECT_DIR/app/src/main/assets/licenses/"
+          python tools/enrich_wordbooks.py "$PROJECT_DIR"
+
+          # Validate the shipped offline dictionaries before compiling.
+          python - "$PROJECT_DIR/app/src/main/assets/books" <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          all_words = 0
+          matched = 0
+          for path in sorted(root.glob("*.json")):
+              pack = json.loads(path.read_text(encoding="utf-8"))
+              words = pack.get("words", [])
               assert words, f"{path.name}: no words"
-              assert all(w.get("word") and w.get("meaning") for w in words), f"{path.name}: missing word/meaning"
-              total += len(words)
-              print(f"{path.name}: {len(words)} words")
-          print(f"Total across independent books (overlap not deduplicated): {total}")
+              assert all(w.get("word") and w.get("meaning") for w in words), f"{path.name}: missing headword or meaning"
+              all_words += len(words)
+              matched += sum(1 for w in words if w.get("corpus_frequency", -1) >= 0)
+              print(f"{path.name}: {len(words):,} words; {sum(1 for w in words if w.get('corpus_frequency', -1) >= 0):,} corpus matches")
+          print(f"Total: {all_words:,} entries; {matched:,} corpus-frequency matches.")
           PY
 
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace clean assembleDebug
-        working-directory: words-android
+          # Standard project layout: keep only source/resources, not transient Gradle outputs.
+          if [ "$PROJECT_DIR" = "words-android" ]; then
+            mv words-android android
+            PROJECT_DIR=android
+            find android -type d \( -name build -o -name .gradle \) -prune -exec rm -rf {} +
+            cat > android/.gitignore <<'EOF'
+          .gradle/
+          build/
+          **/build/
+          local.properties
+          *.iml
+          .idea/
+          EOF
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add android
+            git rm -r -f --ignore-unmatch source_chunks source_archive || true
+            git commit -m "chore: normalize Android source layout [skip ci]"
+            git push origin HEAD:main
+          fi
 
-      - name: Upload reconstructed Android source
-        uses: actions/upload-artifact@v4
-        with:
-          name: words-source-tree
-          path: words-android/
-          if-no-files-found: error
-          retention-days: 3
+      - name: Build scheduler smoke test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          project = Path("android")
+          for p in (project / "app/src/main/assets/books").glob("*.json"):
+              data = json.loads(p.read_text(encoding="utf-8"))
+              assert data.get("words"), p
+              assert all(w.get("meaning") for w in data["words"]), p
+          print("Wordbook schema checks passed.")
+          PY
+
+      - name: Build Android debug APK
+        run: gradle --no-daemon --stacktrace clean assembleDebug
+        working-directory: android
+
+      - name: Prepare install package
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/words.apk
+          unzip -t dist/words.apk >/dev/null
+          sha256sum dist/words.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: words-debug-apk
-          path: words-android/app/build/outputs/apk/debug/app-debug.apk
+          path: dist/words.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload normalized Android source
+        uses: actions/upload-artifact@v4
+        with:
+          name: words-source-tree
+          path: android/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish downloadable GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.2.0
+          target_commitish: main
+          name: words 1.2.0
+          body: |
+            words 1.2.0 — Quick Browse and Study are independent modes.
+
+            - 随刷：unlimited, weighted vocabulary browsing; no familiarity ratings and no impact on daily review progress.
+            - 背词：preserves daily goals and spaced-repetition feedback.
+            - Word priority separates curriculum markers from third-party combined-corpus frequency references.
+            - Updated launcher icon, larger cards, and subtle page/card transitions.
+
+            This is a debug-signed APK for direct testing.
+          files: dist/words.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
