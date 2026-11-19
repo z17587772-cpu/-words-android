@@ -143,29 +143,9 @@ jobs:
           print("Wordbook schema checks passed.")
           PY
 
-      - name: Configure persistent APK signing
-        shell: bash
-        env:
-          WORDS_KEYSTORE_BASE64: ${{ secrets.WORDS_KEYSTORE_BASE64 }}
-          WORDS_KEYSTORE_PASSWORD: ${{ secrets.WORDS_KEYSTORE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          if [ -z "${WORDS_KEYSTORE_BASE64}" ] || [ -z "${WORDS_KEYSTORE_PASSWORD}" ]; then
-            echo "::error::Add WORDS_KEYSTORE_BASE64 and WORDS_KEYSTORE_PASSWORD in GitHub Settings > Secrets and variables > Actions, then rerun this workflow."
-            exit 1
-          fi
-          echo "${WORDS_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/words-upload-key.jks"
-          keytool -list -keystore "${RUNNER_TEMP}/words-upload-key.jks" -storepass "${WORDS_KEYSTORE_PASSWORD}" -alias words >/dev/null
-          echo "Persistent signing keystore is ready."
-
       - name: Build Android debug APK
         run: gradle --no-daemon --stacktrace clean assembleDebug
         working-directory: android
-        env:
-          WORDS_KEYSTORE_PATH: ${{ runner.temp }}/words-upload-key.jks
-          WORDS_KEYSTORE_PASSWORD: ${{ secrets.WORDS_KEYSTORE_PASSWORD }}
-          WORDS_KEY_ALIAS: words
-          WORDS_KEY_PASSWORD: ${{ secrets.WORDS_KEYSTORE_PASSWORD }}
 
       - name: Prepare install package
         run: |
@@ -193,13 +173,12 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.${{ github.run_number }}
+          tag_name: v1.5.1
           target_commitish: main
-          name: words 1.5.${{ github.run_number }}
+          name: words 1.5.1
           body: |
-            words 1.5.${{ github.run_number }} — polished stacked cards, stable app signing and seamless in-place updates.
+            words 1.5.1 — polished stacked cards, system-bar layout and reduced quiz flicker.
 
-            - APK signing now uses a persistent key; later versions can update without uninstalling this version.
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
             - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
@@ -208,7 +187,7 @@ jobs:
             - Keeps optional cached FreeDictionaryAPI / Wiktionary expansion, system TTS, favorites, and user-provided vector launcher icon.
             - Example sentence translations use MyMemory's public translation endpoint and are labelled as machine-translation references.
 
-            This APK is signed with the project’s persistent app key for direct testing and future in-place updates.
+            This is a debug-signed APK for direct testing.
           files: dist/words.apk
           overwrite_files: true
           fail_on_unmatched_files: true
