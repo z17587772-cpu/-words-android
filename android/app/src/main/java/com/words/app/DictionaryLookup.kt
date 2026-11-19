@@ -65,7 +65,7 @@ object DictionaryLookup {
                 connectTimeout = CONNECT_TIMEOUT_MS
                 readTimeout = READ_TIMEOUT_MS
                 setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "words-android/1.4.0")
+                setRequestProperty("User-Agent", "words-android/1.5.0")
                 instanceFollowRedirects = true
             }
             val status = connection.responseCode
@@ -105,6 +105,8 @@ object DictionaryLookup {
             if (language.isNotBlank() && language != "en") continue
 
             val pronunciations = stringField(entry.optJSONArray("pronunciations"), "text")
+            allSynonyms.addAll(strings(entry.optJSONArray("synonyms")))
+            allAntonyms.addAll(strings(entry.optJSONArray("antonyms")))
             val forms = mutableListOf<String>()
             val formsJson = entry.optJSONArray("forms") ?: JSONArray()
             for (f in 0 until formsJson.length()) {
