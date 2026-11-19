@@ -173,20 +173,19 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.4.0
+          tag_name: v1.5.0
           target_commitish: main
-          name: words 1.4.0
+          name: words 1.5.0
           body: |
-            words 1.4.0 — daily four-choice study flow, configurable Quick Browse masking and online vocabulary detail cards.
+            words 1.5.0 — polished quiz feedback and card-based Quick Browse navigation.
 
-            - 随刷: choose no mask, hide English, or hide Chinese; reveal only the selected side.
-            - 背词: daily target with four-choice English-to-Chinese / Chinese-to-English questions, instant marking and persisted review results.
-            - After answering: local word meaning/examples plus optional online definitions, forms, examples, synonyms, antonyms and Chinese translations.
-            - Online dictionary responses are cached locally for later offline reading; dictionary data is attributed to FreeDictionaryAPI.com and Wiktionary under CC BY-SA 4.0.
-            - Word priority separates curriculum markers from third-party combined-corpus frequency references.
-            - System English TTS with US/UK locale selection and example playback.
-            - Favorites manager across all installed wordbooks.
-            - Resolution-independent launcher logo traced from the user's supplied artwork.
+            - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
+            - Tap any option to open the structured answer explanation.
+            - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
+            - Quick Browse removes the next-word button and uses horizontal card swipes with directional motion.
+            - Optional sound and haptic feedback for right/wrong answers and card navigation.
+            - Keeps optional cached FreeDictionaryAPI / Wiktionary expansion, system TTS, favorites, and user-provided vector launcher icon.
+            - Example sentence translations use MyMemory's public translation endpoint and are labelled as machine-translation references.
 
             This is a debug-signed APK for direct testing.
           files: dist/words.apk

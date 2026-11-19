@@ -1,26 +1,24 @@
-words Android v1.4.0 — implementation status
+words Android v1.5.0 — implementation status
 
 Implemented in source:
-- 随刷: configurable no-mask / hide-English / hide-Chinese mode; reveal action, no learning progress writes.
-- 背词: daily goal queue, four answer options, English→Chinese / Chinese→English / alternating direction.
-- Instant correct/incorrect feedback; each answer saves a review event once; skip does not mark right/wrong.
-- Answer detail card displays local pronunciation, POS, Chinese meaning, example and TTS.
-- Online dictionary client uses FreeDictionaryAPI.com / Wiktionary response structure.
-- Online lookup supports definitions, forms, examples, synonyms, antonyms and available Chinese translations.
-- Dictionary responses are cached in SQLite table word_detail_cache for offline revisits.
-- Online source and CC BY-SA 4.0 license attribution are shown.
-- Existing TTS locale configuration, cross-wordbook favorites, and vector launcher artwork retained.
+- Quick Browse removed the next-word button; left/right horizontal card swipe moves between words with directional animation.
+- Browse setting keeps none / hide English / hide Chinese masking.
+- Daily Quiz retains the source question after choosing; correct option and chosen wrong option receive separate highlights and correctness feedback.
+- Tapping any option after answering opens the detail explanation; answers are persisted exactly once.
+- Larger question card and entry animations.
+- Explanation hierarchy: answer result, headword, core meaning, example sentence, optional translation, online definitions/forms/examples/synonyms/antonyms and source.
+- Local example translations are preferred; MyMemory machine-translation fallback is labelled and cached in SQLite.
+- Sound and vibration feedback can be turned on/off independently in settings.
+- FreeDictionaryAPI/Wiktionary response parser includes entry-level and sense-level synonyms/antonyms.
+- Database v4 adds example translation cache without deleting prior reviews, favorites or dictionary details.
 
-Validation still required:
-- Run GitHub Actions Android build.
-- Inspect resulting APK and confirm all resource/permission entries and app version 1.4.0.
-- Test on a real device with network available and without network. API availability and field coverage depend on the remote service; empty fields are intentionally not invented.
+Validation:
+- Pending final GitHub Actions build and APK inspection.
 
-Data limitations:
-- Core curriculum extraction: 2,974 records; approximately 126 still require reconciliation against the stated ~3,100 target.
-- Third-party frequency source is a combined exam-paper/textbook corpus, not an official complete Gaokao-only count.
-- Online dictionary entries are contributed from Wiktionary and may vary by word. No guarantee of root etymology, collocation, source exam, or picture for every entry.
+Limitations:
+- Example machine translation depends on network and MyMemory anonymous daily quota (official docs specify 5,000 characters/day anonymous).
+- Third-party dictionary entries vary; roots, collocations and exam-source tags are not invented when the API does not supply them.
+- Core 2025 wordbook still contains 2,974 entries, with approximately 126 remaining to reconcile.
 
 Build:
 - JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
-- Run gradle --no-daemon clean assembleDebug from android/.

@@ -1,56 +1,46 @@
-# words Android · v1.4.0
+# words Android · v1.5.0
 
-Kotlin + Android Views + SQLite vocabulary app. Offline wordbooks remain the source of truth; online dictionary data is optional enrichment.
+Kotlin + Android Views + SQLite vocabulary app.
 
-## Learning modes
+## Quick Browse
+- Unlimited cards; swipe left for next and right for previous.
+- The next-word button is removed; the card itself handles horizontal gestures.
+- Masking preference: none, hide English, or hide Chinese.
+- No daily target or review-state writes.
+- Optional swipe sound and haptic feedback.
 
-### 随刷 — Quick Browse
-- Unlimited weighted browsing, no familiarity rating, no daily quota and no review-history writes.
-- Configurable masking: none, hide English, or hide Chinese. Only one side is hidden and can be revealed.
-- Word/example playback via Android TextToSpeech; favorite action retained.
+## Daily Quiz
+- Daily target controls the queue length.
+- Four-choice English-to-Chinese, Chinese-to-English, or mixed alternating mode.
+- After selection, remain on the question screen and mark the correct option / selected wrong option.
+- Tap any option or the explanation action to open the answer detail.
+- Each submitted answer is recorded exactly once; skip is not rated.
+- Larger question card and transitions between quiz states.
 
-### 背词 — Daily Quiz
-- Uses the configured daily target.
-- Four-choice English-to-Chinese or Chinese-to-English questions; mixed mode alternates direction.
-- Instant answer feedback and a detail card after selection.
-- Correct / incorrect answers are persisted once as review events; skipping does not create a correctness event.
-- Session queue and answer state are persisted locally.
+## Answer explanation
 
-## Vocabulary detail
+1. Result and correct choice.
+2. Headword, phonetic, part of speech and TTS.
+3. Local curriculum meaning.
+4. Example sentence with target word highlighted, Chinese translation and sentence playback.
+5. Optional online definitions, forms, examples, synonyms, antonyms and available Chinese translations.
+6. Attribution to FreeDictionaryAPI.com / Wiktionary and CC BY-SA 4.0.
 
-Local wordbook data is shown first: headword, phonetic, part of speech, Chinese meaning and local example.
+If the local wordbook does not contain an example translation, the app may request a MyMemory machine-translation reference when online enrichment is enabled. The output is labelled as a reference translation and cached locally. Anonymous MyMemory usage is limited; the app only asks for a small number of examples per viewed word.
 
-When online enrichment is enabled, the app requests FreeDictionaryAPI.com / Wiktionary data and may show:
-- English definitions and available Chinese translations
-- Word forms
-- Examples
-- Synonyms and antonyms
+## Feedback
+- Sound uses Android ToneGenerator short notification tones.
+- Haptics use a short VibrationEffect.
+- Sound and vibration switches are independent under My > Answer and navigation feedback; sound defaults off and haptics defaults on.
 
-Raw responses are cached in SQLite table `word_detail_cache` for subsequent offline viewing. Unavailable fields are omitted rather than generated. Online data displays attribution and source/license link (CC BY-SA 4.0).
-
-## Speech and favorites
-
-- Android TextToSpeech engine; US/UK preference and voice-data availability check.
-- Word and sentence speech controls throughout browsing, quiz details and favorites.
-- Favorites span all installed wordbooks and persist in SQLite.
-
-## Permissions and network
-
-The app requests only Android's normal `INTERNET` permission for HTTPS dictionary lookup. Local learning, question generation, review records, TTS and cached detail rendering remain available offline.
-
-## Data notes
-
-- Core 2025 curriculum extraction currently has 2,974 entries; ~126 remain to reconcile against the ~3,100 target.
-- Third-party combined-corpus frequency is separate from curriculum importance and is not an official exhaustive Gaokao count.
-- FreeDictionaryAPI data is sourced from Wiktionary under CC BY-SA 4.0; the app shows source attribution.
-- Debug APK, not production store signing.
+## Online data limits
+- The API does not provide reliable word-root, collocation and exam-frequency data for every entry. These are not invented.
+- Online fields vary by word; no-data fields are omitted.
+- Local word meanings, study queue, favorite list, TTS and cached details remain available offline.
 
 ## Build
-
 JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
 
 ```bash
 gradle --no-daemon clean assembleDebug
 ```
-
-APK: `app/build/outputs/apk/debug/app-debug.apk`.
