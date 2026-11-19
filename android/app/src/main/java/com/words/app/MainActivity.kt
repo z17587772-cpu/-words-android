@@ -124,11 +124,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         browseActionBar = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(22), dp(7), dp(22), dp(7))
+            setPadding(dp(22), dp(4), dp(22), dp(4))
             setBackgroundColor(bg)
             visibility = View.GONE
         }
-        root.addView(browseActionBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38)))
+        root.addView(browseActionBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(30)))
         bottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -292,6 +292,25 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         renderBrowseActionBar()
         renderBottomBar()
+        if (compactBrowse) {
+            scroll.post {
+                val measuredWidth = scroll.width.coerceAtLeast(1)
+                content.measure(
+                    View.MeasureSpec.makeMeasureSpec(measuredWidth, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                )
+                val overflow = (content.measuredHeight - scroll.height).coerceAtLeast(0)
+                if (overflow > 0) {
+                    val stage = content.findViewWithTag<View>("browse_card_stage")
+                    val stageParams = stage?.layoutParams as? LinearLayout.LayoutParams
+                    if (stageParams != null) {
+                        stageParams.height = (stageParams.height - overflow).coerceAtLeast(dp(200))
+                        stage.layoutParams = stageParams
+                        scroll.scrollTo(0, 0)
+                    }
+                }
+            }
+        }
         pageHost.alpha = 1f
     }
 
@@ -302,7 +321,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (!visible) return
 
         browseActionBar.addView(
-            text("←  上一个词       左右滑动卡片切换       下一个词  →", 11f, secondary, false, Gravity.CENTER),
+            text("左右滑动切换单词", 10f, secondary, false, Gravity.CENTER),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
     }
@@ -385,7 +404,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 "low" -> "低频"
                 else -> ""
             }
-            val count = if (cardWord.corpusFrequency >= 0) "语料 ${cardWord.corpusFrequency} 次" else ""
+            val count = if (cardWord.corpusFrequency >= 0) "综合语料 ${cardWord.corpusFrequency} 次" else ""
             return listOf(level, count).filter { it.isNotBlank() }.joinToString("  ·  ")
         }
 
@@ -453,6 +472,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         val stage = android.widget.FrameLayout(this).apply {
+            tag = "browse_card_stage"
             clipChildren = false
             clipToPadding = false
             cameraDistance = dp(32000).toFloat()
