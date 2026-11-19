@@ -475,6 +475,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         flashCard.addView(vSpace(5))
                         flashCard.addView(text(word.exampleZh, 12f, secondary))
                     }
+                    flashCard.addView(vSpace(8))
+                    flashCard.addView(quietButton("朗读英文例句  ·  系统语音", { speak(word.example) }))
                 }
                 flashCard.addView(vSpace(18))
                 flashCard.addView(text("你对这个词的掌握程度？", 11f, secondary, false, Gravity.CENTER))
@@ -710,7 +712,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val about = card(17)
         about.addView(text("关于 words", 15f, ink, true))
         about.addView(vSpace(8))
-        about.addView(text("版本 1.2.1 · 离线优先\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n重要度采用课标层级与第三方频率参考分层展示；第三方统计不等同于官方历年高考完整词频。", 11f, secondary))
+        about.addView(text("版本 1.3.0 · 离线优先\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n重要度采用课标层级与第三方频率参考分层展示；第三方统计不等同于官方历年高考完整词频。", 11f, secondary))
         parent.addView(about)
     }
 
@@ -867,6 +869,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         activeTtsLocale = selected
+        if (selected != preferred) {
+            prefs.edit().putString(KEY_TTS_LOCALE, if (selected == Locale.UK) "en-GB" else "en-US").apply()
+        }
         tts.setSpeechRate(0.88f)
         tts.setPitch(1.0f)
         ttsReady = true
