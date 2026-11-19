@@ -173,16 +173,16 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.2.0
+          tag_name: v1.2.1
           target_commitish: main
-          name: words 1.2.0
+          name: words 1.2.1
           body: |
-            words 1.2.0 — Quick Browse and Study are independent modes.
+            words 1.2.1 — Quick Browse and Study are independent modes.
 
             - 随刷：unlimited, weighted vocabulary browsing; no familiarity ratings and no impact on daily review progress.
             - 背词：preserves daily goals and spaced-repetition feedback.
             - Word priority separates curriculum markers from third-party combined-corpus frequency references.
-            - Updated launcher icon, larger cards, and subtle page/card transitions.
+            - Updated launcher icon, larger cards, pinned Quick Browse action, balanced study-card spacing, and a refreshed minimalist launcher icon.
 
             This is a debug-signed APK for direct testing.
           files: dist/words.apk
