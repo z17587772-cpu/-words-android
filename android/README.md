@@ -21,6 +21,13 @@ Native Android vocabulary app built with Kotlin, Android Views, SQLite and Andro
 
 The modes share installed wordbook data, favorites and TTS, but not their queues, progress counters or mastery state.
 
+## Speech and favorites (v1.3.0)
+
+- Pronunciation is synthesized by the device's Android TextToSpeech engine, not bundled as fixed MP3 files.
+- Settings can select US or UK English, check whether the voice data is available, play a test phrase, and open the system TTS voice-data installer.
+- Word and example playback are available on Quick Browse, Daily Study and Favorites. Offline use depends on the selected device TTS voice having offline voice data installed.
+- Favorites are persisted in the local SQLite word table and can be viewed across all installed wordbooks from My > Favorites; remove and replay actions are provided.
+
 ## Wordbook importance and frequency
 
 - `importance` preserves the source curriculum/list tier; it is not a historical exam-frequency count.
