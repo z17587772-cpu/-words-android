@@ -293,23 +293,29 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         renderBrowseActionBar()
         renderBottomBar()
         if (compactBrowse) {
-            scroll.post {
-                val measuredWidth = scroll.width.coerceAtLeast(1)
-                content.measure(
-                    View.MeasureSpec.makeMeasureSpec(measuredWidth, View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                )
-                val overflow = (content.measuredHeight - scroll.height).coerceAtLeast(0)
-                if (overflow > 0) {
-                    val stage = content.findViewWithTag<View>("browse_card_stage")
-                    val stageParams = stage?.layoutParams as? LinearLayout.LayoutParams
-                    if (stageParams != null) {
-                        stageParams.height = (stageParams.height - overflow).coerceAtLeast(dp(200))
-                        stage.layoutParams = stageParams
-                        scroll.scrollTo(0, 0)
+            scroll.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+                override fun onLayoutChange(
+                    view: View, left: Int, top: Int, right: Int, bottom: Int,
+                    oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
+                ) {
+                    scroll.removeOnLayoutChangeListener(this)
+                    val measuredWidth = scroll.width.coerceAtLeast(1)
+                    content.measure(
+                        View.MeasureSpec.makeMeasureSpec(measuredWidth, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    )
+                    val overflow = (content.measuredHeight - scroll.height).coerceAtLeast(0)
+                    if (overflow > 0) {
+                        val stage = content.findViewWithTag<View>("browse_card_stage")
+                        val stageParams = stage?.layoutParams as? LinearLayout.LayoutParams
+                        if (stageParams != null) {
+                            stageParams.height = (stageParams.height - overflow).coerceAtLeast(dp(200))
+                            stage.layoutParams = stageParams
+                            scroll.scrollTo(0, 0)
+                        }
                     }
                 }
-            }
+            })
         }
         pageHost.alpha = 1f
     }
@@ -1609,6 +1615,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         browseIndex = 0
         browseRecentIds.clear()
         browseCount = 0
+        browseCardFlipped = false
+        browseAnimationDirection = 0
         saveBrowseState()
     }
 
