@@ -200,7 +200,7 @@ jobs:
 
             Dictionary meaning groups remain inline with a subtle gap between major senses; the first/main sense stays bold. Dictionary expansion typography increases by only 1sp. Online dictionary data refreshes the existing dictionary card in place, avoiding a full explanation-page rebuild.
 
-This is a debug-signed APK for direct testing.
+            This is a debug-signed APK for direct testing.
           files: dist/words.apk
           overwrite_files: true
           fail_on_unmatched_files: true
