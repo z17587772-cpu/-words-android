@@ -65,7 +65,7 @@ object DictionaryLookup {
                 connectTimeout = CONNECT_TIMEOUT_MS
                 readTimeout = READ_TIMEOUT_MS
                 setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "words-android/1.5.0")
+                setRequestProperty("User-Agent", "words-android/1.6.1")
                 instanceFollowRedirects = true
             }
             val status = connection.responseCode
