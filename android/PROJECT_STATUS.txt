@@ -1,29 +1,26 @@
-words Android v1.2.1 — implementation status
+words Android v1.4.0 — implementation status
 
-Completed:
-- v1.2.1 UI refinement: Quick Browse next button is fixed above navigation; study reveal card minimum height reduced from 500dp to 360dp; launcher mark simplified with a white background and indigo/periwinkle folded-page symbol.
-- Native Kotlin Android app with offline SQLite persistence and Android TTS.
-- Repository normalized to a conventional android/ source tree; obsolete source_chunks/ and source_archive/ transport folders removed.
-- 随刷 is the first/default navigation entry and is an unlimited vocabulary browsing mode.
-- 随刷 has an independent queue, cursor, recent-view cooldown and browse counter. It shows no familiarity ratings and does not alter mastery, review records, or daily progress.
-- 背词 remains a separate daily study workflow with reveal interaction, mastery feedback, review history and statistics.
-- Weighted permutation sampler runs without replacement. Each browse cycle covers the full active book, and recent words are deferred.
-- Vocabulary cards were enlarged; navigation hierarchy, page/card transitions and adaptive launcher icon were refreshed.
-- SQLite v1-to-v2 migration adds corpus frequency metadata while preserving existing review rows and favorites.
-- Wordbooks retain curriculum importance tiers and add separately attributed third-party combined-corpus frequency references.
-- Android build completed successfully in GitHub Actions; APK and source artifacts were uploaded and Release v1.2.1 was published.
+Implemented in source:
+- 随刷: configurable no-mask / hide-English / hide-Chinese mode; reveal action, no learning progress writes.
+- 背词: daily goal queue, four answer options, English→Chinese / Chinese→English / alternating direction.
+- Instant correct/incorrect feedback; each answer saves a review event once; skip does not mark right/wrong.
+- Answer detail card displays local pronunciation, POS, Chinese meaning, example and TTS.
+- Online dictionary client uses FreeDictionaryAPI.com / Wiktionary response structure.
+- Online lookup supports definitions, forms, examples, synonyms, antonyms and available Chinese translations.
+- Dictionary responses are cached in SQLite table word_detail_cache for offline revisits.
+- Online source and CC BY-SA 4.0 license attribution are shown.
+- Existing TTS locale configuration, cross-wordbook favorites, and vector launcher artwork retained.
 
-Speech and favorites:
-- Uses Android system TextToSpeech and English locale availability detection, with US/UK selection and system voice-data installation entry.
-- Favorites can be opened across all installed wordbooks and replayed; word and example speech use the selected TTS voice.
-- Launcher artwork is vector-traced from the user-provided icon; adaptive and monochrome variants scale without bitmap pixelation.
+Validation still required:
+- Run GitHub Actions Android build.
+- Inspect resulting APK and confirm all resource/permission entries and app version 1.4.0.
+- Test on a real device with network available and without network. API availability and field coverage depend on the remote service; empty fields are intentionally not invented.
 
 Data limitations:
-- Core curriculum extraction currently contains 2,974 entries; approximately 126 entries remain to reconcile against the stated ~3,100-word curriculum target.
-- External frequency reference combines exam papers and textbooks. It is not an official, complete Gaokao-only frequency count.
-- Pronunciation uses device TTS. Phonetics, example sentences and audio coverage are not uniform for every entry.
-- APK is debug-signed for testing, not production store distribution.
+- Core curriculum extraction: 2,974 records; approximately 126 still require reconciliation against the stated ~3,100 target.
+- Third-party frequency source is a combined exam-paper/textbook corpus, not an official complete Gaokao-only count.
+- Online dictionary entries are contributed from Wiktionary and may vary by word. No guarantee of root etymology, collocation, source exam, or picture for every entry.
 
 Build:
 - JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
-- Run `gradle --no-daemon clean assembleDebug` from this directory.
+- Run gradle --no-daemon clean assembleDebug from android/.

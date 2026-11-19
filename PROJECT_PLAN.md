@@ -1,40 +1,47 @@
-# words Android — optimization implementation record
+# words Android — v1.4.0 优化实施记录
 
-## Product decision
+## 产品结构
 
-The app now has two independent modes:
+继续保留两个入口，但共享词书、收藏、发音和词汇讲解：
 
-1. **随刷 (Quick Browse)** — unlimited continuous vocabulary browsing for idle moments. No familiarity questions, no daily quota, and no writes to spaced-repetition state.
-2. **背词 (Daily Study)** — deliberate learning with daily goal, reveal flow, 不认识 / 模糊 / 认识 feedback, review scheduling and study statistics.
+1. **随刷**：不限量的碎片时间浏览。支持不遮挡、只遮挡英文、只遮挡中文；不消耗每日目标、不写复习记录。
+2. **背词**：每日目标式主动回忆。每题四选一，英文选中文/中文选英文可混合交替；答后判分并进入词汇讲解。
 
-The modes share wordbook data, favorites and TTS, but each has independent queues, state and metrics.
+## 答后讲解结构
 
-## Implementation checklist
+先展示本地词书可靠信息：单词、音标、词性、中文释义和本地例句。联网开启时，以 FreeDictionaryAPI / Wiktionary 数据补充：
+- 英英释义与可用中文翻译
+- 词形变化
+- 例句
+- 近义词和反义词
+- 原始词条来源和 CC BY-SA 4.0 许可链接
 
-- [x] Reconstruct and inspect the existing Android project.
-- [x] Normalize source into a conventional `android/` tree and remove transport-only source_chunks/ and source_archive/ clutter.
-- [x] Make 随刷 the default first navigation entry.
-- [x] Add an unlimited weighted browse cycle without in-cycle repeats and with a recent-view cooldown.
-- [x] Keep 背词 as a separate daily workflow with its original mastery/review logic.
-- [x] Pin the Quick Browse next-word action above bottom navigation, reduce study reveal-card minimum height, and refresh the launcher icon with a minimal blue open-book mark.
-- [x] Add SQLite v1-to-v2 migration for corpus metadata without deleting review history/favorites.
-- [x] Add a full Favorites screen across all installed books, with word/example playback and removal.
-- [x] Add Android system TTS locale detection, US/UK preference, sample playback, and system voice-data installation entry.
-- [x] Trace the user's supplied book artwork into a resolution-independent vector for adaptive/monochrome launcher icons.
-- [x] Add pinned third-party combined-corpus frequency data and document its evidence limits.
-- [x] Build and validate the debug APK; upload artifacts and publish Release v1.3.0.
+在线响应写入 SQLite 缓存；无网络或查不到时保留本地词书内容。缺少语料支持的词根、固定搭配、真题出处和图片不编造，也不把空字段伪装成完整词典内容。
 
-## Ranking evidence
+## 实施清单
 
-- `importance` is the original curriculum/list tier, not a past-paper count.
-- `corpus_frequency` and `frequency_rank` come from a pinned third-party corpus combining Gaokao papers and high-school textbooks.
-- The upstream source does not fully disclose every source text and tokenization/lemmatization rule; therefore the app does not call these official or exhaustive Gaokao-only frequencies.
-- Unmatched records remain -1 / blank. No invented zero-frequency values are created.
-- Core curriculum extraction has 2,974 entries, leaving approximately 126 records to reconcile against the stated ~3,100-word target.
+- [x] 研究百词斩/不背单词公开介绍和用户提供的五张参考图，提取每日目标、选择题、答后讲解、例句与词形关联等功能方向。
+- [x] 随刷遮挡设置：不遮挡 / 遮挡英文 / 遮挡中文。
+- [x] 每日四选一练习：英文选中文、中文选英文、混合交替。
+- [x] 即时反馈；每道已作答题只保存一次答题记录。
+- [x] 答后显示本地词义、词性、音标和例句。
+- [x] 增加在线词典 HTTP 查询、JSON 解析与 SQLite 离线缓存。
+- [x] 增加在线词形、英英释义、例句、近反义词及可用翻译显示。
+- [x] 为联网数据标注 FreeDictionaryAPI / Wiktionary 来源与 CC BY-SA 4.0。
+- [x] 保留现有 Android TTS、美式/英式选择和收藏系统。
+- [ ] 运行完整 Android CI 编译与 APK 资源核查。
 
-## Build and delivery
+## 证据与边界
 
-- Canonical Android project: `android/`.
-- Source wordbooks: `wordbooks/`; scripts: `tools/`.
-- Workflow: `.github/workflows/android-apk.yml`.
-- Output: debug-signed `words.apk`, published in GitHub Release `v1.3.0`.
+- 百词斩公开介绍列出图片/例句辅助、每日学习计划、英文选义、中文选词等练习方式。
+- 不背单词公开介绍列出原声例句、词组、词根词缀、派生词、近反义词和真题例句等词汇内容组织方式。
+- 在线字典 API 能提供部分释义、音标、词形、例句、近反义词与翻译，但不是每个词都含全部字段。API 未保证词根、固定搭配、真题出处或配图，因此这些部分不虚构。
+- 课标核心词书当前 2,974 条，尚有约 126 条需要核对；第三方综合语料频率并非官方完整高考词频。
+
+## 构建交付
+
+- Android 工程：`android/`
+- 词书：`wordbooks/`
+- 在线词典客户端：`android/app/src/main/java/com/words/app/DictionaryLookup.kt`
+- 构建：`.github/workflows/android-apk.yml`
+- 版本：v1.4.0

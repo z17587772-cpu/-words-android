@@ -1,67 +1,56 @@
-# words Android · v1.2.1
+# words Android · v1.4.0
 
-Native Android vocabulary app built with Kotlin, Android Views, SQLite and Android Text-to-Speech. Works offline after the wordbooks are installed.
+Kotlin + Android Views + SQLite vocabulary app. Offline wordbooks remain the source of truth; online dictionary data is optional enrichment.
 
-## Two independent modes
+## Learning modes
 
 ### 随刷 — Quick Browse
-- First tab and default entry, designed for quick idle-time use.
-- Unlimited continuous browsing of the active wordbook.
-- No familiarity questions and no rating buttons.
-- Does not write review history or mastery, and does not consume the daily target.
-- Keeps its own browse cursor, recent-view cooldown and browse count.
-- Weighted without-replacement ordering; each full cycle covers every word once, without repeats.
-- Recently viewed words are deferred to the end of the current cycle rather than permanently removed.
-- Includes Android TTS, favorites, meanings and examples where available.
+- Unlimited weighted browsing, no familiarity rating, no daily quota and no review-history writes.
+- Configurable masking: none, hide English, or hide Chinese. Only one side is hidden and can be revealed.
+- Word/example playback via Android TextToSpeech; favorite action retained.
 
-### 背词 — Daily Study
-- A separate daily study area with its own queue and progress.
-- Retains concealed/revealed cards, 不认识 / 模糊 / 认识 feedback, review history and statistics.
-- Quick Browse never updates the study scheduler.
+### 背词 — Daily Quiz
+- Uses the configured daily target.
+- Four-choice English-to-Chinese or Chinese-to-English questions; mixed mode alternates direction.
+- Instant answer feedback and a detail card after selection.
+- Correct / incorrect answers are persisted once as review events; skipping does not create a correctness event.
+- Session queue and answer state are persisted locally.
 
-The modes share installed wordbook data, favorites and TTS, but not their queues, progress counters or mastery state.
+## Vocabulary detail
 
-## Speech and favorites (v1.3.0)
+Local wordbook data is shown first: headword, phonetic, part of speech, Chinese meaning and local example.
 
-- Pronunciation is synthesized by the device's Android TextToSpeech engine, not bundled as fixed MP3 files.
-- Settings can select US or UK English, check whether the voice data is available, play a test phrase, and open the system TTS voice-data installer.
-- Word and example playback are available on Quick Browse, Daily Study and Favorites. Offline use depends on the selected device TTS voice having offline voice data installed.
-- Favorites are persisted in the local SQLite word table and can be viewed across all installed wordbooks from My > Favorites; remove and replay actions are provided.
+When online enrichment is enabled, the app requests FreeDictionaryAPI.com / Wiktionary data and may show:
+- English definitions and available Chinese translations
+- Word forms
+- Examples
+- Synonyms and antonyms
 
-## Wordbook importance and frequency
+Raw responses are cached in SQLite table `word_detail_cache` for subsequent offline viewing. Unavailable fields are omitted rather than generated. Online data displays attribution and source/license link (CC BY-SA 4.0).
 
-- `importance` preserves the source curriculum/list tier; it is not a historical exam-frequency count.
-- `corpus_frequency` and `frequency_rank` are a third-party combined Gaokao-paper + high-school-textbook corpus reference.
-- The external source is not an official or exhaustive Gaokao-only corpus. Unmatched words remain -1 / blank; missing data is not presented as zero occurrences.
-- See `../wordbooks/FREQUENCY-REFERENCE.md` for the pinned source, license and limitations.
-- Current core curriculum extraction: 2,974 entries. Approximately 126 entries remain to be reconciled against the stated ~3,100-word target. Extension book: 3,743 entries.
+## Speech and favorites
 
-## Source structure
+- Android TextToSpeech engine; US/UK preference and voice-data availability check.
+- Word and sentence speech controls throughout browsing, quiz details and favorites.
+- Favorites span all installed wordbooks and persist in SQLite.
 
-- `app/src/main/java/com/words/app/`: app screens, SQLite database, models and scheduler.
-- `app/src/main/assets/books/`: offline dictionaries packaged in the app.
-- `app/src/main/assets/licenses/`: third-party attribution and licenses.
-- `core-tests/SchedulerSmokeTest.kt`: standalone JVM scheduler test.
-- Repository root `android/`: canonical Android project; root `wordbooks/`: source dictionaries; root `tools/`: repeatable data and migration scripts.
+## Permissions and network
 
-## Build locally
+The app requests only Android's normal `INTERNET` permission for HTTPS dictionary lookup. Local learning, question generation, review records, TTS and cached detail rendering remain available offline.
 
-Requirements: JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
+## Data notes
+
+- Core 2025 curriculum extraction currently has 2,974 entries; ~126 remain to reconcile against the ~3,100 target.
+- Third-party combined-corpus frequency is separate from curriculum importance and is not an official exhaustive Gaokao count.
+- FreeDictionaryAPI data is sourced from Wiktionary under CC BY-SA 4.0; the app shows source attribution.
+- Debug APK, not production store signing.
+
+## Build
+
+JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
 
 ```bash
-cd android
 gradle --no-daemon clean assembleDebug
 ```
 
-APK output: `app/build/outputs/apk/debug/app-debug.apk`.
-
-In v1.2.1, Quick Browse keeps its next-word action fixed above bottom navigation; the study reveal-selection card uses a shorter minimum height to avoid excess empty space.
-
-Standalone scheduler check:
-
-```bash
-kotlinc app/src/main/java/com/words/app/Models.kt app/src/main/java/com/words/app/WeightedScheduler.kt core-tests/SchedulerSmokeTest.kt -include-runtime -d scheduler-test.jar
-java -jar scheduler-test.jar
-```
-
-GitHub Actions builds the debug APK and publishes it in the `v1.2.1` Release. This APK is debug-signed for testing, not a Play Store production build.
+APK: `app/build/outputs/apk/debug/app-debug.apk`.
