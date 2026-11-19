@@ -489,7 +489,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val targetKey = if (englishPrompt) word.meaning.trim().lowercase() else word.word.trim().lowercase()
         val used = mutableSetOf(targetKey)
         val all = db.getWords(currentBookId)
-        val seed = word.id xor (queueIndex.toLong() shl 32) xor if (englishPrompt) 0x51A7L else 0x27B3L
+        val seed = word.id xor (queueIndex.toLong() shl 32) xor (if (englishPrompt) 0x51A7L else 0x27B3L)
         val distractors = all.asSequence()
             .filter { it.id != word.id }
             .filter { candidate ->
