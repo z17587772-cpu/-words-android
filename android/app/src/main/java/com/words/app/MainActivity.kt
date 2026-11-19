@@ -25,6 +25,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var prefs: android.content.SharedPreferences
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
+    private var ttsInitializationComplete = false
+    private var ttsStatusMessage = "正在检查系统英语语音…"
+    private var activeTtsLocale: Locale = Locale.US
+    private var showingFavorites = false
     private lateinit var pageHost: LinearLayout
     private lateinit var bottomBar: LinearLayout
     private lateinit var browseActionBar: LinearLayout
@@ -97,10 +101,21 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        ttsReady = status == TextToSpeech.SUCCESS
-        if (ttsReady) {
-            tts.language = Locale.US
-            tts.setSpeechRate(0.88f)
+        ttsInitializationComplete = true
+        if (status != TextToSpeech.SUCCESS) {
+            ttsReady = false
+            ttsStatusMessage = "系统语音引擎初始化失败"
+            return
+        }
+        configureEnglishTts()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-check after returning from the Android system voice-data installer.
+        if (::tts.isInitialized && ttsInitializationComplete) {
+            configureEnglishTts()
+            if (selectedTab == TAB_SETTINGS) renderPage()
         }
     }
 
@@ -185,12 +200,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val content = column(22).apply { setPadding(dp(22), dp(22), dp(22), dp(30)) }
         scroll.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         pageHost.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        when (selectedTab) {
-            TAB_BROWSE -> renderBrowse(content)
-            TAB_STUDY -> renderStudy(content)
-            TAB_BOOKS -> renderBooks(content)
-            TAB_STATS -> renderStats(content)
-            TAB_SETTINGS -> renderSettings(content)
+        if (showingFavorites) {
+            renderFavorites(content)
+        } else {
+            when (selectedTab) {
+                TAB_BROWSE -> renderBrowse(content)
+                TAB_STUDY -> renderStudy(content)
+                TAB_BOOKS -> renderBooks(content)
+                TAB_STATS -> renderStats(content)
+                TAB_SETTINGS -> renderSettings(content)
+            }
         }
         renderBrowseActionBar()
         renderBottomBar()
@@ -317,8 +336,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(13))
 
         val actionRow = row()
-        actionRow.addView(pillButton("播放发音", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        actionRow.addView(hSpace(10))
+        actionRow.addView(pillButton("单词发音", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        actionRow.addView(hSpace(7))
+        actionRow.addView(pillButton("朗读例句", false) {
+            if (word.example.isNotBlank()) speak(word.example) else Toast.makeText(this, "这条词目暂时没有英文例句", Toast.LENGTH_SHORT).show()
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        actionRow.addView(hSpace(7))
         actionRow.addView(pillButton(if (word.favorite) "★ 已收藏" else "☆ 收藏", false) {
             db.setFavorite(word.id, !word.favorite)
             renderPage()
@@ -571,6 +594,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         more.addView(text("累计反馈次数：${db.totalReviewedCount()}", 12f, secondary))
         more.addView(vSpace(5))
         more.addView(text("收藏单词：$fav", 12f, secondary))
+        more.addView(vSpace(11))
+        more.addView(pillButton("查看收藏单词  →", true) {
+            showingFavorites = true
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         parent.addView(more)
         parent.addView(vSpace(12))
         parent.addView(text("说明：当前统计反映本机记录，不会自动上传或跨设备同步。", 11f, secondary))
@@ -606,6 +634,48 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         addDivider(coverCard)
         addSwitchRow(coverCard, "自动播放英文发音", "揭晓英文时播放系统语音；是否离线取决于设备语音引擎。", KEY_AUTO_SPEAK, false)
         parent.addView(coverCard)
+        parent.addView(vSpace(12))
+
+        val pronunciationCard = card(17)
+        pronunciationCard.addView(text("系统英语发音", 15f, ink, true))
+        pronunciationCard.addView(vSpace(7))
+        pronunciationCard.addView(text(ttsStatusMessage, 11f, if (ttsReady) accent else secondary))
+        pronunciationCard.addView(vSpace(12))
+        val voiceRow = row()
+        val preferredTag = prefs.getString(KEY_TTS_LOCALE, "en-US") ?: "en-US"
+        voiceRow.addView(pillButton("美式英语", preferredTag == "en-US") {
+            prefs.edit().putString(KEY_TTS_LOCALE, "en-US").apply()
+            if (ttsInitializationComplete) configureEnglishTts()
+            renderPage()
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        voiceRow.addView(hSpace(9))
+        voiceRow.addView(pillButton("英式英语", preferredTag == "en-GB") {
+            prefs.edit().putString(KEY_TTS_LOCALE, "en-GB").apply()
+            if (ttsInitializationComplete) configureEnglishTts()
+            renderPage()
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        pronunciationCard.addView(voiceRow)
+        pronunciationCard.addView(vSpace(10))
+        pronunciationCard.addView(pillButton("播放测试发音", false) {
+            speak("The quick brown fox jumps over the lazy dog.")
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        pronunciationCard.addView(vSpace(8))
+        pronunciationCard.addView(pillButton("安装 / 检查系统英语语音", false) {
+            openTtsVoiceInstaller()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        parent.addView(pronunciationCard)
+        parent.addView(vSpace(12))
+
+        val favoriteEntry = card(17)
+        favoriteEntry.addView(text("我的收藏", 15f, ink, true))
+        favoriteEntry.addView(vSpace(6))
+        favoriteEntry.addView(text("跨词书保存的单词都可以在这里查看和重新播放。", 11f, secondary))
+        favoriteEntry.addView(vSpace(11))
+        favoriteEntry.addView(pillButton("打开收藏夹（${db.favoriteCountAll()}）  →", true) {
+            showingFavorites = true
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        parent.addView(favoriteEntry)
         parent.addView(vSpace(12))
 
         val directionCard = card(17)
@@ -774,12 +844,126 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         queueIndex = prefs.getInt(KEY_QUEUE_INDEX, 0).coerceIn(0, queue.size)
     }
 
+    private fun configureEnglishTts(): Boolean {
+        if (!::tts.isInitialized || !ttsInitializationComplete) return false
+        val preferredTag = prefs.getString(KEY_TTS_LOCALE, "en-US") ?: "en-US"
+        val preferred = if (preferredTag == "en-GB") Locale.UK else Locale.US
+        val fallback = if (preferred == Locale.US) Locale.UK else Locale.US
+        val selected = listOf(preferred, fallback).firstOrNull { locale ->
+            tts.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE
+        }
+
+        if (selected == null) {
+            ttsReady = false
+            ttsStatusMessage = "没有检测到英语语音数据，请安装系统英语语音"
+            return false
+        }
+
+        val languageResult = tts.setLanguage(selected)
+        if (languageResult < TextToSpeech.LANG_AVAILABLE) {
+            ttsReady = false
+            ttsStatusMessage = "英语语音数据不可用，请在系统中安装"
+            return false
+        }
+
+        activeTtsLocale = selected
+        tts.setSpeechRate(0.88f)
+        tts.setPitch(1.0f)
+        ttsReady = true
+        ttsStatusMessage = if (selected == Locale.UK) "系统英语语音已就绪 · 英式英语" else "系统英语语音已就绪 · 美式英语"
+        return true
+    }
+
+    private fun openTtsVoiceInstaller() {
+        try {
+            startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "请到系统设置 → 文字转语音，安装英语语音数据", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun speak(value: String) {
+        val spokenText = value.trim()
+        if (spokenText.isEmpty()) return
         if (!ttsReady) {
-            Toast.makeText(this, "系统语音尚未准备好", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "系统英语语音未就绪。请在“我的 → 系统英语发音”中安装语音数据。", Toast.LENGTH_LONG).show()
             return
         }
-        tts.speak(value, TextToSpeech.QUEUE_FLUSH, null, "words_${System.currentTimeMillis()}")
+        val result = tts.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, "words_${System.nanoTime()}")
+        if (result == TextToSpeech.ERROR) {
+            Toast.makeText(this, "系统语音播放失败，请检查 TTS 引擎设置", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun renderFavorites(parent: LinearLayout) {
+        parent.addView(row().apply {
+            addView(quietButton("‹  返回", onClick = { showingFavorites = false; renderPage() }))
+            addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
+            addView(text("SAVED WORDS", 10f, secondary, true))
+        })
+        parent.addView(vSpace(17))
+        addSectionTitle(parent, "我的收藏", "收藏夹跨词书保存，退出应用后也不会丢失")
+        parent.addView(vSpace(7))
+        val favorites = db.getFavoriteWords()
+        parent.addView(text("共收藏 ${favorites.size} 个单词", 11f, secondary))
+        parent.addView(vSpace(16))
+
+        if (favorites.isEmpty()) {
+            val empty = card(22)
+            empty.addView(text("还没有收藏单词", 17f, ink, true))
+            empty.addView(vSpace(7))
+            empty.addView(text("在随刷或背词卡片上点击 ☆ 收藏，单词就会出现在这里。", 12f, secondary))
+            empty.addView(vSpace(12))
+            empty.addView(pillButton("去随刷看看", true) {
+                showingFavorites = false
+                selectedTab = TAB_BROWSE
+                renderPage()
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            parent.addView(empty)
+            return
+        }
+
+        val bookNames = db.installedBooks().associate { it.id to it.name }
+        favorites.forEach { word ->
+            val item = card(16)
+            val head = row()
+            head.addView(text(word.word, 20f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            head.addView(pillButton("取消收藏", false) {
+                db.setFavorite(word.id, false)
+                renderPage()
+            })
+            item.addView(head)
+            if (word.phonetic.isNotBlank()) {
+                item.addView(vSpace(7))
+                item.addView(text(word.phonetic, 12f, secondary))
+            }
+            if (word.partOfSpeech.isNotBlank()) {
+                item.addView(vSpace(5))
+                item.addView(text(word.partOfSpeech, 11f, secondary))
+            }
+            item.addView(vSpace(9))
+            item.addView(text(word.meaning, 15f, ink, true))
+            if (word.example.isNotBlank()) {
+                item.addView(vSpace(9))
+                item.addView(text(word.example, 13f, ink))
+                if (word.exampleZh.isNotBlank()) {
+                    item.addView(vSpace(4))
+                    item.addView(text(word.exampleZh, 11f, secondary))
+                }
+            }
+            item.addView(vSpace(10))
+            item.addView(text(bookNames[word.bookId] ?: word.bookId, 10f, secondary))
+            item.addView(vSpace(10))
+            val actions = row()
+            actions.addView(pillButton("单词发音", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            if (word.example.isNotBlank()) {
+                actions.addView(hSpace(8))
+                actions.addView(pillButton("朗读例句", false) { speak(word.example) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }
+            item.addView(actions)
+            parent.addView(item)
+            parent.addView(vSpace(10))
+        }
     }
 
     private fun openPackPicker() {
@@ -829,5 +1013,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         private const val KEY_AUTO_SPEAK = "auto_speak"
         private const val KEY_FIRST_SIDE = "first_side"
         private const val KEY_GOAL = "daily_goal"
+        private const val KEY_TTS_LOCALE = "tts_locale"
     }
 }
