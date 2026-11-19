@@ -224,7 +224,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         gravity: Int = Gravity.START
     ): TextView = TextView(this).apply {
         text = value
-        textSize = size
+        textSize = size + if (selectedTab == TAB_STUDY) 1.5f else 0f
         setTextColor(color)
         this.gravity = gravity
         typeface = if (bold) Typeface.create("sans-serif-medium", Typeface.NORMAL) else Typeface.create("sans-serif", Typeface.NORMAL)
@@ -378,7 +378,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(4))
         parent.addView(text("随刷", 25f, ink, true))
         parent.addView(vSpace(3))
-        parent.addView(text("左滑上一张 · 右滑下一张 · 点击翻面", 11f, secondary))
+        parent.addView(text("左滑下一张 · 右滑上一张 · 点击翻面", 11f, secondary))
         parent.addView(vSpace(6))
 
         if (word == null) {
@@ -393,7 +393,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val firstSide = prefs.getString(KEY_BROWSE_FIRST_SIDE, "en") ?: "en"
         val englishIsFront = firstSide != "zh"
         val screenHeightDp = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).toInt()
-        val cardHeightDp = (screenHeightDp - 470).coerceIn(235, 350)
+        val cardHeightDp = (screenHeightDp - 445).coerceIn(255, 375)
 
         val darkCard = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -528,7 +528,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(stage, LinearLayout.LayoutParams(-1, dp(cardHeightDp)))
 
         fun incomingLayer(direction: Int): android.widget.FrameLayout? =
-            if (direction < 0) previousLayer else nextLayer
+            if (direction < 0) nextLayer else previousLayer
 
         fun resetIncomingLayers() {
             listOfNotNull(previousLayer, nextLayer).forEach { layer ->
@@ -552,7 +552,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
         fun showIncomingDuringDrag(direction: Int, progress: Float) {
             val selected = incomingLayer(direction)
-            val other = if (direction < 0) nextLayer else previousLayer
+            val other = if (direction < 0) previousLayer else nextLayer
             other?.visibility = View.GONE
             if (selected != null) {
                 selected.visibility = View.VISIBLE
@@ -566,8 +566,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             if (browseFlipAnimating) return
 
             // Physical direction and queue direction are intentionally separate:
-            // swipe left = previous queue item; swipe right = next queue item.
-            if (direction < 0 && browseIndex <= 0) {
+            // swipe left = next queue item; swipe right = previous queue item.
+            if (direction > 0 && browseIndex <= 0) {
                 resetIncomingLayers()
                 topBody.animate().cancel()
                 topBody.animate().translationX(dp(15).toFloat()).rotation(1.4f)
@@ -581,11 +581,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
             browseFlipAnimating = true
             browseCardFlipped = false
-            if (direction < 0) showPreviousBrowseWord() else advanceBrowseWord()
+            if (direction < 0) advanceBrowseWord() else showPreviousBrowseWord()
             provideFeedback(isSwipe = true)
 
             val selected = incomingLayer(direction)
-            val other = if (direction < 0) nextLayer else previousLayer
+            val other = if (direction < 0) previousLayer else nextLayer
             other?.visibility = View.GONE
             selected?.apply {
                 visibility = View.VISIBLE
@@ -709,6 +709,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
 
+        parent.addView(vSpace(12))
         val actions = row()
         actions.addView(pillButton("单词发音", false) { speak(word.word) },
             LinearLayout.LayoutParams(0, -2, 1f))
@@ -907,7 +908,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         onClick: () -> Unit
     ): TextView = pillButton(label, false, onClick).apply {
         setTextColor(textColor)
-        textSize = 15f
+        textSize = 16.5f
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(17), dp(15), dp(15), dp(15))
         minimumHeight = dp(54)
@@ -1510,7 +1511,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun swipeBrowse(direction: Int) {
         if (browseFlipAnimating) return
         browseCardFlipped = false
-        if (direction < 0) showPreviousBrowseWord() else advanceBrowseWord()
+        if (direction < 0) advanceBrowseWord() else showPreviousBrowseWord()
         provideFeedback(isSwipe = true)
         renderPage()
     }
@@ -1774,7 +1775,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val about = card(17)
         about.addView(text("关于 words", 15f, ink, true))
         about.addView(vSpace(8))
-        about.addView(text("版本 1.6.2 · 左右手势与中文词典拓展优化\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n词频展示采用第三方考试与高中教材综合语料参考，不等同于官方历年高考完整词频。", 11f, secondary))
+        about.addView(text("版本 1.6.3 · 手势方向与学习排版优化\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n词频展示采用第三方考试与高中教材综合语料参考，不等同于官方历年高考完整词频。", 11f, secondary))
         parent.addView(about)
     }
 
