@@ -1241,7 +1241,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
 
-        val extraTranslations = detail.allChineseTranslations().distinct().take(8)
+        val primaryTranslations = orderedSenses.flatMap { it.second.chineseTranslations }.toSet()
+        val extraTranslations = detail.allChineseTranslations()
+            .filterNot { it in primaryTranslations }
+            .distinct()
+            .take(8)
         if (extraTranslations.isNotEmpty()) {
             section.addView(vSpace(10))
             section.addView(text("补充译义", 11f, accent, true))
@@ -1251,7 +1255,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
         section.addView(vSpace(12))
         section.addView(text(
-            "应用内资料来源：FreeDictionaryAPI / Wiktionary · ${detail.licenseName}",
+            "应用内资料来源：FreeDictionaryAPI.com / Wiktionary · ${detail.licenseName}",
             9f, secondary
         ))
         section.addView(vSpace(3))
@@ -1578,7 +1582,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val about = card(17)
         about.addView(text("关于 words", 15f, ink, true))
         about.addView(vSpace(8))
-        about.addView(text("版本 1.6.0 · 随刷体验与加权词频优化\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n词频展示采用第三方考试与高中教材综合语料参考，不等同于官方历年高考完整词频。", 11f, secondary))
+        about.addView(text("版本 1.6.1 · 随刷动画与词典拓展优化\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n词频展示采用第三方考试与高中教材综合语料参考，不等同于官方历年高考完整词频。", 11f, secondary))
         parent.addView(about)
     }
 
