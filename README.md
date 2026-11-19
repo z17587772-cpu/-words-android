@@ -53,4 +53,4 @@ gradle --no-daemon clean assembleDebug
 
 输出：`app/build/outputs/apk/debug/app-debug.apk`。
 
-当前 APK 为 debug 签名测试包。GitHub Actions 成功后发布到 [v1.5.0 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.5.0)。
+当前 APK 为 debug 签名测试包。GitHub Actions 成功后发布到 [v1.5.0 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.6.0)。
