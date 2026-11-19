@@ -13,6 +13,11 @@ Completed:
 - Wordbooks retain curriculum importance tiers and add separately attributed third-party combined-corpus frequency references.
 - Android build completed successfully in GitHub Actions; APK and source artifacts were uploaded and Release v1.2.1 was published.
 
+Speech and favorites:
+- Uses Android system TextToSpeech and English locale availability detection, with US/UK selection and system voice-data installation entry.
+- Favorites can be opened across all installed wordbooks and replayed; word and example speech use the selected TTS voice.
+- Launcher artwork is vector-traced from the user-provided icon; adaptive and monochrome variants scale without bitmap pixelation.
+
 Data limitations:
 - Core curriculum extraction currently contains 2,974 entries; approximately 126 entries remain to reconcile against the stated ~3,100-word curriculum target.
 - External frequency reference combines exam papers and textbooks. It is not an official, complete Gaokao-only frequency count.
