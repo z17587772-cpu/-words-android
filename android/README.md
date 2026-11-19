@@ -1,4 +1,4 @@
-# words Android · v1.2.0
+# words Android · v1.2.1
 
 Native Android vocabulary app built with Kotlin, Android Views, SQLite and Android Text-to-Speech. Works offline after the wordbooks are installed.
 
@@ -48,6 +48,8 @@ gradle --no-daemon clean assembleDebug
 
 APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
+In v1.2.1, Quick Browse keeps its next-word action fixed above bottom navigation; the study reveal-selection card uses a shorter minimum height to avoid excess empty space.
+
 Standalone scheduler check:
 
 ```bash
@@ -55,4 +57,4 @@ kotlinc app/src/main/java/com/words/app/Models.kt app/src/main/java/com/words/ap
 java -jar scheduler-test.jar
 ```
 
-GitHub Actions builds the debug APK and publishes it in the `v1.2.0` Release. This APK is debug-signed for testing, not a Play Store production build.
+GitHub Actions builds the debug APK and publishes it in the `v1.2.1` Release. This APK is debug-signed for testing, not a Play Store production build.
