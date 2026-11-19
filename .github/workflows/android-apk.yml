@@ -173,16 +173,18 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.2.1
+          tag_name: v1.3.0
           target_commitish: main
-          name: words 1.2.1
+          name: words 1.3.0
           body: |
-            words 1.2.1 — Quick Browse and Study are independent modes.
+            words 1.3.0 — Android system TTS, favorites manager and high-resolution vector launcher icon.
 
             - 随刷：unlimited, weighted vocabulary browsing; no familiarity ratings and no impact on daily review progress.
             - 背词：preserves daily goals and spaced-repetition feedback.
             - Word priority separates curriculum markers from third-party combined-corpus frequency references.
-            - Updated launcher icon, larger cards, pinned Quick Browse action, balanced study-card spacing, and a refreshed minimalist launcher icon.
+            - System English TTS with US/UK locale selection, availability checks, voice-data installer entry and example playback.
+            - Favorites manager across all installed wordbooks, with word/example playback and remove action.
+            - Launcher logo traced from the user's supplied artwork into a resolution-independent VectorDrawable; adaptive and monochrome resources aligned.
 
             This is a debug-signed APK for direct testing.
           files: dist/words.apk
