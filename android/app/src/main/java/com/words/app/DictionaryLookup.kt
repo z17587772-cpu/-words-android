@@ -91,7 +91,8 @@ object DictionaryLookup {
         }
     }
 
-    fun parse(rawJson: String): DictionaryDetails? = try {
+    fun parse(rawJson: String): DictionaryDetails? {
+        return try {
         val root = JSONObject(rawJson)
         val entriesJson = root.optJSONArray("entries") ?: return null
         val entries = mutableListOf<DictionaryEntryDetail>()
@@ -163,8 +164,9 @@ object DictionaryLookup {
             licenseName = license.optString("name").ifBlank { "CC BY-SA 4.0" },
             licenseUrl = license.optString("url").ifBlank { "https://creativecommons.org/licenses/by-sa/4.0/" }
         )
-    } catch (_: Exception) {
-        null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun stringField(array: JSONArray?, field: String): List<String> {
