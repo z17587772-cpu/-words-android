@@ -145,6 +145,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (selectedTab == TAB_BROWSE && !showingFavorites && !browseFlipAnimating) {
+            when (keyCode) {
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { swipeBrowse(1); return true }
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { swipeBrowse(-1); return true }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onDestroy() {
         if (::tts.isInitialized) tts.shutdown()
         toneGenerator?.release()
@@ -315,27 +325,32 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             browseCardFlipped = false
         }
         val maskMode = prefs.getString(KEY_BROWSE_MASK_MODE, "none") ?: "none"
+        val darkCard = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val faceSurface = if (darkCard) 0xFF20232A.toInt() else white
+        val faceInk = if (darkCard) 0xFFF1F2F5.toInt() else ink
+        val faceMuted = if (darkCard) 0xFFB0B5C0.toInt() else secondary
+        val faceBorder = if (darkCard) 0xFF383D48.toInt() else line
         val front = card(24).apply {
             minimumHeight = dp(400)
             gravity = Gravity.CENTER
-            background = rounded(white, line, 26)
+            background = rounded(faceSurface, faceBorder, 26)
             elevation = dp(2).toFloat()
         }
         val frontContent = column().apply { gravity = Gravity.CENTER; setPadding(dp(20), dp(28), dp(20), dp(28)) }
-        frontContent.addView(text("VOCABULARY  ·  INFINITE", 10f, secondary, true, Gravity.CENTER))
+        frontContent.addView(text("VOCABULARY  ·  INFINITE", 10f, faceMuted, true, Gravity.CENTER))
         frontContent.addView(vSpace(58))
         val showEnglish = maskMode != "hide_word" || browseMaskRevealed
-        frontContent.addView(text(if (showEnglish) word.word else "••••••••", 38f, ink, true, Gravity.CENTER))
+        frontContent.addView(text(if (showEnglish) word.word else "••••••••", 38f, faceInk, true, Gravity.CENTER))
         if (showEnglish && word.phonetic.isNotBlank()) {
             frontContent.addView(vSpace(12))
-            frontContent.addView(text(word.phonetic, 15f, secondary, false, Gravity.CENTER))
+            frontContent.addView(text(word.phonetic, 15f, faceMuted, false, Gravity.CENTER))
         }
         if (showEnglish && word.partOfSpeech.isNotBlank()) {
             frontContent.addView(vSpace(8))
             frontContent.addView(text(word.partOfSpeech, 12f, accent, true, Gravity.CENTER))
         }
         frontContent.addView(vSpace(48))
-        frontContent.addView(text("点击卡片 · 查看中文释义", 12f, secondary, false, Gravity.CENTER))
+        frontContent.addView(text("点击卡片 · 查看中文释义", 12f, faceMuted, false, Gravity.CENTER))
         front.addView(frontContent, LinearLayout.LayoutParams(-1, -1))
 
         val back = card(24).apply {
@@ -344,18 +359,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             elevation = dp(2).toFloat()
         }
         val backContent = column().apply { setPadding(dp(22), dp(24), dp(22), dp(22)) }
-        backContent.addView(text("MEANING  ·  释义与用法", 10f, secondary, true))
+        backContent.addView(text("MEANING  ·  释义与用法", 10f, faceMuted, true))
         backContent.addView(vSpace(38))
         val showChinese = maskMode != "hide_meaning" || browseMaskRevealed
-        backContent.addView(text(if (showChinese) word.meaning else "中文释义已遮挡", 23f, ink, true, Gravity.CENTER))
+        backContent.addView(text(if (showChinese) word.meaning else "中文释义已遮挡", 23f, faceInk, true, Gravity.CENTER))
         if (word.example.isNotBlank()) {
             backContent.addView(vSpace(32))
             backContent.addView(text("例句", 11f, secondary, true))
             backContent.addView(vSpace(9))
-            backContent.addView(text(word.example, 15f, ink))
+            backContent.addView(text(word.example, 15f, faceInk))
             if (word.exampleZh.isNotBlank()) {
                 backContent.addView(vSpace(7))
-                backContent.addView(text(word.exampleZh, 13f, secondary))
+                backContent.addView(text(word.exampleZh, 13f, faceMuted))
             }
         }
         if (maskMode != "none") {
@@ -367,7 +382,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         backContent.addView(View(this).apply { setBackgroundColor(line) },
             LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(22); bottomMargin = dp(14) })
-        backContent.addView(text("再点一次，返回英文单词", 11f, secondary, false, Gravity.CENTER))
+        backContent.addView(text("再点一次，返回英文单词", 11f, faceMuted, false, Gravity.CENTER))
         back.addView(backContent, LinearLayout.LayoutParams(-1, -1))
 
         val stage = android.widget.FrameLayout(this).apply { cameraDistance = dp(9000).toFloat(); clipChildren = false }
