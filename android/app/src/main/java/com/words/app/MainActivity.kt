@@ -1181,7 +1181,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         val output = linkedSetOf<String>()
         val tokenPattern = Regex("[A-Za-z]+(?:['’][A-Za-z]+)?")
-        detail.allExamples(limit = 24).forEach { sentence ->
+        for (sentence in detail.allExamples(limit = 24)) {
             val tokens = tokenPattern.findAll(sentence).toList()
             for (index in tokens.indices) {
                 if (tokens[index].value.lowercase() !in variants) continue
