@@ -160,6 +160,21 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         arrayOf(id.toString())
     ).use { readWords(it).firstOrNull() }
 
+    /**
+     * Returns saved words from every installed book, ordered by book and headword.
+     * Favorite state is deliberately independent of study/review history.
+     */
+    fun getFavoriteWords(): List<VocabularyWord> = readableDatabase.rawQuery(
+        """SELECT w.id,w.book_id,w.word,w.phonetic,w.pos,w.meaning,w.example,w.example_zh,w.importance,
+           COALESCE(r.mastery,0),COALESCE(r.seen_count,0),COALESCE(r.correct_count,0),COALESCE(r.last_seen,0),w.favorite,w.corpus_frequency,w.frequency_rank,w.frequency_source
+           FROM words w LEFT JOIN reviews r ON r.word_id=w.id
+           WHERE w.favorite=1
+           ORDER BY w.book_id COLLATE NOCASE, w.word COLLATE NOCASE""",
+        null
+    ).use(::readWords)
+
+    fun favoriteCountAll(): Int = scalar("SELECT COUNT(*) FROM words WHERE favorite=1")
+
     fun recentWordIds(bookId: String, limit: Int = 60): List<Long> = readableDatabase.rawQuery(
         "SELECT h.word_id FROM history h JOIN words w ON w.id=h.word_id WHERE w.book_id=? GROUP BY h.word_id ORDER BY MAX(h.rated_at) DESC LIMIT ?",
         arrayOf(bookId, limit.toString())
