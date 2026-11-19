@@ -11,7 +11,8 @@ data class DictionarySense(
     val examples: List<String>,
     val synonyms: List<String>,
     val antonyms: List<String>,
-    val chineseTranslations: List<String>
+    val chineseTranslations: List<String>,
+    val collocations: List<String> = emptyList()
 )
 
 data class DictionaryEntryDetail(
@@ -39,6 +40,10 @@ data class DictionaryDetails(
 
     fun allChineseTranslations(limit: Int = 12): List<String> =
         entries.flatMap { entry -> entry.senses.flatMap { it.chineseTranslations } }
+            .distinct().filter { it.isNotBlank() }.take(limit)
+
+    fun allCollocations(limit: Int = 12): List<String> =
+        entries.flatMap { entry -> entry.senses.flatMap { it.collocations } }
             .distinct().filter { it.isNotBlank() }.take(limit)
 }
 
@@ -113,8 +118,9 @@ object DictionaryLookup {
                 val form = formsJson.optJSONObject(f) ?: continue
                 val value = form.optString("word").trim()
                 val tags = form.optJSONArray("tags")
-                val label = if (tags != null) strings(tags).joinToString(", ") else ""
-                if (value.isNotBlank()) forms.add(if (label.isBlank()) value else "$value（$label）")
+                val tagValues = if (tags != null) strings(tags) else emptyList()
+                val label = chineseFormLabel(tagValues)
+                if (value.isNotBlank()) forms.add("$label：$value")
             }
 
             val senses = mutableListOf<DictionarySense>()
@@ -124,22 +130,12 @@ object DictionaryLookup {
                 val definition = sense.optString("definition").trim()
                 if (definition.isBlank()) continue
 
-                val examples = strings(sense.optJSONArray("examples"))
-                val synonyms = strings(sense.optJSONArray("synonyms"))
-                val antonyms = strings(sense.optJSONArray("antonyms"))
-                val chinese = mutableListOf<String>()
-                val translations = sense.optJSONArray("translations") ?: JSONArray()
-                for (t in 0 until translations.length()) {
-                    val translation = translations.optJSONObject(t) ?: continue
-                    val code = translation.optJSONObject("language")?.optString("code").orEmpty()
-                    if (code == "zh" || code.startsWith("zh-")) {
-                        val value = translation.optString("word").trim()
-                        if (value.isNotBlank()) chinese.add(value)
-                    }
+                val parsedSenses = parseSenseTree(sense)
+                parsedSenses.forEach { parsed ->
+                    allSynonyms.addAll(parsed.synonyms)
+                    allAntonyms.addAll(parsed.antonyms)
+                    senses.add(parsed)
                 }
-                allSynonyms.addAll(synonyms)
-                allAntonyms.addAll(antonyms)
-                senses.add(DictionarySense(definition, examples, synonyms, antonyms, chinese.distinct()))
             }
 
             if (senses.isNotEmpty() || forms.isNotEmpty() || pronunciations.isNotEmpty()) {
@@ -169,6 +165,68 @@ object DictionaryLookup {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun chineseFormLabel(tags: List<String>): String {
+        val value = tags.joinToString(" ").lowercase().replace('_', ' ')
+        return when {
+            "past participle" in value -> "过去分词"
+            "present participle" in value -> "现在分词"
+            "third-person singular" in value || "third person singular" in value -> "第三人称单数"
+            "past" in value || "preterite" in value -> "过去式"
+            "plural" in value -> "复数"
+            "comparative" in value -> "比较级"
+            "superlative" in value -> "最高级"
+            "gerund" in value -> "动名词"
+            "infinitive" in value -> "不定式"
+            "present" in value -> "一般现在时形式"
+            "alternative" in value || "variant" in value -> "拼写变体"
+            "feminine" in value -> "阴性形式"
+            "masculine" in value -> "阳性形式"
+            else -> "其他形式"
+        }
+    }
+
+    /**
+     * The API's documented sense model provides definitions, translations,
+     * examples, synonyms, antonyms and nested subsenses. Read optional phrase
+     * arrays defensively when present; otherwise the UI derives phrase snippets
+     * from the sourced example sentences.
+     */
+    private fun parseSenseTree(sense: JSONObject): List<DictionarySense> {
+        val result = mutableListOf<DictionarySense>()
+        val definition = sense.optString("definition").trim()
+        if (definition.isNotBlank()) {
+            val examples = strings(sense.optJSONArray("examples"))
+            val synonyms = strings(sense.optJSONArray("synonyms"))
+            val antonyms = strings(sense.optJSONArray("antonyms"))
+            val chinese = mutableListOf<String>()
+            val translations = sense.optJSONArray("translations") ?: JSONArray()
+            for (t in 0 until translations.length()) {
+                val translation = translations.optJSONObject(t) ?: continue
+                val code = translation.optJSONObject("language")?.optString("code").orEmpty()
+                if (code == "zh" || code.startsWith("zh-")) {
+                    val value = translation.optString("word").trim()
+                    if (value.isNotBlank()) chinese.add(value)
+                }
+            }
+            val collocations = (
+                strings(sense.optJSONArray("collocations")) +
+                strings(sense.optJSONArray("phrases")) +
+                strings(sense.optJSONArray("phraseology"))
+            ).distinct()
+            result.add(
+                DictionarySense(
+                    definition, examples, synonyms, antonyms, chinese.distinct(), collocations
+                )
+            )
+        }
+        val subsenses = sense.optJSONArray("subsenses") ?: JSONArray()
+        for (index in 0 until subsenses.length()) {
+            val child = subsenses.optJSONObject(index) ?: continue
+            result.addAll(parseSenseTree(child))
+        }
+        return result
     }
 
     private fun stringField(array: JSONArray?, field: String): List<String> {
