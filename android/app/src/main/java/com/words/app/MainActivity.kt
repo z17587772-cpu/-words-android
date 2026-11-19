@@ -432,6 +432,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             cameraDistance = dp(10000).toFloat()
             clipChildren = false
             clipToPadding = false
+            elevation = dp(8).toFloat()
         }
         back.rotationY = 180f
         back.visibility = if (browseCardFlipped) View.VISIBLE else View.INVISIBLE
