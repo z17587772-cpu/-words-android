@@ -108,6 +108,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             return
         }
         configureEnglishTts()
+        if (::pageHost.isInitialized && selectedTab == TAB_SETTINGS) renderPage()
     }
 
     override fun onResume() {
@@ -247,7 +248,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 setPadding(dp(4), dp(5), dp(4), dp(4))
                 if (active) background = rounded(softAccent, 0, 13)
                 isClickable = true
-                setOnClickListener { selectedTab = tab; renderPage() }
+                setOnClickListener {
+                    showingFavorites = false
+                    selectedTab = tab
+                    renderPage()
+                }
             }
             item.addView(text(
                 when (tab) { TAB_BROWSE -> "∞"; TAB_STUDY -> "▱"; TAB_BOOKS -> "▤"; TAB_STATS -> "▥"; else -> "○" },
