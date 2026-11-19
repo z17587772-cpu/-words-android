@@ -25,8 +25,16 @@ fun main() {
     check(high > low) { "high-priority/high-frequency words should be favored" }
 
     val browse = WeightedScheduler.createBrowseQueue(words, recent, Random(42))
-    check(browse.size == words.size && browse.toSet().size == words.size)
-    check(browse.take(words.size - 25).none { it in recent.take(25) })
+    check(browse.size > words.size) { "weighted browse should add repeat appearances" }
+    check(browse.toSet().size == words.size) { "every word should still appear in each cycle" }
+    check(browse.take(browse.size - 25).none { it in recent.take(25) }) {
+        "recently browsed words should stay in the cooldown tail"
+    }
     check(browse.takeLast(25).toSet() == recent.take(25).toSet())
-    println("PASS: separated study/browse queues, no in-cycle repeats, cooldown, and weighted priority ($high vs $low).")
+    val highBrowseCount = browse.count { it <= 10 }
+    val lowBrowseCount = browse.count { it > 10 }
+    check(highBrowseCount * 9 > lowBrowseCount) {
+        "high-priority words should receive substantially more appearances ($highBrowseCount vs $lowBrowseCount)"
+    }
+    println("PASS: study weighting, full browse coverage, weighted repeats, and recent-word cooldown.")
 }
