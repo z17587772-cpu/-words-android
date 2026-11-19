@@ -173,11 +173,11 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.3
+          tag_name: v1.6.4
           target_commitish: main
-          name: words 1.6.3
+          name: words 1.6.4
           body: |
-            words 1.6.3 — corrected Quick Browse swipe directions, larger study text and an enlarged card with more breathing room.
+            words 1.6.4 — fixes dynamic labels, organizes Chinese meanings and reduces explanation-page flicker.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
@@ -191,7 +191,7 @@ jobs:
             - Card faces share a compact layout and show IPA, part of speech and third-party combined-corpus frequency when available.
             - Quick Browse guarantees full wordbook coverage and interleaves bonus appearances sampled by curriculum importance and corpus-frequency tier; recently browsed words stay in cooldown.
             - Optional sound and haptic feedback for right/wrong answers and card navigation.
-            - Dictionary enrichment appears on the current explanation as soon as online data arrives; Chinese machine-reference translations refresh in place.
+            - Dictionary enrichment appears on the current explanation as soon as online data arrives; individual Chinese machine-reference translations update in place without rebuilding the whole answer page, and the reading position is preserved when new dictionary data arrives.
             - Dictionary senses prioritize Chinese translations; source definitions remain available as smaller English references.
             - Collocation snippets are shown from dictionary fields when available, otherwise clearly labelled as extracted from real example sentences.
             - Inflection labels are translated into Chinese (past tense, past participle, plural, comparative, etc.); no unsupported root is guessed. A direct Youdao full-entry link opens its public dictionary page.
