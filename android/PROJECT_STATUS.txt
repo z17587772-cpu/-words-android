@@ -1,6 +1,7 @@
-words Android v1.2.0 — implementation status
+words Android v1.2.1 — implementation status
 
 Completed:
+- v1.2.1 UI refinement: Quick Browse next button is fixed above navigation; study reveal card minimum height reduced from 500dp to 360dp; launcher mark simplified with a white background and indigo/periwinkle folded-page symbol.
 - Native Kotlin Android app with offline SQLite persistence and Android TTS.
 - Repository normalized to a conventional android/ source tree; obsolete source_chunks/ and source_archive/ transport folders removed.
 - 随刷 is the first/default navigation entry and is an unlimited vocabulary browsing mode.
@@ -10,7 +11,7 @@ Completed:
 - Vocabulary cards were enlarged; navigation hierarchy, page/card transitions and adaptive launcher icon were refreshed.
 - SQLite v1-to-v2 migration adds corpus frequency metadata while preserving existing review rows and favorites.
 - Wordbooks retain curriculum importance tiers and add separately attributed third-party combined-corpus frequency references.
-- Android build completed successfully in GitHub Actions; APK and source artifacts were uploaded and Release v1.2.0 was published.
+- Android build completed successfully in GitHub Actions; APK and source artifacts were uploaded and Release v1.2.1 was published.
 
 Data limitations:
 - Core curriculum extraction currently contains 2,974 entries; approximately 126 entries remain to reconcile against the stated ~3,100-word curriculum target.
