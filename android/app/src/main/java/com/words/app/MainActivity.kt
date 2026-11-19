@@ -148,11 +148,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 topInset = bars.top
                 bottomInset = bars.bottom
             } else {
-                @Suppress("DEPRECATION")
-                run {
-                    topInset = insets.systemWindowInsetTop
-                    bottomInset = insets.systemWindowInsetBottom
-                }
+                topInset = insets.systemWindowInsetTop
+                bottomInset = insets.systemWindowInsetBottom
             }
             view.setPadding(0, topInset, 0, bottomInset)
             insets
@@ -467,7 +464,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         back.addView(backContent, LinearLayout.LayoutParams(-1, -1))
 
         val topBody = android.widget.FrameLayout(this).apply {
-            cameraDistance = dp(10000).toFloat()
+            cameraDistance = dp(30000).toFloat()
             clipChildren = false
             clipToPadding = false
             elevation = dp(8).toFloat()
