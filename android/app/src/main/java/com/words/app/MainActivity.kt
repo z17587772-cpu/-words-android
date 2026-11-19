@@ -909,11 +909,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
             feedbackCard.addView(text(if (correct) "回答正确  ✓" else "回答错误  ×", 16f, if (correct) accent else 0xFFB04450.toInt(), true))
             feedbackCard.addView(vSpace(4))
-            feedbackCard.addView(text(
-                if (correct) "正确答案：${if (englishPrompt) word.meaning else word.word}"
-                else "正确答案：${if (englishPrompt) word.meaning else word.word}",
-                12f, ink, true
-            ))
+            val correctAnswer: CharSequence = if (englishPrompt) {
+                android.text.SpannableStringBuilder().append("正确答案：").append(formatMeaning(word.meaning))
+            } else {
+                "正确答案：${word.word}"
+            }
+            feedbackCard.addView(text(correctAnswer, 12f, ink))
             feedbackCard.addView(vSpace(5))
             feedbackCard.addView(text("点击任意选项进入本题解析。", 11f, secondary))
             questionCard.addView(feedbackCard)
