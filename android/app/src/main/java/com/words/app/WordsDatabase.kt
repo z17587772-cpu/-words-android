@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 3) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 4) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -68,6 +68,13 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 updated_at INTEGER NOT NULL
             )
         """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE example_translation_cache (
+                sentence TEXT PRIMARY KEY COLLATE NOCASE,
+                translation TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """.trimIndent())
         db.execSQL("CREATE INDEX idx_words_book ON words(book_id)")
         db.execSQL("CREATE INDEX idx_history_date ON history(rated_at)")
     }
@@ -83,6 +90,15 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 CREATE TABLE IF NOT EXISTS word_detail_cache (
                     word TEXT PRIMARY KEY COLLATE NOCASE,
                     payload_json TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+            """.trimIndent())
+        }
+        if (oldVersion < 4) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS example_translation_cache (
+                    sentence TEXT PRIMARY KEY COLLATE NOCASE,
+                    translation TEXT NOT NULL,
                     updated_at INTEGER NOT NULL
                 )
             """.trimIndent())
@@ -204,6 +220,24 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             ContentValues().apply {
                 put("word", word.trim().lowercase())
                 put("payload_json", payloadJson)
+                put("updated_at", System.currentTimeMillis())
+            },
+            SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
+    fun getExampleTranslation(sentence: String): String? = readableDatabase.rawQuery(
+        "SELECT translation FROM example_translation_cache WHERE sentence=?",
+        arrayOf(sentence.trim())
+    ).use { if (it.moveToFirst()) it.getString(0) else null }
+
+    fun putExampleTranslation(sentence: String, translation: String) {
+        writableDatabase.insertWithOnConflict(
+            "example_translation_cache",
+            null,
+            ContentValues().apply {
+                put("sentence", sentence.trim())
+                put("translation", translation.trim())
                 put("updated_at", System.currentTimeMillis())
             },
             SQLiteDatabase.CONFLICT_REPLACE
