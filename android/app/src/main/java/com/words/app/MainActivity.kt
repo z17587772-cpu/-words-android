@@ -974,7 +974,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 !prefs.getBoolean(KEY_ONLINE_DETAIL, true) -> "本词条暂时没有收录中文例句。"
                 else -> "正在准备参考译文…"
             }
-            card.addView(text(status, 11f, secondary))
+            val translationStatus = text(status, 11f, secondary)
+            card.addView(translationStatus)
             if (prefs.getBoolean(KEY_ONLINE_DETAIL, true) && !translationLoading.contains(sentence) && !translationFailed.contains(sentence)) {
                 translationLoading.add(sentence)
                 Thread {
@@ -984,10 +985,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         if (!translated.isNullOrBlank()) {
                             translatedExamples[sentence] = translated
                             db.putExampleTranslation(sentence, translated)
+                            translationStatus.text = if (knownTranslation.isNotBlank()) knownTranslation else "参考译文：$translated"
+                            translationStatus.setTextColor(if (knownTranslation.isNotBlank()) secondary else accent)
                         } else {
                             translationFailed.add(sentence)
+                            translationStatus.text = "暂未获取到译文，可稍后重试。"
                         }
-                        if (quizCurrentWordId == word.id && quizShowExplanation && selectedTab == TAB_STUDY) renderPage()
                     }
                 }.start()
             }
@@ -1025,6 +1028,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             return
         }
 
+        var dictionaryStatusView: TextView? = null
         if (detail == null && !onlineLoading.contains(key)) {
             onlineLoading.add(key)
             Thread {
@@ -1037,13 +1041,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         if (parsed != null) {
                             onlineDetails[key] = parsed
                             onlineFailed.remove(key)
+                            dictionaryStatusView?.text = "在线词典资料已获取并缓存，重新打开本题即可查看。"
                         } else {
                             onlineFailed.add(key)
+                            dictionaryStatusView?.text = "暂时无法解析在线资料，可稍后重试。"
                         }
                     } else {
                         onlineFailed.add(key)
+                        dictionaryStatusView?.text = "暂时没有获取到在线资料，可检查网络后重试。"
                     }
-                    if (selectedTab == TAB_STUDY && quizCurrentWordId == word.id && quizShowExplanation) renderPage()
                 }
             }.start()
         }
@@ -1052,13 +1058,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         section.addView(text("联网词汇拓展", 16f, ink, true))
         section.addView(vSpace(5))
         if (detail == null) {
-            section.addView(text(
+            dictionaryStatusView = text(
                 when {
                     onlineLoading.contains(key) -> "正在查找释义、词形和例句，结果会缓存在本机。"
                     onlineFailed.contains(key) -> "暂时没有获取到在线资料。请检查网络后重试。"
                     else -> "正在准备词典资料…"
                 }, 11f, secondary
-            ))
+            )
+            section.addView(dictionaryStatusView)
             if (onlineFailed.contains(key)) {
                 section.addView(vSpace(8))
                 section.addView(pillButton("重新查询", false) {
