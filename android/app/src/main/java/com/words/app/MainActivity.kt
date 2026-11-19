@@ -42,7 +42,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var quizSelectedOptionId: Long? = null
     private var quizAnswerCorrect: Boolean? = null
     private var quizShowExplanation = false
-    private var browseAnimationDirection = 0
     private var browseCardFlipped = false
     private var browseFlipAnimating = false
     private val onlineDetails = mutableMapOf<String, DictionaryDetails>()
@@ -380,7 +379,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(text("随刷", 25f, ink, true))
         parent.addView(vSpace(3))
         parent.addView(text("左右滑动浏览单词 · 点击卡片切换中英文", 11f, secondary))
-        parent.addView(vSpace(8))
+        parent.addView(vSpace(5))
 
         if (word == null) {
             val empty = card(18)
@@ -394,7 +393,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val firstSide = prefs.getString(KEY_BROWSE_FIRST_SIDE, "en") ?: "en"
         val englishIsFront = firstSide != "zh"
         val screenHeightDp = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).toInt()
-        val cardHeightDp = (screenHeightDp - 455).coerceIn(220, 350)
+        val cardHeightDp = (screenHeightDp - 300).coerceIn(300, 520)
 
         val darkCard = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -418,7 +417,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val face = card(0).apply {
                 gravity = Gravity.CENTER
                 background = rounded(faceSurface, faceBorder, 25)
-                elevation = dp(if (active) 5 else 2).toFloat()
+                elevation = 0f
             }
             val content = column().apply {
                 gravity = Gravity.CENTER
@@ -468,7 +467,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val layer = android.widget.FrameLayout(this).apply {
                 clipChildren = false
                 clipToPadding = false
-                elevation = dp(3).toFloat()
+                elevation = 0f
             }
             layer.addView(
                 createCardFace(cardWord, englishIsFront, false),
@@ -505,7 +504,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             cameraDistance = dp(32000).toFloat()
             clipChildren = false
             clipToPadding = false
-            elevation = dp(8).toFloat()
+            elevation = 0f
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
         }
         front.visibility = if (browseCardFlipped) View.INVISIBLE else View.VISIBLE
@@ -514,21 +513,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         topBody.addView(front, android.widget.FrameLayout.LayoutParams(-1, -1))
         topBody.addView(back, android.widget.FrameLayout.LayoutParams(-1, -1))
         stage.addView(topBody, android.widget.FrameLayout.LayoutParams(-1, dp(cardHeightDp)))
-
-        if (browseAnimationDirection != 0) {
-            topBody.translationX = dp(if (browseAnimationDirection > 0) 18 else -18).toFloat()
-            topBody.alpha = 0.88f
-            topBody.post {
-                topBody.animate().cancel()
-                topBody.animate()
-                    .translationX(0f)
-                    .alpha(1f)
-                    .setDuration(185)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
-            }
-            browseAnimationDirection = 0
-        }
 
         parent.addView(stage, LinearLayout.LayoutParams(-1, dp(cardHeightDp)))
         val nextLayer = underLayers.lastOrNull()
@@ -559,11 +543,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
 
             browseFlipAnimating = true
+            // Commit the target index once the gesture is accepted. The outgoing
+            // view remains on screen until its exit animation finishes.
+            if (delta > 0) advanceBrowseWord() else showPreviousBrowseWord()
+            provideFeedback(isSwipe = true)
             val exitDirection = if (delta > 0) -1f else 1f
-            nextLayer?.apply {
-                translationY = dp(8).toFloat()
-                alpha = 0.86f
-            }
             topBody.animate().cancel()
             topBody.animate()
                 .translationX(exitDirection * (stage.width.coerceAtLeast(dp(280))).toFloat() * 1.12f)
@@ -574,10 +558,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 .setInterpolator(DecelerateInterpolator())
                 .withEndAction {
                     browseFlipAnimating = false
-                    swipeBrowse(delta)
+                    renderPage()
                 }.start()
-            nextLayer?.animate()?.translationY(0f)?.alpha(1f)
-                ?.setDuration(225)?.setInterpolator(DecelerateInterpolator())?.start()
         }
 
         var downX = 0f
@@ -695,7 +677,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lp.width = (track.width * ((browseIndex + 1f) / browseQueue.size.coerceAtLeast(1))).toInt()
             fill.layoutParams = lp
         }
-        parent.addView(vSpace(9))
+        parent.addView(vSpace(6))
 
         val actions = row()
         actions.addView(pillButton("单词发音", false) { speak(word.word) },
@@ -711,7 +693,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             renderPage()
         }, LinearLayout.LayoutParams(0, -2, 1f))
         parent.addView(actions)
-        parent.addView(vSpace(6))
+        parent.addView(vSpace(3))
         parent.addView(text(
             "${book.name}  ·  随刷不计入每日背词进度",
             9f, secondary, false, Gravity.CENTER
@@ -1102,20 +1084,41 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         return span
     }
 
+    private fun openYoudaoWord(word: String) {
+        val cleaned = word.trim()
+        if (cleaned.isEmpty()) return
+        val url = "https://dict.youdao.com/w/${Uri.encode(cleaned)}"
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: Exception) {
+            Toast.makeText(this, "暂时无法打开有道词典网页", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun renderOnlineDictionarySection(parent: LinearLayout, word: VocabularyWord) {
         val key = word.word.trim().lowercase()
         val cachedJson = db.getDictionaryCache(key)
         if (!onlineDetails.containsKey(key) && !cachedJson.isNullOrBlank()) {
             DictionaryLookup.parse(cachedJson)?.let { onlineDetails[key] = it }
         }
+        val detail = onlineDetails[key]
+            ?: cachedJson?.let { DictionaryLookup.parse(it) }?.also { onlineDetails[key] = it }
 
-        val detail = onlineDetails[key] ?: cachedJson?.let { DictionaryLookup.parse(it) }?.also { onlineDetails[key] = it }
+        val section = card(17)
+        val header = row()
+        header.addView(
+            text("词典拓展", 16f, ink, true),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        )
+        header.addView(quietButton("有道完整词条 ↗") { openYoudaoWord(word.word) })
+        section.addView(header)
+        section.addView(vSpace(4))
+        section.addView(text("按词性整理常见释义、实际例句和词形变化；不把机器翻译当作权威词义。", 10f, secondary))
+        section.addView(vSpace(10))
+
         if (!prefs.getBoolean(KEY_ONLINE_DETAIL, true)) {
-            val disabled = card(16)
-            disabled.addView(text("联网拓展已关闭", 13f, ink, true))
-            disabled.addView(vSpace(5))
-            disabled.addView(text("本地释义与例句仍可正常使用。", 11f, secondary))
-            parent.addView(disabled)
+            section.addView(text("应用内联网拓展已关闭，本地释义仍可使用。", 12f, secondary))
+            parent.addView(section)
             return
         }
 
@@ -1132,27 +1135,24 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         if (parsed != null) {
                             onlineDetails[key] = parsed
                             onlineFailed.remove(key)
-                            dictionaryStatusView?.text = "在线词典资料已获取并缓存，重新打开本题即可查看。"
+                            dictionaryStatusView?.text = "在线释义已获取并缓存，返回本题即可查看。"
                         } else {
                             onlineFailed.add(key)
-                            dictionaryStatusView?.text = "暂时无法解析在线资料，可稍后重试。"
+                            dictionaryStatusView?.text = "词典返回了资料，但暂时无法整理。可打开有道查看完整词条。"
                         }
                     } else {
                         onlineFailed.add(key)
-                        dictionaryStatusView?.text = "暂时没有获取到在线资料，可检查网络后重试。"
+                        dictionaryStatusView?.text = "暂时没有获取到在线资料，可检查网络或打开有道词典。"
                     }
                 }
             }.start()
         }
 
-        val section = card(18)
-        section.addView(text("联网词汇拓展", 16f, ink, true))
-        section.addView(vSpace(5))
         if (detail == null) {
             dictionaryStatusView = text(
                 when {
-                    onlineLoading.contains(key) -> "正在查找释义、词形和例句，结果会缓存在本机。"
-                    onlineFailed.contains(key) -> "暂时没有获取到在线资料。请检查网络后重试。"
+                    onlineLoading.contains(key) -> "正在获取英英释义、中文译义与例句，结果会缓存在本机。"
+                    onlineFailed.contains(key) -> "暂时没有获取到应用内词典资料。"
                     else -> "正在准备词典资料…"
                 }, 11f, secondary
             )
@@ -1162,70 +1162,106 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 section.addView(pillButton("重新查询", false) {
                     onlineFailed.remove(key)
                     renderPage()
-                })
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+            parent.addView(section)
+            return
+        }
+
+        val orderedSenses = detail.entries.flatMap { entry ->
+            entry.senses.map { sense -> entry to sense }
+        }.sortedWith(
+            compareBy<Pair<DictionaryEntryDetail, DictionarySense>> {
+                if (it.second.chineseTranslations.isNotEmpty()) 0 else 1
+            }.thenBy {
+                if (it.second.examples.isNotEmpty()) 0 else 1
+            }
+        ).take(6)
+
+        if (orderedSenses.isNotEmpty()) {
+            section.addView(text("重点释义", 12f, accent, true))
+            section.addView(vSpace(7))
+            orderedSenses.forEachIndexed { index, pair ->
+                val entry = pair.first
+                val sense = pair.second
+                val senseCard = column().apply {
+                    setPadding(dp(13), dp(11), dp(13), dp(11))
+                    background = rounded(0xFFF7F8FA.toInt(), 0, 13)
+                }
+                val senseHeader = row()
+                val posLabel = entry.partOfSpeech.ifBlank { "词义" }
+                senseHeader.addView(text(posLabel, 11f, accent, true))
+                senseHeader.addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
+                senseHeader.addView(text("释义 ${index + 1}", 9f, secondary))
+                senseCard.addView(senseHeader)
+                senseCard.addView(vSpace(6))
+
+                if (sense.chineseTranslations.isNotEmpty()) {
+                    senseCard.addView(
+                        text(sense.chineseTranslations.take(3).joinToString("；"), 15f, ink, true)
+                    )
+                    senseCard.addView(vSpace(5))
+                }
+                senseCard.addView(text(sense.definition, 12f, secondary))
+                section.addView(senseCard)
+                section.addView(vSpace(7))
             }
         } else {
-            detail.entries.take(4).forEach { entry ->
-                if (entry.partOfSpeech.isNotBlank()) {
-                    section.addView(vSpace(10))
-                    section.addView(text(entry.partOfSpeech, 12f, accent, true))
-                }
-                entry.senses.take(3).forEachIndexed { index, sense ->
-                    section.addView(vSpace(7))
-                    section.addView(text("释义 ${index + 1}", 10f, accent, true))
-                    section.addView(vSpace(3))
-                    section.addView(text(sense.definition, 13f, ink))
-                    if (sense.chineseTranslations.isNotEmpty()) {
-                        section.addView(vSpace(4))
-                        section.addView(text("中文：${sense.chineseTranslations.take(4).joinToString("；")}", 12f, accent))
-                    }
-                    // Example sentences are rendered in their own cards below the dictionary definitions.
-                }
-            }
+            section.addView(text("该词条暂时没有可用的详细释义。", 12f, secondary))
+        }
 
-            val extraExamples = detail.allExamples(limit = 2).filter { it != word.example }
-            if (extraExamples.isNotEmpty()) {
-                extraExamples.forEachIndexed { index, example ->
-                    renderExampleCard(parent, word, example, "", "词典例句 ${index + 1}")
-                }
+        val dictionaryExamples = detail.allExamples(limit = 2).filter { it != word.example }
+        if (dictionaryExamples.isNotEmpty()) {
+            section.addView(vSpace(5))
+            section.addView(text("典型用法与例句", 12f, accent, true))
+            section.addView(vSpace(6))
+            dictionaryExamples.forEachIndexed { index, example ->
+                renderExampleCard(section, word, example, "", "例句 ${index + 1}")
             }
-            val forms = detail.allForms()
-            if (forms.isNotEmpty()) {
-                section.addView(vSpace(13))
-                section.addView(text("词形变化", 12f, accent, true))
-                section.addView(vSpace(5))
-                section.addView(text(forms.joinToString("  ·  "), 12f, ink))
-            }
+        }
+
+        val forms = detail.allForms(limit = 10)
+        if (forms.isNotEmpty()) {
+            section.addView(vSpace(5))
+            section.addView(text("词形变化", 12f, accent, true))
+            section.addView(vSpace(5))
+            section.addView(text(forms.joinToString("  ·  "), 12f, ink))
+        }
+
+        if (detail.synonyms.isNotEmpty() || detail.antonyms.isNotEmpty()) {
+            section.addView(vSpace(11))
+            section.addView(text("近义词与反义词", 12f, accent, true))
             if (detail.synonyms.isNotEmpty()) {
-                section.addView(vSpace(13))
-                section.addView(text("近义词", 12f, accent, true))
                 section.addView(vSpace(5))
-                section.addView(text(detail.synonyms.take(12).joinToString("  ·  "), 12f, ink))
+                section.addView(text("近义  ${detail.synonyms.take(8).joinToString("  ·  ")}", 11f, ink))
             }
             if (detail.antonyms.isNotEmpty()) {
-                section.addView(vSpace(13))
-                section.addView(text("反义词", 12f, accent, true))
                 section.addView(vSpace(5))
-                section.addView(text(detail.antonyms.take(12).joinToString("  ·  "), 12f, ink))
+                section.addView(text("反义  ${detail.antonyms.take(8).joinToString("  ·  ")}", 11f, ink))
             }
-            val translations = detail.allChineseTranslations()
-            if (translations.isNotEmpty()) {
-                section.addView(vSpace(13))
-                section.addView(text("补充中文译义", 12f, accent, true))
-                section.addView(vSpace(5))
-                section.addView(text(translations.take(12).joinToString("；"), 12f, ink))
-            }
-            section.addView(vSpace(14))
-            section.addView(text("来源：FreeDictionaryAPI.com / Wiktionary · ${detail.licenseName}", 9f, secondary))
-            section.addView(vSpace(5))
-            section.addView(quietButton("查看原始词条与许可  →", {
-                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(detail.sourceUrl))) }
-            }))
         }
+
+        val extraTranslations = detail.allChineseTranslations().distinct().take(8)
+        if (extraTranslations.isNotEmpty()) {
+            section.addView(vSpace(10))
+            section.addView(text("补充译义", 11f, accent, true))
+            section.addView(vSpace(4))
+            section.addView(text(extraTranslations.joinToString("；"), 11f, secondary))
+        }
+
+        section.addView(vSpace(12))
+        section.addView(text(
+            "应用内资料来源：FreeDictionaryAPI / Wiktionary · ${detail.licenseName}",
+            9f, secondary
+        ))
+        section.addView(vSpace(3))
+        section.addView(quietButton("查看 Wiktionary 原始词条与授权说明 ↗", {
+            runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(detail.sourceUrl))) }
+        }))
         parent.addView(section)
     }
 
-    private fun resetCurrentQuizForSettings() {
+        private fun resetCurrentQuizForSettings() {
         if (quizSelectedOptionId == null) {
             quizCurrentWordId = -1L
             quizAnswerCorrect = null
@@ -1279,7 +1315,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (browseFlipAnimating) return
         browseCardFlipped = false
         if (delta > 0) advanceBrowseWord() else showPreviousBrowseWord()
-        browseAnimationDirection = delta
         provideFeedback(isSwipe = true)
         renderPage()
     }
@@ -1616,7 +1651,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         browseRecentIds.clear()
         browseCount = 0
         browseCardFlipped = false
-        browseAnimationDirection = 0
         saveBrowseState()
     }
 
