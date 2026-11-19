@@ -1125,6 +1125,84 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun chinesePartOfSpeech(value: String): String {
+        val key = value.trim().lowercase()
+        return when (key) {
+            "noun" -> "名词"
+            "verb" -> "动词"
+            "adjective" -> "形容词"
+            "adverb" -> "副词"
+            "preposition" -> "介词"
+            "conjunction" -> "连词"
+            "pronoun" -> "代词"
+            "interjection" -> "感叹词"
+            "determiner" -> "限定词"
+            "numeral" -> "数词"
+            "proper noun" -> "专有名词"
+            "auxiliary verb" -> "助动词"
+            "article" -> "冠词"
+            "prefix" -> "前缀"
+            "suffix" -> "后缀"
+            else -> value.ifBlank { "词义" }
+        }
+    }
+
+    private fun requestDictionaryDefinitionTranslation(definition: String, wordId: Long) {
+        if (definition.isBlank() || translationLoading.contains(definition) ||
+            translationFailed.contains(definition) || db.getExampleTranslation(definition) != null
+        ) return
+
+        translationLoading.add(definition)
+        Thread {
+            val translated = ExampleTranslator.translate(definition)
+            runOnUiThread {
+                translationLoading.remove(definition)
+                if (!translated.isNullOrBlank()) {
+                    translatedExamples[definition] = translated
+                    db.putExampleTranslation(definition, translated)
+                    translationFailed.remove(definition)
+                } else {
+                    translationFailed.add(definition)
+                }
+                // Refresh the explanation in-place as soon as the translation arrives;
+                // the learner never has to leave the question and open it again.
+                if (selectedTab == TAB_STUDY && quizShowExplanation && quizCurrentWordId == wordId) {
+                    renderPage()
+                }
+            }
+        }.start()
+    }
+
+    private fun extractExampleCollocations(word: String, detail: DictionaryDetails): List<String> {
+        val variants = linkedSetOf(word.trim().lowercase())
+        detail.allForms(limit = 30).forEach { form ->
+            val formWord = form.substringAfter("：", "").trim().lowercase()
+            if (formWord.isNotBlank()) variants.add(formWord)
+        }
+        val output = linkedSetOf<String>()
+        val tokenPattern = Regex("[A-Za-z]+(?:['’][A-Za-z]+)?")
+        detail.allExamples(limit = 24).forEach { sentence ->
+            val tokens = tokenPattern.findAll(sentence).toList()
+            for (index in tokens.indices) {
+                if (tokens[index].value.lowercase() !in variants) continue
+                val windows = listOf(
+                    (index - 2).coerceAtLeast(0) to (index + 2).coerceAtMost(tokens.lastIndex),
+                    (index - 1).coerceAtLeast(0) to (index + 1).coerceAtMost(tokens.lastIndex),
+                    index to (index + 2).coerceAtMost(tokens.lastIndex)
+                )
+                for ((start, end) in windows) {
+                    if (end - start + 1 !in 3..5) continue
+                    val phrase = tokens.subList(start, end + 1).joinToString(" ") { it.value }
+                    if (phrase.split(" ").any { it.lowercase() in variants }) output.add(phrase)
+                    if (output.size >= 8) break
+                }
+                if (output.size >= 8) break
+            }
+            if (output.size >= 8) break
+        }
+        return output.toList()
+    }
+
     private fun renderOnlineDictionarySection(parent: LinearLayout, word: VocabularyWord) {
         val key = word.word.trim().lowercase()
         val cachedJson = db.getDictionaryCache(key)
@@ -1143,7 +1221,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         header.addView(quietButton("有道完整词条 ↗") { openYoudaoWord(word.word) })
         section.addView(header)
         section.addView(vSpace(4))
-        section.addView(text("按词性整理常见释义、实际例句和词形变化；不把机器翻译当作权威词义。", 10f, secondary))
+        section.addView(text("中文核心释义、词组搭配、词形变化和实际用法。机器翻译会明确标注为参考。", 10f, secondary))
         section.addView(vSpace(10))
 
         if (!prefs.getBoolean(KEY_ONLINE_DETAIL, true)) {
@@ -1165,14 +1243,20 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         if (parsed != null) {
                             onlineDetails[key] = parsed
                             onlineFailed.remove(key)
-                            dictionaryStatusView?.text = "在线释义已获取并缓存，返回本题即可查看。"
+                            // Refresh this same answer page immediately. The learner
+                            // never has to leave the question and open the explanation again.
+                            if (selectedTab == TAB_STUDY && quizShowExplanation && quizCurrentWordId == word.id) {
+                                renderPage()
+                            } else {
+                                dictionaryStatusView?.text = "在线词典资料已更新。"
+                            }
                         } else {
                             onlineFailed.add(key)
                             dictionaryStatusView?.text = "词典返回了资料，但暂时无法整理。可打开有道查看完整词条。"
                         }
                     } else {
                         onlineFailed.add(key)
-                        dictionaryStatusView?.text = "暂时没有获取到在线资料，可检查网络或打开有道词典。"
+                        dictionaryStatusView?.text = "暂时没有获取到应用内词典资料，可检查网络或打开有道词典。"
                     }
                 }
             }.start()
@@ -1181,7 +1265,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (detail == null) {
             dictionaryStatusView = text(
                 when {
-                    onlineLoading.contains(key) -> "正在获取英英释义、中文译义与例句，结果会缓存在本机。"
+                    onlineLoading.contains(key) -> "正在获取词典释义、例句与词形变化…"
                     onlineFailed.contains(key) -> "暂时没有获取到应用内词典资料。"
                     else -> "正在准备词典资料…"
                 }, 11f, secondary
@@ -1206,10 +1290,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }.thenBy {
                 if (it.second.examples.isNotEmpty()) 0 else 1
             }
-        ).take(6)
+        ).take(4)
 
         if (orderedSenses.isNotEmpty()) {
-            section.addView(text("重点释义", 12f, accent, true))
+            section.addView(text("核心释义", 13f, accent, true))
             section.addView(vSpace(7))
             orderedSenses.forEachIndexed { index, pair ->
                 val entry = pair.first
@@ -1219,10 +1303,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     background = rounded(0xFFF7F8FA.toInt(), 0, 13)
                 }
                 val senseHeader = row()
-                val posLabel = entry.partOfSpeech.ifBlank { "词义" }
-                senseHeader.addView(text(posLabel, 11f, accent, true))
+                senseHeader.addView(text(chinesePartOfSpeech(entry.partOfSpeech), 11f, accent, true))
                 senseHeader.addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
-                senseHeader.addView(text("释义 ${index + 1}", 9f, secondary))
+                senseHeader.addView(text("义项 ${index + 1}", 9f, secondary))
                 senseCard.addView(senseHeader)
                 senseCard.addView(vSpace(6))
 
@@ -1232,7 +1315,37 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     )
                     senseCard.addView(vSpace(5))
                 }
-                senseCard.addView(text(sense.definition, 12f, secondary))
+
+                val definition = sense.definition
+                val cachedTranslation = translatedExamples[definition]
+                    ?: db.getExampleTranslation(definition)?.also { translatedExamples[definition] = it }
+
+                if (!cachedTranslation.isNullOrBlank()) {
+                    senseCard.addView(text("中文释义 · 机器翻译参考", 9f, accent, true))
+                    senseCard.addView(vSpace(3))
+                    senseCard.addView(text(cachedTranslation, 14f, ink, true))
+                } else {
+                    val definitionBytes = definition.toByteArray(Charsets.UTF_8).size
+                    when {
+                        definitionBytes > 480 ->
+                            senseCard.addView(text("该条英文解释较长，暂不自动翻译。", 11f, secondary))
+                        translationLoading.contains(definition) ->
+                            senseCard.addView(text("正在生成中文释义参考…", 11f, secondary))
+                        translationFailed.contains(definition) -> {
+                            senseCard.addView(text("中文释义暂时获取失败。", 11f, secondary))
+                            senseCard.addView(quietButton("重试中文释义", {
+                                translationFailed.remove(definition)
+                                renderPage()
+                            }))
+                        }
+                        else -> {
+                            senseCard.addView(text("正在生成中文释义参考…", 11f, secondary))
+                            requestDictionaryDefinitionTranslation(definition, word.id)
+                        }
+                    }
+                }
+                senseCard.addView(vSpace(6))
+                senseCard.addView(text("英文原释义：$definition", 10f, secondary))
                 section.addView(senseCard)
                 section.addView(vSpace(7))
             }
@@ -1240,34 +1353,73 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             section.addView(text("该词条暂时没有可用的详细释义。", 12f, secondary))
         }
 
-        val dictionaryExamples = detail.allExamples(limit = 2).filter { it != word.example }
-        if (dictionaryExamples.isNotEmpty()) {
+        val explicitPhrases = detail.allCollocations(limit = 12)
+        val examplePhrases = extractExampleCollocations(word.word, detail)
+        val phrases = (explicitPhrases + examplePhrases).distinct().take(8)
+        section.addView(vSpace(5))
+        section.addView(text("词组搭配", 13f, accent, true))
+        section.addView(vSpace(4))
+        section.addView(text(
+            if (explicitPhrases.isNotEmpty())
+                "优先显示词典提供的搭配；其余为从例句截取的搭配线索。"
+            else
+                "当前词典未单独提供固定搭配，以下从真实例句中截取包含本词的搭配片段。",
+            10f, secondary
+        ))
+        if (phrases.isEmpty()) {
             section.addView(vSpace(5))
-            section.addView(text("典型用法与例句", 12f, accent, true))
-            section.addView(vSpace(6))
-            dictionaryExamples.forEachIndexed { index, example ->
-                renderExampleCard(section, word, example, "", "例句 ${index + 1}")
+            section.addView(text("暂未收录可用搭配。", 11f, secondary))
+        } else {
+            phrases.forEach { phrase ->
+                val phraseRow = row()
+                phraseRow.addView(
+                    text(phrase, 12f, ink, true),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+                phraseRow.addView(quietButton("查释义 ↗") { openYoudaoWord(phrase) })
+                section.addView(phraseRow)
+                section.addView(vSpace(3))
             }
         }
 
-        val forms = detail.allForms(limit = 10)
+        val forms = detail.allForms(limit = 16)
         if (forms.isNotEmpty()) {
+            section.addView(vSpace(9))
+            section.addView(text("词形变化", 13f, accent, true))
             section.addView(vSpace(5))
-            section.addView(text("词形变化", 12f, accent, true))
-            section.addView(vSpace(5))
-            section.addView(text(forms.joinToString("  ·  "), 12f, ink))
+            forms.forEach { form ->
+                val label = form.substringBefore("：", "其他形式")
+                val value = form.substringAfter("：", form)
+                val formRow = row()
+                formRow.addView(
+                    text(label, 11f, secondary, true),
+                    LinearLayout.LayoutParams(dp(104), ViewGroup.LayoutParams.WRAP_CONTENT)
+                )
+                formRow.addView(text(value, 12f, ink, true))
+                section.addView(formRow)
+                section.addView(vSpace(4))
+            }
         }
+
+        section.addView(vSpace(7))
+        section.addView(text("词根与同根词", 12f, accent, true))
+        section.addView(vSpace(4))
+        section.addView(text(
+            "当前开放词典接口没有可靠的词根字段，因此不会按拼写猜测词根。可通过有道完整词条查看同根词栏目。",
+            10f, secondary
+        ))
+        section.addView(quietButton("查看同根词与词源 ↗") { openYoudaoWord(word.word) })
 
         if (detail.synonyms.isNotEmpty() || detail.antonyms.isNotEmpty()) {
-            section.addView(vSpace(11))
+            section.addView(vSpace(9))
             section.addView(text("近义词与反义词", 12f, accent, true))
             if (detail.synonyms.isNotEmpty()) {
-                section.addView(vSpace(5))
-                section.addView(text("近义  ${detail.synonyms.take(8).joinToString("  ·  ")}", 11f, ink))
+                section.addView(vSpace(4))
+                section.addView(text("近义：${detail.synonyms.take(8).joinToString("  ·  ")}", 11f, ink))
             }
             if (detail.antonyms.isNotEmpty()) {
-                section.addView(vSpace(5))
-                section.addView(text("反义  ${detail.antonyms.take(8).joinToString("  ·  ")}", 11f, ink))
+                section.addView(vSpace(4))
+                section.addView(text("反义：${detail.antonyms.take(8).joinToString("  ·  ")}", 11f, ink))
             }
         }
 
@@ -1277,13 +1429,23 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             .distinct()
             .take(8)
         if (extraTranslations.isNotEmpty()) {
-            section.addView(vSpace(10))
+            section.addView(vSpace(9))
             section.addView(text("补充译义", 11f, accent, true))
             section.addView(vSpace(4))
             section.addView(text(extraTranslations.joinToString("；"), 11f, secondary))
         }
 
-        section.addView(vSpace(12))
+        val dictionaryExamples = detail.allExamples(limit = 2).filter { it != word.example }
+        if (dictionaryExamples.isNotEmpty()) {
+            section.addView(vSpace(9))
+            section.addView(text("典型用法与例句", 12f, accent, true))
+            section.addView(vSpace(5))
+            dictionaryExamples.forEachIndexed { index, example ->
+                renderExampleCard(section, word, example, "", "例句 ${index + 1}")
+            }
+        }
+
+        section.addView(vSpace(10))
         section.addView(text(
             "应用内资料来源：FreeDictionaryAPI.com / Wiktionary · ${detail.licenseName}",
             9f, secondary
