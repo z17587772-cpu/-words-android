@@ -27,6 +27,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var ttsReady = false
     private lateinit var pageHost: LinearLayout
     private lateinit var bottomBar: LinearLayout
+    private lateinit var browseActionBar: LinearLayout
     private var selectedTab = TAB_BROWSE
     private var currentBookId: String = WordsDatabase.BUILTIN_BOOK_ID
     private var queue: MutableList<Long> = mutableListOf()
@@ -74,6 +75,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         pageHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(pageHost, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        // Keep the main Quick Browse action anchored above the navigation bar.
+        browseActionBar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(22), dp(7), dp(22), dp(7))
+            setBackgroundColor(bg)
+            visibility = View.GONE
+        }
+        root.addView(browseActionBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(66)))
         bottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -182,8 +192,24 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             TAB_STATS -> renderStats(content)
             TAB_SETTINGS -> renderSettings(content)
         }
+        renderBrowseActionBar()
         renderBottomBar()
         pageHost.animate().alpha(1f).setDuration(190).setInterpolator(DecelerateInterpolator()).start()
+    }
+
+    private fun renderBrowseActionBar() {
+        browseActionBar.removeAllViews()
+        val canAdvance = selectedTab == TAB_BROWSE && browseQueue.getOrNull(browseIndex) != null
+        browseActionBar.visibility = if (canAdvance) View.VISIBLE else View.GONE
+        if (!canAdvance) return
+
+        browseActionBar.addView(
+            pillButton("下一个单词  →", true) {
+                advanceBrowseWord()
+                renderPage()
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
     }
 
     private fun renderBottomBar() {
@@ -241,7 +267,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         val flashCard = card(24).apply {
-            minimumHeight = dp(500)
+            minimumHeight = dp(430)
             background = rounded(white, line, 26)
             elevation = dp(1).toFloat()
             gravity = Gravity.CENTER_HORIZONTAL
@@ -298,11 +324,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             renderPage()
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         parent.addView(actionRow)
-        parent.addView(vSpace(12))
-        parent.addView(pillButton("下一个单词  →", true) {
-            advanceBrowseWord()
-            renderPage()
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         parent.addView(vSpace(10))
         parent.addView(text("∞  无限浏览  ·  累计浏览 ${browseCount} 词  ·  不计入每日背词进度", 11f, secondary, false, Gravity.CENTER))
         parent.addView(vSpace(5))
@@ -358,7 +379,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             revealedMeaning = true
         }
 
-        val flashCard = card(22).apply { minimumHeight = dp(500) }
+        // The reveal-choice state needs less vertical space; let the card grow only when answers/examples are shown.
+        val flashCard = card(22).apply { minimumHeight = dp(360) }
         val head = row()
         head.addView(text("VOCABULARY  ·  ${queueIndex + 1}" , 10f, secondary, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val fav = text(if (word.favorite) "★" else "☆", 22f, if (word.favorite) accent else secondary, false, Gravity.CENTER).apply {
@@ -618,7 +640,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val about = card(17)
         about.addView(text("关于 words", 15f, ink, true))
         about.addView(vSpace(8))
-        about.addView(text("版本 1.2.0 · 离线优先\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n重要度采用课标层级与第三方频率参考分层展示；第三方统计不等同于官方历年高考完整词频。", 11f, secondary))
+        about.addView(text("版本 1.2.1 · 离线优先\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n重要度采用课标层级与第三方频率参考分层展示；第三方统计不等同于官方历年高考完整词频。", 11f, secondary))
         parent.addView(about)
     }
 
