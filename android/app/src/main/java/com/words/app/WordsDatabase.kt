@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 2) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 3) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -61,6 +61,13 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 FOREIGN KEY(word_id) REFERENCES words(id) ON DELETE CASCADE
             )
         """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE word_detail_cache (
+                word TEXT PRIMARY KEY COLLATE NOCASE,
+                payload_json TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """.trimIndent())
         db.execSQL("CREATE INDEX idx_words_book ON words(book_id)")
         db.execSQL("CREATE INDEX idx_history_date ON history(rated_at)")
     }
@@ -70,6 +77,15 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             db.execSQL("ALTER TABLE words ADD COLUMN corpus_frequency INTEGER NOT NULL DEFAULT -1")
             db.execSQL("ALTER TABLE words ADD COLUMN frequency_rank TEXT NOT NULL DEFAULT ''")
             db.execSQL("ALTER TABLE words ADD COLUMN frequency_source TEXT NOT NULL DEFAULT ''")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS word_detail_cache (
+                    word TEXT PRIMARY KEY COLLATE NOCASE,
+                    payload_json TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+            """.trimIndent())
         }
     }
 
@@ -174,6 +190,25 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
     ).use(::readWords)
 
     fun favoriteCountAll(): Int = scalar("SELECT COUNT(*) FROM words WHERE favorite=1")
+
+    /** Cached online dictionary responses are stored locally for later offline reading. */
+    fun getDictionaryCache(word: String): String? = readableDatabase.rawQuery(
+        "SELECT payload_json FROM word_detail_cache WHERE word=?",
+        arrayOf(word.trim().lowercase())
+    ).use { if (it.moveToFirst()) it.getString(0) else null }
+
+    fun putDictionaryCache(word: String, payloadJson: String) {
+        writableDatabase.insertWithOnConflict(
+            "word_detail_cache",
+            null,
+            ContentValues().apply {
+                put("word", word.trim().lowercase())
+                put("payload_json", payloadJson)
+                put("updated_at", System.currentTimeMillis())
+            },
+            SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
 
     fun recentWordIds(bookId: String, limit: Int = 60): List<Long> = readableDatabase.rawQuery(
         "SELECT h.word_id FROM history h JOIN words w ON w.id=h.word_id WHERE w.book_id=? GROUP BY h.word_id ORDER BY MAX(h.rated_at) DESC LIMIT ?",
