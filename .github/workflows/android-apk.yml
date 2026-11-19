@@ -173,18 +173,18 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.2
+          tag_name: v1.6.3
           target_commitish: main
-          name: words 1.6.2
+          name: words 1.6.3
           body: |
-            words 1.6.2 — direction-correct Quick Browse gestures, immediate dictionary enrichment and Chinese word-form labels.
+            words 1.6.3 — corrected Quick Browse swipe directions, larger study text and an enlarged card with more breathing room.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
             - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
             - Quick Browse fits the initial view without vertical scrolling where the device viewport permits; edge pulls retain the native rebound effect.
-            - Swipe left returns to the previous word and sends the current card left; swipe right advances and sends it right. Each direction reveals its matching under-card.
-            - Round progress and its bar are removed; the card height is constrained to keep the three action buttons clear.
+            - Swipe left advances to the next word and sends the current card left; swipe right returns to the previous word and sends it right. Each direction reveals the correct matching under-card.
+            - Round progress and its bar are removed; the Quick Browse card is slightly taller, with 12 dp of clear space before the three action buttons.
             - Card position is committed at gesture acceptance and rendered once after exit; no second rightward entrance bounce.
             - Card faces no longer use drop shadows.
             - Choose whether English or Chinese is the default card face; flipping always reveals the other language without masking state.
