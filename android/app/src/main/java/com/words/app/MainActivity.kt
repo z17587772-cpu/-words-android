@@ -752,7 +752,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     /** Format packed translations as separated senses and emphasize the primary sense. */
     private fun formatMeaning(raw: String): CharSequence {
-        val senses = raw.replace("\\r\\n", "\\n")
+        val senses = raw.replace("\r\n", "\n")
             .split(Regex("[；;\\n]+"))
             .map { it.trim() }
             .filter { it.isNotBlank() }
@@ -761,7 +761,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val result = android.text.SpannableStringBuilder()
         val posPattern = Regex("^(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl)\\.\\s*", RegexOption.IGNORE_CASE)
         senses.forEachIndexed { index, sense ->
-            if (index > 0) result.append("\\n\\n")
+            if (index > 0) result.append("\n\n")
             val start = result.length
             result.append(sense)
             val end = result.length
@@ -1203,7 +1203,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 // Update only this label. Rebuilding the entire answer page for
                 // each translated sense caused repeated jumps and flicker.
                 if (!translated.isNullOrBlank()) {
-                    statusView.text = "中文释义 · 机器翻译参考\\n$translated"
+                    statusView.text = "中文释义 · 机器翻译参考\n$translated"
                     statusView.setTextColor(ink)
                 } else {
                     statusView.text = "中文释义暂时获取失败。"
