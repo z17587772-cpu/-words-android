@@ -16,10 +16,10 @@ The modes share wordbook data, favorites and TTS, but each has independent queue
 - [x] Make 随刷 the default first navigation entry.
 - [x] Add an unlimited weighted browse cycle without in-cycle repeats and with a recent-view cooldown.
 - [x] Keep 背词 as a separate daily workflow with its original mastery/review logic.
-- [x] Enlarge vocabulary cards and refine layout hierarchy, spacing, transitions and launcher icon.
+- [x] Pin the Quick Browse next-word action above bottom navigation, reduce study reveal-card minimum height, and refresh the launcher icon with a minimal blue open-book mark.
 - [x] Add SQLite v1-to-v2 migration for corpus metadata without deleting review history/favorites.
 - [x] Add pinned third-party combined-corpus frequency data and document its evidence limits.
-- [x] Build and validate the debug APK; upload artifacts and publish Release v1.2.0.
+- [x] Build and validate the debug APK; upload artifacts and publish Release v1.2.1.
 
 ## Ranking evidence
 
@@ -34,4 +34,4 @@ The modes share wordbook data, favorites and TTS, but each has independent queue
 - Canonical Android project: `android/`.
 - Source wordbooks: `wordbooks/`; scripts: `tools/`.
 - Workflow: `.github/workflows/android-apk.yml`.
-- Output: debug-signed `words.apk`, published in GitHub Release `v1.2.0`.
+- Output: debug-signed `words.apk`, published in GitHub Release `v1.2.1`.
