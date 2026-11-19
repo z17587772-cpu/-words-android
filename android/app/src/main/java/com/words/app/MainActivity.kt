@@ -550,7 +550,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     } else {
                         quizShowExplanation = true
                         prefs.edit().putBoolean(KEY_QUIZ_SHOW_EXPLANATION, true).apply()
-                        provideFeedback(isSwipe = false)
+                        provideFeedback(isSwipe = true)
                         renderPage()
                     }
                 },
@@ -836,8 +836,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     onlineLoading.remove(key)
                     if (!raw.isNullOrBlank()) {
                         db.putDictionaryCache(key, raw)
-                        DictionaryLookup.parse(raw)?.let { onlineDetails[key] = it }
-                        onlineFailed.remove(key)
+                        val parsed = DictionaryLookup.parse(raw)
+                        if (parsed != null) {
+                            onlineDetails[key] = parsed
+                            onlineFailed.remove(key)
+                        } else {
+                            onlineFailed.add(key)
+                        }
                     } else {
                         onlineFailed.add(key)
                     }
@@ -879,15 +884,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         section.addView(vSpace(4))
                         section.addView(text("中文：${sense.chineseTranslations.take(4).joinToString("；")}", 12f, accent))
                     }
-                    sense.examples.take(2).forEach { example ->
-                        if (example != word.example) {
-                            section.addView(vSpace(7))
-                            renderExampleCard(parent, word, example, "", "词典例句")
-                        }
-                    }
+                    // Example sentences are rendered in their own cards below the dictionary definitions.
                 }
             }
 
+            val extraExamples = detail.allExamples(limit = 2).filter { it != word.example }
+            if (extraExamples.isNotEmpty()) {
+                extraExamples.forEachIndexed { index, example ->
+                    renderExampleCard(parent, word, example, "", "词典例句 ${index + 1}")
+                }
+            }
             val forms = detail.allForms()
             if (forms.isNotEmpty()) {
                 section.addView(vSpace(13))
