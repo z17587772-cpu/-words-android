@@ -11,7 +11,7 @@ fun main() {
             frequencyRank = if (id <= 10) "high" else "low"
         )
     }
-    val recent = (1L..30L).toList()
+    val recent = (31L..60L).toList()
     val study = WeightedScheduler.createQueue(words, recent, 30, now = 1_800_000_000_000L, random = Random(42))
     check(study.size == 30 && study.toSet().size == 30)
     check(study.none { it in recent.take(25) })
