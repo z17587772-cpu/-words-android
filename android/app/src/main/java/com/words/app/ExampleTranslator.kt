@@ -27,7 +27,7 @@ object ExampleTranslator {
                 connectTimeout = 6500
                 readTimeout = 8000
                 setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "words-android/1.5.0")
+                setRequestProperty("User-Agent", "words-android/1.6.1")
                 instanceFollowRedirects = true
             }
             if (connection.responseCode !in 200..299) return null
