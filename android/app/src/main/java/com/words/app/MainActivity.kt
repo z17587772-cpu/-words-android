@@ -4,6 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.graphics.Typeface
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -36,9 +43,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var quizCurrentWordId = -1L
     private var quizSelectedOptionId: Long? = null
     private var quizAnswerCorrect: Boolean? = null
+    private var quizShowExplanation = false
+    private var browseAnimationDirection = 0
     private val onlineDetails = mutableMapOf<String, DictionaryDetails>()
     private val onlineLoading = mutableSetOf<String>()
     private val onlineFailed = mutableSetOf<String>()
+    private val translatedExamples = mutableMapOf<String, String>()
+    private val translationLoading = mutableSetOf<String>()
+    private val translationFailed = mutableSetOf<String>()
+    private var toneGenerator: ToneGenerator? = null
     private lateinit var pageHost: LinearLayout
     private lateinit var bottomBar: LinearLayout
     private lateinit var browseActionBar: LinearLayout
@@ -97,7 +110,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             setBackgroundColor(bg)
             visibility = View.GONE
         }
-        root.addView(browseActionBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(66)))
+        root.addView(browseActionBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38)))
         bottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -132,6 +145,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         if (::tts.isInitialized) tts.shutdown()
+        toneGenerator?.release()
+        toneGenerator = null
         super.onDestroy()
     }
 
@@ -229,20 +244,17 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderBrowseActionBar() {
         browseActionBar.removeAllViews()
-        val canAdvance = selectedTab == TAB_BROWSE && browseQueue.getOrNull(browseIndex) != null
-        browseActionBar.visibility = if (canAdvance) View.VISIBLE else View.GONE
-        if (!canAdvance) return
+        val visible = selectedTab == TAB_BROWSE && !showingFavorites && browseQueue.getOrNull(browseIndex) != null
+        browseActionBar.visibility = if (visible) View.VISIBLE else View.GONE
+        if (!visible) return
 
         browseActionBar.addView(
-            pillButton("下一个单词  →", true) {
-                advanceBrowseWord()
-                renderPage()
-            },
+            text("←  上一个词       左右滑动卡片切换       下一个词  →", 11f, secondary, false, Gravity.CENTER),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
     }
 
-    private fun renderBottomBar() {
+        private fun renderBottomBar() {
         bottomBar.removeAllViews()
         val tabs = listOf(
             TAB_BROWSE to "随刷",
@@ -301,7 +313,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         val flashCard = card(24).apply {
-            minimumHeight = dp(430)
+            minimumHeight = dp(455)
             background = rounded(white, line, 26)
             elevation = dp(1).toFloat()
             gravity = Gravity.CENTER_HORIZONTAL
@@ -361,9 +373,40 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
         parent.addView(flashCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val entryOffset = when (browseAnimationDirection) {
+            1 -> dp(34).toFloat()
+            -1 -> -dp(34).toFloat()
+            else -> 0f
+        }
         flashCard.alpha = 0f
-        flashCard.translationY = dp(10).toFloat()
-        flashCard.animate().alpha(1f).translationY(0f).setDuration(230).setInterpolator(DecelerateInterpolator()).start()
+        flashCard.translationX = entryOffset
+        flashCard.translationY = dp(8).toFloat()
+        flashCard.animate().alpha(1f).translationX(0f).translationY(0f)
+            .setDuration(250).setInterpolator(DecelerateInterpolator()).start()
+        browseAnimationDirection = 0
+
+        var touchDownX = 0f
+        var touchDownY = 0f
+        flashCard.isClickable = true
+        flashCard.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    touchDownX = event.x
+                    touchDownY = event.y
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    val dx = event.x - touchDownX
+                    val dy = event.y - touchDownY
+                    if (kotlin.math.abs(dx) > dp(58) && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.2f) {
+                        swipeBrowse(if (dx < 0f) 1 else -1)
+                    }
+                    true
+                }
+                android.view.MotionEvent.ACTION_CANCEL -> true
+                else -> true
+            }
+        }
         parent.addView(vSpace(13))
 
         if (prefs.getBoolean(KEY_AUTO_SPEAK, false) && lastAutoSpokenWordId != word.id) {
@@ -411,8 +454,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val goal = queue.size
         val progress = (queueIndex.toFloat() / goal).coerceIn(0f, 1f)
         val progressHeader = row()
-        progressHeader.addView(text("今日背词计划", 12f, secondary), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        progressHeader.addView(text("${queueIndex + 1} / $goal", 12f, ink, true))
+        progressHeader.addView(text("今日背词计划", 13f, secondary), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        progressHeader.addView(text("${queueIndex + 1} / $goal", 13f, ink, true))
         parent.addView(progressHeader)
         parent.addView(vSpace(9))
         val progressTrack = LinearLayout(this).apply {
@@ -420,8 +463,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             clipToOutline = true
         }
         val progressFill = View(this).apply { background = rounded(accent, 0, 6) }
-        progressTrack.addView(progressFill, LinearLayout.LayoutParams(0, dp(5)))
-        parent.addView(progressTrack, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(5)))
+        progressTrack.addView(progressFill, LinearLayout.LayoutParams(0, dp(6)))
+        parent.addView(progressTrack, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)))
         progressTrack.post {
             val params = progressFill.layoutParams as LinearLayout.LayoutParams
             params.width = (progressTrack.width * progress).toInt()
@@ -437,52 +480,135 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         restoreQuizState(word.id)
 
+        if (quizShowExplanation && quizSelectedOptionId != null) {
+            renderQuizAnswer(parent, word)
+            return
+        }
+
         val direction = prefs.getString(KEY_QUIZ_DIRECTION, "mixed") ?: "mixed"
         val englishPrompt = when (direction) {
             "en_to_zh" -> true
             "zh_to_en" -> false
             else -> queueIndex % 2 == 0
         }
-        if (quizSelectedOptionId == null) {
-            val questionCard = card(22).apply { minimumHeight = dp(360) }
-            val head = row()
-            head.addView(text("第 ${queueIndex + 1} 题  ·  四选一", 10f, secondary, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            head.addView(text(if (englishPrompt) "EN → 中文" else "中文 → EN", 10f, accent, true))
-            questionCard.addView(head)
-            questionCard.addView(vSpace(25))
-            questionCard.addView(text(if (englishPrompt) word.word else word.meaning, if (englishPrompt) 31f else 23f, ink, true, Gravity.CENTER))
-            if (englishPrompt) {
-                if (word.phonetic.isNotBlank()) {
-                    questionCard.addView(vSpace(9))
-                    questionCard.addView(text(word.phonetic, 13f, secondary, false, Gravity.CENTER))
-                }
-                questionCard.addView(vSpace(8))
-                questionCard.addView(quietButton("播放发音", { speak(word.word) }))
-            }
-            questionCard.addView(vSpace(24))
-            questionCard.addView(text(if (englishPrompt) "请选择正确的中文释义" else "请选择对应的英文单词", 12f, secondary, false, Gravity.CENTER))
-            questionCard.addView(vSpace(14))
+        val answered = quizSelectedOptionId != null
+        val options = quizOptionsFor(word, englishPrompt)
 
-            quizOptionsFor(word, englishPrompt).forEachIndexed { index, option ->
-                val label = if (englishPrompt) option.meaning else option.word
-                questionCard.addView(
-                    pillButton("${index + 1}.  $label", false) {
-                        chooseQuizOption(word, option)
-                    },
-                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                )
-                questionCard.addView(vSpace(8))
-            }
-            parent.addView(questionCard)
-            parent.addView(vSpace(12))
-            parent.addView(text("选中后立即判定，并进入词汇讲解。", 11f, secondary, false, Gravity.CENTER))
-            parent.addView(vSpace(8))
-            parent.addView(quietButton("跳过此词", { nextQuizQuestion(); renderPage() }))
-        } else {
-            renderQuizAnswer(parent, word)
+        val questionCard = card(22).apply {
+            minimumHeight = dp(485)
+            background = rounded(white, line, 24)
         }
+        val head = row()
+        head.addView(text("第 ${queueIndex + 1} 题  ·  四选一", 11f, secondary, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        head.addView(text(if (englishPrompt) "EN → 中文" else "中文 → EN", 11f, accent, true))
+        questionCard.addView(head)
+        questionCard.addView(vSpace(25))
+        questionCard.addView(text(if (englishPrompt) word.word else word.meaning, if (englishPrompt) 34f else 24f, ink, true, Gravity.CENTER))
+        if (englishPrompt) {
+            if (word.phonetic.isNotBlank()) {
+                questionCard.addView(vSpace(9))
+                questionCard.addView(text(word.phonetic, 14f, secondary, false, Gravity.CENTER))
+            }
+            questionCard.addView(vSpace(7))
+            questionCard.addView(quietButton("播放发音", { speak(word.word) }))
+        }
+        questionCard.addView(vSpace(22))
+        questionCard.addView(text(if (englishPrompt) "请选择正确的中文释义" else "请选择对应的英文单词", 12f, secondary, false, Gravity.CENTER))
+        questionCard.addView(vSpace(14))
+
+        options.forEachIndexed { index, option ->
+            val label = if (englishPrompt) option.meaning else option.word
+            val isCorrectOption = option.id == word.id
+            val isSelected = option.id == quizSelectedOptionId
+            val fill = when {
+                !answered -> white
+                isCorrectOption -> softAccent
+                isSelected -> 0xFFFFF1F1.toInt()
+                else -> 0xFFF6F7F9.toInt()
+            }
+            val stroke = when {
+                !answered -> line
+                isCorrectOption -> accent
+                isSelected -> 0xFFE0A3A8.toInt()
+                else -> line
+            }
+            val color = when {
+                !answered -> ink
+                isCorrectOption -> accent
+                isSelected -> 0xFFB04450.toInt()
+                else -> secondary
+            }
+            val marker = when {
+                answered && isCorrectOption -> "✓  "
+                answered && isSelected -> "×  "
+                else -> ""
+            }
+            questionCard.addView(
+                quizOptionButton("${index + 1}.  $marker$label", fill, stroke, color) {
+                    if (!answered) {
+                        chooseQuizOption(word, option)
+                    } else {
+                        quizShowExplanation = true
+                        prefs.edit().putBoolean(KEY_QUIZ_SHOW_EXPLANATION, true).apply()
+                        provideFeedback(isSwipe = false)
+                        renderPage()
+                    }
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            )
+            questionCard.addView(vSpace(9))
+        }
+
+        if (answered) {
+            questionCard.addView(vSpace(7))
+            val correct = quizAnswerCorrect == true
+            val feedbackCard = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+                background = rounded(if (correct) softAccent else 0xFFFFF3F3.toInt(), 0, 14)
+            }
+            feedbackCard.addView(text(if (correct) "回答正确  ✓" else "回答错误  ×", 16f, if (correct) accent else 0xFFB04450.toInt(), true))
+            feedbackCard.addView(vSpace(4))
+            feedbackCard.addView(text(
+                if (correct) "正确答案：${if (englishPrompt) word.meaning else word.word}"
+                else "正确答案：${if (englishPrompt) word.meaning else word.word}",
+                12f, ink, true
+            ))
+            feedbackCard.addView(vSpace(5))
+            feedbackCard.addView(text("点击任意选项进入本题解析。", 11f, secondary))
+            questionCard.addView(feedbackCard)
+            questionCard.addView(vSpace(9))
+            questionCard.addView(quietButton("查看详细解析  →", {
+                quizShowExplanation = true
+                prefs.edit().putBoolean(KEY_QUIZ_SHOW_EXPLANATION, true).apply()
+                renderPage()
+            }))
+        }
+
+        parent.addView(questionCard)
+        animateCardIn(questionCard, 13)
+        parent.addView(vSpace(14))
+        parent.addView(row().apply {
+            addView(text("答对后巩固记忆，答错后进入重点复习。", 11f, secondary), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(quietButton("跳过", { nextQuizQuestion(); renderPage() }))
+        })
         parent.addView(vSpace(10))
         parent.addView(text("${book.name}  ·  每日目标 ${prefs.getInt(KEY_GOAL, 30)} 词", 10f, secondary, false, Gravity.CENTER))
+    }
+
+    private fun quizOptionButton(
+        label: String,
+        fillColor: Int,
+        strokeColor: Int,
+        textColor: Int,
+        onClick: () -> Unit
+    ): TextView = pillButton(label, false, onClick).apply {
+        setTextColor(textColor)
+        textSize = 15f
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(17), dp(15), dp(15), dp(15))
+        minimumHeight = dp(54)
+        background = rounded(fillColor, strokeColor, 15)
     }
 
     private fun quizOptionsFor(word: VocabularyWord, englishPrompt: Boolean): List<VocabularyWord> {
@@ -510,9 +636,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val selected = prefs.getLong(KEY_QUIZ_SELECTED_ID, -1L)
             quizSelectedOptionId = selected.takeIf { it >= 0L }
             quizAnswerCorrect = if (quizSelectedOptionId != null) prefs.getBoolean(KEY_QUIZ_CORRECT, false) else null
+            quizShowExplanation = quizSelectedOptionId != null && prefs.getBoolean(KEY_QUIZ_SHOW_EXPLANATION, false)
         } else {
             quizSelectedOptionId = null
             quizAnswerCorrect = null
+            quizShowExplanation = false
         }
     }
 
@@ -521,13 +649,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val correct = option.id == word.id
         quizSelectedOptionId = option.id
         quizAnswerCorrect = correct
-        // One answer produces exactly one review event; the result is persisted before rendering.
+        quizShowExplanation = false
         db.saveReview(word.id, if (correct) 2 else 0)
         prefs.edit()
             .putLong(KEY_QUIZ_WORD_ID, word.id)
             .putLong(KEY_QUIZ_SELECTED_ID, option.id)
             .putBoolean(KEY_QUIZ_CORRECT, correct)
+            .putBoolean(KEY_QUIZ_SHOW_EXPLANATION, false)
             .apply()
+        provideFeedback(isCorrect = correct)
         renderPage()
     }
 
@@ -536,26 +666,41 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         quizCurrentWordId = -1L
         quizSelectedOptionId = null
         quizAnswerCorrect = null
+        quizShowExplanation = false
         prefs.edit()
             .remove(KEY_QUIZ_WORD_ID)
             .remove(KEY_QUIZ_SELECTED_ID)
             .remove(KEY_QUIZ_CORRECT)
+            .remove(KEY_QUIZ_SHOW_EXPLANATION)
             .apply()
         saveQueue()
     }
 
     private fun renderQuizAnswer(parent: LinearLayout, word: VocabularyWord) {
         val correct = quizAnswerCorrect == true
-        val resultCard = card(20)
-        resultCard.addView(text(if (correct) "回答正确" else "再记一下", 23f, if (correct) accent else ink, true, Gravity.CENTER))
-        resultCard.addView(vSpace(7))
-        resultCard.addView(text(if (correct) "这次选对了，继续保持。" else "正确答案是：${word.word}  ·  ${word.meaning}", 12f, secondary, false, Gravity.CENTER))
+        parent.addView(row().apply {
+            addView(quietButton("‹  返回选项", onClick = {
+                quizShowExplanation = false
+                prefs.edit().putBoolean(KEY_QUIZ_SHOW_EXPLANATION, false).apply()
+                renderPage()
+            }))
+            addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
+            addView(text("ANSWER REVIEW", 10f, secondary, true))
+        })
+        parent.addView(vSpace(15))
+
+        val resultCard = card(18)
+        resultCard.background = rounded(if (correct) softAccent else 0xFFFFF3F3.toInt(), 0, 18)
+        resultCard.addView(text(if (correct) "回答正确" else "这道题需要再巩固", 22f, if (correct) accent else 0xFFB04450.toInt(), true))
+        resultCard.addView(vSpace(6))
+        resultCard.addView(text(if (correct) "答对了，继续保持。" else "本题已记录为需要复习。正确答案如下。", 12f, secondary))
         parent.addView(resultCard)
+        animateCardIn(resultCard, 10)
         parent.addView(vSpace(13))
 
-        val detailCard = card(20)
-        detailCard.addView(row().apply {
-            addView(text(word.word, 29f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val wordCard = card(20)
+        wordCard.addView(row().apply {
+            addView(text(word.word, 31f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(text(if (word.favorite) "★" else "☆", 23f, if (word.favorite) accent else secondary, false, Gravity.CENTER).apply {
                 setOnClickListener {
                     db.setFavorite(word.id, !word.favorite)
@@ -564,38 +709,106 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             })
         })
         if (word.phonetic.isNotBlank()) {
-            detailCard.addView(vSpace(7))
-            detailCard.addView(text(word.phonetic, 13f, secondary))
+            wordCard.addView(vSpace(7))
+            wordCard.addView(text(word.phonetic, 14f, secondary))
         }
         if (word.partOfSpeech.isNotBlank()) {
-            detailCard.addView(vSpace(6))
-            detailCard.addView(text(word.partOfSpeech, 11f, accent, true))
+            wordCard.addView(vSpace(6))
+            wordCard.addView(text(word.partOfSpeech, 12f, accent, true))
         }
-        detailCard.addView(vSpace(12))
-        detailCard.addView(text(word.meaning, 19f, ink, true))
-        detailCard.addView(vSpace(8))
-        detailCard.addView(pillButton("播放英文发音", false) { speak(word.word) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        wordCard.addView(vSpace(12))
+        wordCard.addView(text("核心释义", 11f, accent, true))
+        wordCard.addView(vSpace(6))
+        wordCard.addView(text(word.meaning, 19f, ink, true))
+        wordCard.addView(vSpace(11))
+        wordCard.addView(row().apply {
+            addView(pillButton("播放单词", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(hSpace(8))
+            addView(pillButton(if (word.favorite) "已收藏" else "收藏", false) {
+                db.setFavorite(word.id, !word.favorite)
+                renderPage()
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        })
+        parent.addView(wordCard)
+        animateCardIn(wordCard, 14)
+        parent.addView(vSpace(12))
+
         if (word.example.isNotBlank()) {
-            detailCard.addView(vSpace(16))
-            detailCard.addView(text("例句", 11f, secondary, true))
-            detailCard.addView(vSpace(6))
-            detailCard.addView(text(word.example, 14f, ink))
-            if (word.exampleZh.isNotBlank()) {
-                detailCard.addView(vSpace(5))
-                detailCard.addView(text(word.exampleZh, 12f, secondary))
-            }
-            detailCard.addView(vSpace(8))
-            detailCard.addView(quietButton("朗读例句", { speak(word.example) }))
+            renderExampleCard(parent, word, word.example, word.exampleZh, "课本例句")
         }
-        parent.addView(detailCard)
 
         renderOnlineDictionarySection(parent, word)
 
-        parent.addView(vSpace(14))
+        parent.addView(vSpace(16))
         parent.addView(pillButton("下一题  →", true) {
             nextQuizQuestion()
             renderPage()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
+    private fun renderExampleCard(
+        parent: LinearLayout,
+        word: VocabularyWord,
+        sentence: String,
+        knownTranslation: String,
+        title: String
+    ) {
+        val card = card(17)
+        card.addView(row().apply {
+            addView(text(title, 12f, accent, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(quietButton("朗读  ▶", { speak(sentence) }))
+        })
+        card.addView(vSpace(9))
+        val english = text(sentence, 15f, ink)
+        english.text = highlightWord(sentence, word.word)
+        card.addView(english)
+        card.addView(vSpace(9))
+
+        val cached = knownTranslation.takeIf { it.isNotBlank() }
+            ?: translatedExamples[sentence]
+            ?: db.getExampleTranslation(sentence).also { if (!it.isNullOrBlank()) translatedExamples[sentence] = it }
+        if (!cached.isNullOrBlank()) {
+            card.addView(text(if (knownTranslation.isNotBlank()) knownTranslation else "参考译文：$cached", 13f, if (knownTranslation.isNotBlank()) secondary else accent))
+        } else {
+            val status = when {
+                translationLoading.contains(sentence) -> "正在获取例句翻译…"
+                translationFailed.contains(sentence) -> "暂未获取到译文，可稍后重试。"
+                !prefs.getBoolean(KEY_ONLINE_DETAIL, true) -> "本词条暂时没有收录中文例句。"
+                else -> "正在准备参考译文…"
+            }
+            card.addView(text(status, 11f, secondary))
+            if (prefs.getBoolean(KEY_ONLINE_DETAIL, true) && !translationLoading.contains(sentence) && !translationFailed.contains(sentence)) {
+                translationLoading.add(sentence)
+                Thread {
+                    val translated = ExampleTranslator.translate(sentence)
+                    runOnUiThread {
+                        translationLoading.remove(sentence)
+                        if (!translated.isNullOrBlank()) {
+                            translatedExamples[sentence] = translated
+                            db.putExampleTranslation(sentence, translated)
+                        } else {
+                            translationFailed.add(sentence)
+                        }
+                        if (quizCurrentWordId == word.id && quizShowExplanation && selectedTab == TAB_STUDY) renderPage()
+                    }
+                }.start()
+            }
+        }
+        parent.addView(card)
+        animateCardIn(card, 16)
+        parent.addView(vSpace(10))
+    }
+
+    private fun highlightWord(sentence: String, target: String): CharSequence {
+        val span = SpannableString(sentence)
+        if (target.isBlank()) return span
+        var start = sentence.indexOf(target, ignoreCase = true)
+        while (start >= 0) {
+            span.setSpan(ForegroundColorSpan(accent), start, start + target.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
+            span.setSpan(StyleSpan(Typeface.BOLD), start, start + target.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
+            start = sentence.indexOf(target, start + target.length, ignoreCase = true)
+        }
+        return span
     }
 
     private fun renderOnlineDictionarySection(parent: LinearLayout, word: VocabularyWord) {
@@ -605,20 +818,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             DictionaryLookup.parse(cachedJson)?.let { onlineDetails[key] = it }
         }
 
+        val detail = onlineDetails[key] ?: cachedJson?.let { DictionaryLookup.parse(it) }?.also { onlineDetails[key] = it }
         if (!prefs.getBoolean(KEY_ONLINE_DETAIL, true)) {
             val disabled = card(16)
-            disabled.addView(text("联网词汇扩展已关闭", 13f, ink, true))
+            disabled.addView(text("联网拓展已关闭", 13f, ink, true))
             disabled.addView(vSpace(5))
-            disabled.addView(text("你仍然可以查看本地词义、发音和例句。", 11f, secondary))
+            disabled.addView(text("本地释义与例句仍可正常使用。", 11f, secondary))
             parent.addView(disabled)
             return
         }
 
-        var detail = onlineDetails[key]
-        if (detail == null && !cachedJson.isNullOrBlank()) {
-            detail = DictionaryLookup.parse(cachedJson)
-            if (detail != null) onlineDetails[key] = detail
-        }
         if (detail == null && !onlineLoading.contains(key)) {
             onlineLoading.add(key)
             Thread {
@@ -628,31 +837,29 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     if (!raw.isNullOrBlank()) {
                         db.putDictionaryCache(key, raw)
                         DictionaryLookup.parse(raw)?.let { onlineDetails[key] = it }
+                        onlineFailed.remove(key)
                     } else {
                         onlineFailed.add(key)
                     }
-                    if (selectedTab == TAB_STUDY && quizCurrentWordId == word.id && quizSelectedOptionId != null) {
-                        renderPage()
-                    }
+                    if (selectedTab == TAB_STUDY && quizCurrentWordId == word.id && quizShowExplanation) renderPage()
                 }
             }.start()
         }
 
-        val card = card(18)
-        card.addView(text("拓展词汇讲解", 16f, ink, true))
-        card.addView(vSpace(6))
+        val section = card(18)
+        section.addView(text("联网词汇拓展", 16f, ink, true))
+        section.addView(vSpace(5))
         if (detail == null) {
-            card.addView(text(
+            section.addView(text(
                 when {
-                    onlineLoading.contains(key) -> "正在联网查询；查询成功后会保存在本机，下次可离线查看。"
-                    onlineFailed.contains(key) -> "暂时没有取得在线资料。可检查网络后重试。"
-                    else -> "正在准备在线词典资料…"
-                },
-                11f, secondary
+                    onlineLoading.contains(key) -> "正在查找释义、词形和例句，结果会缓存在本机。"
+                    onlineFailed.contains(key) -> "暂时没有获取到在线资料。请检查网络后重试。"
+                    else -> "正在准备词典资料…"
+                }, 11f, secondary
             ))
             if (onlineFailed.contains(key)) {
-                card.addView(vSpace(8))
-                card.addView(pillButton("重新查询", false) {
+                section.addView(vSpace(8))
+                section.addView(pillButton("重新查询", false) {
                     onlineFailed.remove(key)
                     renderPage()
                 })
@@ -660,75 +867,125 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         } else {
             detail.entries.take(4).forEach { entry ->
                 if (entry.partOfSpeech.isNotBlank()) {
-                    card.addView(vSpace(10))
-                    card.addView(text(entry.partOfSpeech, 11f, accent, true))
+                    section.addView(vSpace(10))
+                    section.addView(text(entry.partOfSpeech, 12f, accent, true))
                 }
                 entry.senses.take(3).forEachIndexed { index, sense ->
-                    card.addView(vSpace(6))
-                    card.addView(text("${index + 1}. ${sense.definition}", 12f, ink))
+                    section.addView(vSpace(7))
+                    section.addView(text("释义 ${index + 1}", 10f, accent, true))
+                    section.addView(vSpace(3))
+                    section.addView(text(sense.definition, 13f, ink))
                     if (sense.chineseTranslations.isNotEmpty()) {
-                        card.addView(vSpace(3))
-                        card.addView(text("中文提示：${sense.chineseTranslations.take(3).joinToString("；")}", 11f, secondary))
+                        section.addView(vSpace(4))
+                        section.addView(text("中文：${sense.chineseTranslations.take(4).joinToString("；")}", 12f, accent))
                     }
                     sense.examples.take(2).forEach { example ->
-                        card.addView(vSpace(5))
-                        card.addView(text("例：$example", 11f, secondary))
+                        if (example != word.example) {
+                            section.addView(vSpace(7))
+                            renderExampleCard(parent, word, example, "", "词典例句")
+                        }
                     }
                 }
             }
+
             val forms = detail.allForms()
             if (forms.isNotEmpty()) {
-                card.addView(vSpace(12))
-                card.addView(text("词形变化", 12f, ink, true))
-                card.addView(vSpace(5))
-                card.addView(text(forms.joinToString("  ·  "), 11f, secondary))
+                section.addView(vSpace(13))
+                section.addView(text("词形变化", 12f, accent, true))
+                section.addView(vSpace(5))
+                section.addView(text(forms.joinToString("  ·  "), 12f, ink))
             }
-            val synonyms = detail.synonyms.distinct().take(10)
-            if (synonyms.isNotEmpty()) {
-                card.addView(vSpace(12))
-                card.addView(text("近义词", 12f, ink, true))
-                card.addView(vSpace(5))
-                card.addView(text(synonyms.joinToString("  ·  "), 11f, secondary))
+            if (detail.synonyms.isNotEmpty()) {
+                section.addView(vSpace(13))
+                section.addView(text("近义词", 12f, accent, true))
+                section.addView(vSpace(5))
+                section.addView(text(detail.synonyms.take(12).joinToString("  ·  "), 12f, ink))
             }
-            val antonyms = detail.antonyms.distinct().take(10)
-            if (antonyms.isNotEmpty()) {
-                card.addView(vSpace(12))
-                card.addView(text("反义词", 12f, ink, true))
-                card.addView(vSpace(5))
-                card.addView(text(antonyms.joinToString("  ·  "), 11f, secondary))
+            if (detail.antonyms.isNotEmpty()) {
+                section.addView(vSpace(13))
+                section.addView(text("反义词", 12f, accent, true))
+                section.addView(vSpace(5))
+                section.addView(text(detail.antonyms.take(12).joinToString("  ·  "), 12f, ink))
             }
             val translations = detail.allChineseTranslations()
             if (translations.isNotEmpty()) {
-                card.addView(vSpace(12))
-                card.addView(text("在线中文译义", 12f, ink, true))
-                card.addView(vSpace(5))
-                card.addView(text(translations.joinToString("；"), 11f, secondary))
+                section.addView(vSpace(13))
+                section.addView(text("补充中文译义", 12f, accent, true))
+                section.addView(vSpace(5))
+                section.addView(text(translations.take(12).joinToString("；"), 12f, ink))
             }
-            val examples = detail.allExamples()
-            if (examples.isNotEmpty()) {
-                card.addView(vSpace(12))
-                card.addView(text("更多英文例句", 12f, ink, true))
-                examples.take(4).forEach { example ->
-                    card.addView(vSpace(5))
-                    card.addView(text("•  $example", 11f, secondary))
-                }
-            }
-            card.addView(vSpace(13))
-            card.addView(text("在线资料来源：FreeDictionaryAPI.com / Wiktionary · ${detail.licenseName}", 9f, secondary))
-            card.addView(vSpace(6))
-            card.addView(quietButton("查看原始词条  →", {
+            section.addView(vSpace(14))
+            section.addView(text("来源：FreeDictionaryAPI.com / Wiktionary · ${detail.licenseName}", 9f, secondary))
+            section.addView(vSpace(5))
+            section.addView(quietButton("查看原始词条与许可  →", {
                 runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(detail.sourceUrl))) }
             }))
         }
-        parent.addView(card)
+        parent.addView(section)
+        animateCardIn(section, 18)
     }
 
     private fun resetCurrentQuizForSettings() {
-        // Keep the current question, but clear an answer only if it has not yet been submitted.
         if (quizSelectedOptionId == null) {
             quizCurrentWordId = -1L
             quizAnswerCorrect = null
+            quizShowExplanation = false
         }
+    }
+
+    private fun animateCardIn(view: View, offsetY: Int = 12) {
+        view.alpha = 0f
+        view.translationY = dp(offsetY).toFloat()
+        view.animate().alpha(1f).translationY(0f)
+            .setDuration(230).setInterpolator(DecelerateInterpolator()).start()
+    }
+
+    private fun provideFeedback(isCorrect: Boolean? = null, isSwipe: Boolean = false) {
+        if (prefs.getBoolean(KEY_FEEDBACK_SOUND, false)) {
+            val tone = when {
+                isSwipe -> ToneGenerator.TONE_PROP_BEEP
+                isCorrect == true -> ToneGenerator.TONE_PROP_ACK
+                else -> ToneGenerator.TONE_PROP_NACK
+            }
+            if (toneGenerator == null) toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 42)
+            toneGenerator?.startTone(tone, if (isSwipe) 45 else 90)
+        }
+        if (prefs.getBoolean(KEY_FEEDBACK_HAPTICS, true)) {
+            val vibrator = getSystemService(VIBRATOR_SERVICE) as? Vibrator
+            if (vibrator?.hasVibrator() == true) {
+                val duration = when {
+                    isSwipe -> 14L
+                    isCorrect == true -> 24L
+                    else -> 42L
+                }
+                val amplitude = if (isCorrect == false) 90 else 55
+                runCatching { vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude)) }
+            }
+        }
+    }
+
+    private fun showPreviousBrowseWord() {
+        if (browseIndex <= 0) {
+            Toast.makeText(this, "已经是本轮第一个单词", Toast.LENGTH_SHORT).show()
+            return
+        }
+        browseIndex -= 1
+        lastAutoSpokenWordId = -1L
+        browseMaskCurrentWordId = -1L
+        browseMaskRevealed = false
+        browseAnimationDirection = -1
+        saveBrowseState()
+    }
+
+    private fun swipeBrowse(delta: Int) {
+        if (delta > 0) {
+            advanceBrowseWord()
+            browseAnimationDirection = 1
+        } else {
+            showPreviousBrowseWord()
+        }
+        provideFeedback(isSwipe = true)
+        renderPage()
     }
 
     private fun renderSessionFinished(parent: LinearLayout, book: VocabularyBook) {
@@ -918,6 +1175,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(quizModeCard)
         parent.addView(vSpace(12))
 
+        val feedbackCard = card(17)
+        feedbackCard.addView(text("答题与翻页反馈", 15f, ink, true))
+        feedbackCard.addView(vSpace(11))
+        addSwitchRow(feedbackCard, "音效反馈", "答对、答错和滑动切换时播放轻提示音。", KEY_FEEDBACK_SOUND, false)
+        addDivider(feedbackCard)
+        addSwitchRow(feedbackCard, "震动反馈", "答题和滑动时提供轻微触感提示。", KEY_FEEDBACK_HAPTICS, true)
+        parent.addView(feedbackCard)
+        parent.addView(vSpace(12))
+
         val pronunciationCard = card(17)
         pronunciationCard.addView(text("系统英语发音", 15f, ink, true))
         pronunciationCard.addView(vSpace(7))
@@ -987,7 +1253,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val about = card(17)
         about.addView(text("关于 words", 15f, ink, true))
         about.addView(vSpace(8))
-        about.addView(text("版本 1.4.0 · 离线优先与联网扩展\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n重要度采用课标层级与第三方频率参考分层展示；第三方统计不等同于官方历年高考完整词频。", 11f, secondary))
+        about.addView(text("版本 1.5.0 · 卡片滑动、答题反馈与词汇精讲\n随刷与每日背词完全分离：随刷不记录熟悉度、不改变复习进度；背词保留每日目标与间隔复习。\n重要度采用课标层级与第三方频率参考分层展示；第三方统计不等同于官方历年高考完整词频。", 11f, secondary))
         parent.addView(about)
     }
 
@@ -1304,5 +1570,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         private const val KEY_QUIZ_WORD_ID = "quiz_word_id"
         private const val KEY_QUIZ_SELECTED_ID = "quiz_selected_id"
         private const val KEY_QUIZ_CORRECT = "quiz_correct"
+        private const val KEY_QUIZ_SHOW_EXPLANATION = "quiz_show_explanation"
+        private const val KEY_FEEDBACK_SOUND = "feedback_sound"
+        private const val KEY_FEEDBACK_HAPTICS = "feedback_haptics"
     }
 }
