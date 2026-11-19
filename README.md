@@ -20,7 +20,7 @@
 
 ## 词汇讲解
 - 优先展示本地词书释义、音标、词性和例句。
-- 在线开启后补充英英释义、中文词义翻译、词形变化、例句和近反义词。
+- 在线开启后补充中文参考释义、词组搭配、中文标注的词形变化、例句和近反义词；当前解释页会自动刷新，无需退出重进。
 - FreeDictionaryAPI / Wiktionary 数据注明来源及 CC BY-SA 4.0；缺失的词根、固定搭配或真题考频不伪造。
 - 英文例句优先使用词书自带译文；没有译文时可请求 MyMemory 机器翻译。机器翻译会明确标为参考译文，且仅在联网开启时请求。
 - 词典响应和例句译文均缓存到本地 SQLite，复看时可离线使用。MyMemory 匿名额度有限，应用只对少量例句请求并缓存结果。
@@ -53,4 +53,4 @@ gradle --no-daemon clean assembleDebug
 
 输出：`app/build/outputs/apk/debug/app-debug.apk`。
 
-当前 APK 为 debug 签名测试包。GitHub Actions 成功后发布到 [v1.6.1 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.6.1)。
+当前 APK 为 debug 签名测试包。GitHub Actions 成功后发布到 [v1.6.2 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.6.2)。
