@@ -173,23 +173,28 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.1
+          tag_name: v1.6.2
           target_commitish: main
-          name: words 1.6.1
+          name: words 1.6.2
           body: |
-            words 1.6.1 — stable one-commit card transitions, shadow-free Quick Browse and prioritized dictionary enrichment.
+            words 1.6.2 — direction-correct Quick Browse gestures, immediate dictionary enrichment and Chinese word-form labels.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
             - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
             - Quick Browse fits the initial view without vertical scrolling where the device viewport permits; edge pulls retain the native rebound effect.
+            - Swipe left returns to the previous word and sends the current card left; swipe right advances and sends it right. Each direction reveals its matching under-card.
+            - Round progress and its bar are removed; the card height is constrained to keep the three action buttons clear.
             - Card position is committed at gesture acceptance and rendered once after exit; no second rightward entrance bounce.
-            - Card faces no longer use drop shadows; the card occupies more of the available vertical area.
+            - Card faces no longer use drop shadows.
             - Choose whether English or Chinese is the default card face; flipping always reveals the other language without masking state.
             - Card faces share a compact layout and show IPA, part of speech and third-party combined-corpus frequency when available.
             - Quick Browse guarantees full wordbook coverage and interleaves bonus appearances sampled by curriculum importance and corpus-frequency tier; recently browsed words stay in cooldown.
             - Optional sound and haptic feedback for right/wrong answers and card navigation.
-            - Dictionary enrichment is reorganized around prioritized meanings, part of speech, examples, forms and related words; a direct Youdao full-entry link opens its public dictionary page.
+            - Dictionary enrichment appears on the current explanation as soon as online data arrives; Chinese machine-reference translations refresh in place.
+            - Dictionary senses prioritize Chinese translations; source definitions remain available as smaller English references.
+            - Collocation snippets are shown from dictionary fields when available, otherwise clearly labelled as extracted from real example sentences.
+            - Inflection labels are translated into Chinese (past tense, past participle, plural, comparative, etc.); no unsupported root is guessed. A direct Youdao full-entry link opens its public dictionary page.
             - Keeps optional cached FreeDictionaryAPI / Wiktionary expansion, system TTS, favorites, and user-provided vector launcher icon.
             - Example sentence translations use MyMemory's public translation endpoint and are labelled as machine-translation references.
 
