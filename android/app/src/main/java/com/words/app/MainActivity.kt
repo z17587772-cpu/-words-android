@@ -217,7 +217,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun text(
-        value: String,
+        value: CharSequence,
         size: Float = 14f,
         color: Int = ink,
         bold: Boolean = false,
@@ -236,7 +236,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         background = rounded(white, line, 20)
     }
 
-    private fun pillButton(label: String, primary: Boolean = false, onClick: () -> Unit): TextView = text(
+    private fun pillButton(label: CharSequence, primary: Boolean = false, onClick: () -> Unit): TextView = text(
         label, 14f, if (primary) white else ink, true, Gravity.CENTER
     ).apply {
         setPadding(dp(16), dp(13), dp(16), dp(13))
@@ -261,6 +261,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderPage() {
+        val preserveStudyPosition = selectedTab == TAB_STUDY && quizShowExplanation
+        val previousStudyScrollY = if (preserveStudyPosition) (pageHost.getChildAt(0) as? ScrollView)?.scrollY ?: 0 else 0
         // Rebuild the page without fading the entire screen. The old global fade
         // combined with per-card entrance animations and caused a visible double flash.
         pageHost.animate().cancel()
@@ -315,6 +317,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     }
                 }
             })
+        }
+        if (preserveStudyPosition) {
+            scroll.post {
+                val maxScroll = (content.height - scroll.height).coerceAtLeast(0)
+                scroll.scrollTo(0, previousStudyScrollY.coerceAtMost(maxScroll))
+            }
         }
         pageHost.alpha = 1f
     }
@@ -409,7 +417,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 "low" -> "低频"
                 else -> ""
             }
-            val count = if (cardWord.corpusFrequency >= 0) "综合语料 \${cardWord.corpusFrequency} 次" else ""
+            val count = if (cardWord.corpusFrequency >= 0) "综合语料 ${cardWord.corpusFrequency} 次" else ""
             return listOf(level, count).filter { it.isNotBlank() }.joinToString("  ·  ")
         }
 
@@ -446,7 +454,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             content.addView(mainText, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
             if (cardWord.phonetic.isNotBlank()) {
                 content.addView(vSpace(10))
-                content.addView(text("音标  \${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
+                content.addView(text("音标  ${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
             }
             if (cardWord.partOfSpeech.isNotBlank()) {
                 content.addView(vSpace(7))
@@ -726,7 +734,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(actions)
         parent.addView(vSpace(3))
         parent.addView(text(
-            "\${book.name}  ·  已浏览 \${browseCount} 词",
+            "${book.name}  ·  已浏览 ${browseCount} 词",
             9f, secondary, false, Gravity.CENTER
         ))
 
