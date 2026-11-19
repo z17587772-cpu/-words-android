@@ -45,6 +45,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var quizAnswerCorrect: Boolean? = null
     private var quizShowExplanation = false
     private var browseAnimationDirection = 0
+    private var browseCardFlipped = false
+    private var browseFlipAnimating = false
     private val onlineDetails = mutableMapOf<String, DictionaryDetails>()
     private val onlineLoading = mutableSetOf<String>()
     private val onlineFailed = mutableSetOf<String>()
@@ -286,23 +288,19 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
+
     private fun renderBrowse(parent: LinearLayout) {
         val book = activeBook()
         val word = browseCurrentWord()
-
         val top = row()
         top.addView(text("WORDS  /  QUICK BROWSE", 10f, secondary, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        top.addView(quietButton("切换词书", {
-            selectedTab = TAB_BOOKS
-            renderPage()
-        }))
+        top.addView(quietButton("切换词书", { selectedTab = TAB_BOOKS; renderPage() }))
         parent.addView(top)
         parent.addView(vSpace(14))
         parent.addView(text("随刷", 29f, ink, true))
         parent.addView(vSpace(6))
-        parent.addView(text("碎片时间，打开就刷。没有任务限制，也不打断背词进度。", 12f, secondary))
+        parent.addView(text("点击卡片翻面，左右滑动切换单词。", 12f, secondary))
         parent.addView(vSpace(19))
-
         if (word == null) {
             val empty = card(22)
             empty.addView(text("这本词书暂时没有单词", 18f, ink, true))
@@ -311,124 +309,182 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             parent.addView(empty)
             return
         }
-
-        val flashCard = card(24).apply {
-            minimumHeight = dp(455)
-            background = rounded(white, line, 26)
-            elevation = dp(1).toFloat()
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
-        val head = row()
-        head.addView(text("VOCABULARY  ·  INFINITE", 10f, secondary, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val priorityLabel = when (word.frequencyRank.lowercase()) {
-            "high" -> "高频参考"
-            "medium" -> "中频参考"
-            "low" -> "低频参考"
-            else -> "课标权重 ${word.importance}/5"
-        }
-        head.addView(text(priorityLabel, 10f, accent, true, Gravity.END))
-        flashCard.addView(head)
-        val browseMaskMode = prefs.getString(KEY_BROWSE_MASK_MODE, "none") ?: "none"
         if (browseMaskCurrentWordId != word.id) {
             browseMaskCurrentWordId = word.id
             browseMaskRevealed = false
+            browseCardFlipped = false
         }
-        val showEnglish = browseMaskMode != "hide_word" || browseMaskRevealed
-        val showChinese = browseMaskMode != "hide_meaning" || browseMaskRevealed
-
-        flashCard.addView(vSpace(35))
-        flashCard.addView(text(if (showEnglish) word.word else "••••••••", 38f, ink, true, Gravity.CENTER))
+        val maskMode = prefs.getString(KEY_BROWSE_MASK_MODE, "none") ?: "none"
+        val front = card(24).apply {
+            minimumHeight = dp(400)
+            gravity = Gravity.CENTER
+            background = rounded(white, line, 26)
+            elevation = dp(2).toFloat()
+        }
+        val frontContent = column().apply { gravity = Gravity.CENTER; setPadding(dp(20), dp(28), dp(20), dp(28)) }
+        frontContent.addView(text("VOCABULARY  ·  INFINITE", 10f, secondary, true, Gravity.CENTER))
+        frontContent.addView(vSpace(58))
+        val showEnglish = maskMode != "hide_word" || browseMaskRevealed
+        frontContent.addView(text(if (showEnglish) word.word else "••••••••", 38f, ink, true, Gravity.CENTER))
         if (showEnglish && word.phonetic.isNotBlank()) {
-            flashCard.addView(vSpace(11))
-            flashCard.addView(text(word.phonetic, 14f, secondary, false, Gravity.CENTER))
+            frontContent.addView(vSpace(12))
+            frontContent.addView(text(word.phonetic, 15f, secondary, false, Gravity.CENTER))
         }
         if (showEnglish && word.partOfSpeech.isNotBlank()) {
-            flashCard.addView(vSpace(7))
-            flashCard.addView(text(word.partOfSpeech, 12f, secondary, false, Gravity.CENTER))
+            frontContent.addView(vSpace(8))
+            frontContent.addView(text(word.partOfSpeech, 12f, accent, true, Gravity.CENTER))
         }
-        if (word.corpusFrequency >= 0) {
-            flashCard.addView(vSpace(8))
-            flashCard.addView(text("第三方综合语料参考：${word.corpusFrequency} 次", 10f, secondary, false, Gravity.CENTER))
+        frontContent.addView(vSpace(48))
+        frontContent.addView(text("点击卡片 · 查看中文释义", 12f, secondary, false, Gravity.CENTER))
+        front.addView(frontContent, LinearLayout.LayoutParams(-1, -1))
+
+        val back = card(24).apply {
+            minimumHeight = dp(400)
+            background = rounded(white, line, 26)
+            elevation = dp(2).toFloat()
         }
-        flashCard.addView(vSpace(26))
-        flashCard.addView(View(this).apply { setBackgroundColor(line) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
-        flashCard.addView(vSpace(23))
-        flashCard.addView(text(if (showChinese) word.meaning else "中文释义已遮挡", 21f, ink, true, Gravity.CENTER))
-        if (browseMaskMode != "none") {
-            flashCard.addView(vSpace(17))
-            val revealLabel = if (browseMaskRevealed) "重新遮挡" else if (browseMaskMode == "hide_word") "显示英文单词" else "显示中文释义"
-            flashCard.addView(pillButton(revealLabel, false) {
-                browseMaskRevealed = !browseMaskRevealed
-                renderPage()
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        if (word.example.isNotBlank() && showEnglish && showChinese) {
-            flashCard.addView(vSpace(24))
-            flashCard.addView(text("例句", 10f, secondary, true))
-            flashCard.addView(vSpace(7))
-            flashCard.addView(text(word.example, 14f, ink))
+        val backContent = column().apply { setPadding(dp(22), dp(24), dp(22), dp(22)) }
+        backContent.addView(text("MEANING  ·  释义与用法", 10f, secondary, true))
+        backContent.addView(vSpace(38))
+        val showChinese = maskMode != "hide_meaning" || browseMaskRevealed
+        backContent.addView(text(if (showChinese) word.meaning else "中文释义已遮挡", 23f, ink, true, Gravity.CENTER))
+        if (word.example.isNotBlank()) {
+            backContent.addView(vSpace(32))
+            backContent.addView(text("例句", 11f, secondary, true))
+            backContent.addView(vSpace(9))
+            backContent.addView(text(word.example, 15f, ink))
             if (word.exampleZh.isNotBlank()) {
-                flashCard.addView(vSpace(5))
-                flashCard.addView(text(word.exampleZh, 12f, secondary))
+                backContent.addView(vSpace(7))
+                backContent.addView(text(word.exampleZh, 13f, secondary))
             }
         }
-        parent.addView(flashCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        val entryOffset = when (browseAnimationDirection) {
-            1 -> dp(34).toFloat()
-            -1 -> -dp(34).toFloat()
-            else -> 0f
+        if (maskMode != "none") {
+            backContent.addView(vSpace(18))
+            backContent.addView(pillButton(if (browseMaskRevealed) "重新遮挡" else "显示隐藏内容", false) {
+                browseMaskRevealed = !browseMaskRevealed
+                renderPage()
+            }, LinearLayout.LayoutParams(-1, -2))
         }
-        flashCard.alpha = 0f
-        flashCard.translationX = entryOffset
-        flashCard.translationY = dp(8).toFloat()
-        flashCard.animate().alpha(1f).translationX(0f).translationY(0f)
-            .setDuration(250).setInterpolator(DecelerateInterpolator()).start()
-        browseAnimationDirection = 0
+        backContent.addView(View(this).apply { setBackgroundColor(line) },
+            LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(22); bottomMargin = dp(14) })
+        backContent.addView(text("再点一次，返回英文单词", 11f, secondary, false, Gravity.CENTER))
+        back.addView(backContent, LinearLayout.LayoutParams(-1, -1))
 
-        var touchDownX = 0f
-        var touchDownY = 0f
-        flashCard.isClickable = true
-        flashCard.setOnTouchListener { _, event ->
+        val stage = android.widget.FrameLayout(this).apply { cameraDistance = dp(9000).toFloat(); clipChildren = false }
+        val body = android.widget.FrameLayout(this).apply { cameraDistance = dp(9000).toFloat(); clipChildren = false }
+        back.rotationY = 180f
+        body.addView(front, android.widget.FrameLayout.LayoutParams(-1, -1))
+        body.addView(back, android.widget.FrameLayout.LayoutParams(-1, -1))
+        stage.addView(body, android.widget.FrameLayout.LayoutParams(-1, -1))
+        body.rotationY = if (browseCardFlipped) 180f else 0f
+        front.visibility = if (browseCardFlipped) View.INVISIBLE else View.VISIBLE
+        back.visibility = if (browseCardFlipped) View.VISIBLE else View.INVISIBLE
+        parent.addView(stage, LinearLayout.LayoutParams(-1, dp(400)))
+
+        var downX = 0f
+        var downY = 0f
+        var horizontalDrag = false
+        var moved = false
+        val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
+        stage.setOnTouchListener { view, event ->
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    touchDownX = event.x
-                    touchDownY = event.y
+                    downX = event.rawX; downY = event.rawY
+                    horizontalDrag = false; moved = false
                     true
                 }
-                android.view.MotionEvent.ACTION_UP -> {
-                    val dx = event.x - touchDownX
-                    val dy = event.y - touchDownY
-                    if (kotlin.math.abs(dx) > dp(58) && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.2f) {
-                        swipeBrowse(if (dx < 0f) 1 else -1)
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+                    if (!horizontalDrag && kotlin.math.abs(dx) > slop && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.25f) {
+                        horizontalDrag = true
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+                    if (horizontalDrag) {
+                        moved = true
+                        stage.translationX = dx * 0.72f
+                        stage.alpha = (1f - kotlin.math.abs(dx) / dp(420).toFloat()).coerceIn(0.58f, 1f)
                     }
                     true
                 }
-                android.view.MotionEvent.ACTION_CANCEL -> true
+                android.view.MotionEvent.ACTION_UP -> {
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+                    stage.animate().cancel()
+                    if (horizontalDrag && kotlin.math.abs(dx) >= dp(76) && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.25f) {
+                        stage.animate().translationX(if (dx < 0) -stage.width.toFloat() else stage.width.toFloat())
+                            .alpha(0f).setDuration(150).withEndAction { swipeBrowse(if (dx < 0) 1 else -1) }.start()
+                    } else {
+                        stage.animate().translationX(0f).alpha(1f).setDuration(180).start()
+                        if (!moved && kotlin.math.abs(dx) < slop && kotlin.math.abs(dy) < slop && !browseFlipAnimating) {
+                            browseFlipAnimating = true
+                            browseCardFlipped = !browseCardFlipped
+                            body.animate().rotationY(if (browseCardFlipped) 180f else 0f)
+                                .setDuration(620)
+                                .setInterpolator(android.view.animation.PathInterpolator(0.22f, 0.72f, 0.18f, 1f))
+                                .withEndAction {
+                                    front.visibility = if (browseCardFlipped) View.INVISIBLE else View.VISIBLE
+                                    back.visibility = if (browseCardFlipped) View.VISIBLE else View.INVISIBLE
+                                    browseFlipAnimating = false
+                                }.start()
+                            body.postDelayed({
+                                front.visibility = if (browseCardFlipped) View.INVISIBLE else View.VISIBLE
+                                back.visibility = if (browseCardFlipped) View.VISIBLE else View.INVISIBLE
+                            }, 300)
+                        }
+                    }
+                    view.parent?.requestDisallowInterceptTouchEvent(false)
+                    true
+                }
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    stage.animate().translationX(0f).alpha(1f).setDuration(160).start()
+                    view.parent?.requestDisallowInterceptTouchEvent(false)
+                    true
+                }
                 else -> true
             }
         }
-        parent.addView(vSpace(13))
 
+        parent.addView(vSpace(13))
+        val progress = row()
+        progress.addView(text("本轮 " + (browseIndex + 1) + " / " + browseQueue.size.coerceAtLeast(1), 11f, secondary, true),
+            LinearLayout.LayoutParams(0, -2, 1f))
+        progress.addView(text("累计浏览 " + browseCount + " 词", 11f, secondary))
+        parent.addView(progress)
+        parent.addView(vSpace(8))
+        val track = LinearLayout(this).apply { background = rounded(line, 0, 5); clipToOutline = true }
+        val fill = View(this).apply { background = rounded(accent, 0, 5) }
+        track.addView(fill, LinearLayout.LayoutParams(0, dp(5)))
+        parent.addView(track, LinearLayout.LayoutParams(-1, dp(5)))
+        track.post {
+            val lp = fill.layoutParams as LinearLayout.LayoutParams
+            lp.width = (track.width * ((browseIndex + 1f) / browseQueue.size.coerceAtLeast(1))).toInt()
+            fill.layoutParams = lp
+        }
+        parent.addView(vSpace(12))
+        val nav = row()
+        nav.addView(pillButton("‹  上一张", false) { swipeBrowse(-1) }, LinearLayout.LayoutParams(0, -2, 1f))
+        nav.addView(hSpace(10))
+        nav.addView(pillButton("下一张  ›", true) { swipeBrowse(1) }, LinearLayout.LayoutParams(0, -2, 1f))
+        parent.addView(nav)
+        parent.addView(vSpace(10))
+        val actions = row()
+        actions.addView(pillButton("单词发音", false) { speak(word.word) }, LinearLayout.LayoutParams(0, -2, 1f))
+        actions.addView(hSpace(7))
+        actions.addView(pillButton("朗读例句", false) {
+            if (word.example.isNotBlank()) speak(word.example) else Toast.makeText(this, "这条词目暂时没有英文例句", Toast.LENGTH_SHORT).show()
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        actions.addView(hSpace(7))
+        actions.addView(pillButton(if (word.favorite) "★ 已收藏" else "☆ 收藏", false) {
+            db.setFavorite(word.id, !word.favorite); renderPage()
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        parent.addView(actions)
+        parent.addView(vSpace(8))
+        parent.addView(text(book.name + "  ·  不计入每日背词进度", 10f, secondary, false, Gravity.CENTER))
         if (prefs.getBoolean(KEY_AUTO_SPEAK, false) && lastAutoSpokenWordId != word.id) {
             lastAutoSpokenWordId = word.id
             speak(word.word)
         }
-        val actionRow = row()
-        actionRow.addView(pillButton("单词发音", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        actionRow.addView(hSpace(7))
-        actionRow.addView(pillButton("朗读例句", false) {
-            if (word.example.isNotBlank()) speak(word.example) else Toast.makeText(this, "这条词目暂时没有英文例句", Toast.LENGTH_SHORT).show()
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        actionRow.addView(hSpace(7))
-        actionRow.addView(pillButton(if (word.favorite) "★ 已收藏" else "☆ 收藏", false) {
-            db.setFavorite(word.id, !word.favorite)
-            renderPage()
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        parent.addView(actionRow)
-        parent.addView(vSpace(10))
-        parent.addView(text("∞  无限浏览  ·  累计浏览 ${browseCount} 词  ·  不计入每日背词进度", 11f, secondary, false, Gravity.CENTER))
-        parent.addView(vSpace(5))
-        parent.addView(text("${book.name}  ·  重要词优先，单轮不重复", 10f, secondary, false, Gravity.CENTER))
     }
 
     private fun metricCard(value: String, caption: String): LinearLayout = card(14).apply {
@@ -979,11 +1035,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         lastAutoSpokenWordId = -1L
         browseMaskCurrentWordId = -1L
         browseMaskRevealed = false
+        browseCardFlipped = false
         browseAnimationDirection = -1
         saveBrowseState()
     }
 
     private fun swipeBrowse(delta: Int) {
+        if (browseFlipAnimating) return
+        browseCardFlipped = false
         if (delta > 0) {
             advanceBrowseWord()
             browseAnimationDirection = 1
@@ -1320,6 +1379,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         lastAutoSpokenWordId = -1L
         browseMaskCurrentWordId = -1L
         browseMaskRevealed = false
+        browseCardFlipped = false
         if (browseIndex >= browseQueue.size) {
             browseQueue.clear()
             browseIndex = 0
