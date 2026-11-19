@@ -50,6 +50,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private val translatedExamples = mutableMapOf<String, String>()
     private val translationLoading = mutableSetOf<String>()
     private val translationFailed = mutableSetOf<String>()
+    private val definitionTranslationViews = mutableMapOf<String, MutableList<TextView>>()
     private var toneGenerator: ToneGenerator? = null
     private lateinit var pageHost: LinearLayout
     private lateinit var bottomBar: LinearLayout
@@ -1185,9 +1186,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun requestDictionaryDefinitionTranslation(definition: String, statusView: TextView) {
-        if (definition.isBlank() || translationLoading.contains(definition) ||
-            translationFailed.contains(definition) || db.getExampleTranslation(definition) != null
-        ) return
+        if (definition.isBlank()) return
+        val cached = translatedExamples[definition] ?: db.getExampleTranslation(definition)
+        if (!cached.isNullOrBlank()) {
+            statusView.text = "中文释义 · 机器翻译参考\n$cached"
+            statusView.setTextColor(ink)
+            return
+        }
+
+        // A dictionary refresh may rebuild the section while a translation is
+        // still running. Register every visible label so none is left spinning.
+        definitionTranslationViews.getOrPut(definition) { mutableListOf() }.add(statusView)
+        if (translationLoading.contains(definition) || translationFailed.contains(definition)) return
 
         translationLoading.add(definition)
         Thread {
@@ -1201,14 +1211,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 } else {
                     translationFailed.add(definition)
                 }
-                // Update only this label. Rebuilding the entire answer page for
-                // each translated sense caused repeated jumps and flicker.
-                if (!translated.isNullOrBlank()) {
-                    statusView.text = "中文释义 · 机器翻译参考\n$translated"
-                    statusView.setTextColor(ink)
-                } else {
-                    statusView.text = "中文释义暂时获取失败。"
-                    statusView.setTextColor(secondary)
+                // Update labels in place; never rebuild the whole answer page.
+                val labels = definitionTranslationViews.remove(definition).orEmpty()
+                labels.forEach { label ->
+                    if (!translated.isNullOrBlank()) {
+                        label.text = "中文释义 · 机器翻译参考\n$translated"
+                        label.setTextColor(ink)
+                    } else {
+                        label.text = "中文释义暂时获取失败。"
+                        label.setTextColor(secondary)
+                    }
                 }
             }
         }.start()
@@ -1370,8 +1382,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     when {
                         definitionBytes > 480 ->
                             senseCard.addView(text("该条英文解释较长，暂不自动翻译。", 11f, secondary))
-                        translationLoading.contains(definition) ->
-                            senseCard.addView(text("正在生成中文释义参考…", 11f, secondary))
+                        translationLoading.contains(definition) -> {
+                            val translationStatus = text("正在生成中文释义参考…", 12f, secondary)
+                            senseCard.addView(translationStatus)
+                            requestDictionaryDefinitionTranslation(definition, translationStatus)
+                        }
                         translationFailed.contains(definition) -> {
                             senseCard.addView(text("中文释义暂时获取失败。", 11f, secondary))
                             senseCard.addView(quietButton("重试中文释义", {
