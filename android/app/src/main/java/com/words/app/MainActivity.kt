@@ -80,9 +80,27 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        // Draw the app background behind system bars, then inset app content so
+        // the status bar, gesture handle and three-button navigation never overlap UI.
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        } else {
+            window.statusBarColor = bg
+            window.navigationBarColor = bg
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            window.setDecorFitsSystemWindows(false)
+        } else {
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        }
+        window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
         db = WordsDatabase(this)
@@ -122,6 +140,24 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         root.addView(bottomBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(66)))
         setContentView(root)
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val topInset: Int
+            val bottomInset: Int
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars())
+                topInset = bars.top
+                bottomInset = bars.bottom
+            } else {
+                @Suppress("DEPRECATION")
+                run {
+                    topInset = insets.systemWindowInsetTop
+                    bottomInset = insets.systemWindowInsetBottom
+                }
+            }
+            view.setPadding(0, topInset, 0, bottomInset)
+            insets
+        }
+        root.requestApplyInsets()
         renderPage()
     }
 
@@ -231,8 +267,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderPage() {
+        // Rebuild the page without fading the entire screen. The old global fade
+        // combined with per-card entrance animations and caused a visible double flash.
         pageHost.animate().cancel()
-        pageHost.alpha = 0.92f
+        pageHost.alpha = 1f
         pageHost.removeAllViews()
         val scroll = ScrollView(this).apply { clipToPadding = false; isFillViewport = true }
         val content = column(22).apply { setPadding(dp(22), dp(22), dp(22), dp(30)) }
@@ -251,7 +289,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         renderBrowseActionBar()
         renderBottomBar()
-        pageHost.animate().alpha(1f).setDuration(190).setInterpolator(DecelerateInterpolator()).start()
+        pageHost.alpha = 1f
     }
 
     private fun renderBrowseActionBar() {
@@ -309,7 +347,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(14))
         parent.addView(text("随刷", 29f, ink, true))
         parent.addView(vSpace(6))
-        parent.addView(text("卡片上下叠放，拖动最上层旋转滑出即可切换。", 12f, secondary))
+        parent.addView(text("左右滑动切换单词，点击卡片查看释义。", 12f, secondary))
         parent.addView(vSpace(19))
         if (word == null) {
             val empty = card(22)
@@ -375,7 +413,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val stage = android.widget.FrameLayout(this).apply {
             clipChildren = false
             clipToPadding = false
-            cameraDistance = dp(10000).toFloat()
+            cameraDistance = dp(30000).toFloat()
         }
         parent.clipChildren = false
         parent.clipToPadding = false
@@ -387,11 +425,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val queueIndexForLayer = (browseIndex + depth) % browseQueue.size
             val layerWord = db.getWord(browseQueue[queueIndexForLayer]) ?: continue
             val layer = createUnderCard(layerWord, depth)
-            val baseOffset = dp(depth * 14).toFloat()
-            val baseScale = 1f - depth * 0.032f
-            layer.translationY = baseOffset
-            layer.scaleX = baseScale
-            layer.scaleY = baseScale
+            // Keep the deck perfectly aligned at rest: it should read as one card.
+            // The next physical card is revealed only while the top card moves away.
+            layer.translationY = 0f
+            layer.scaleX = 1f
+            layer.scaleY = 1f
             stage.addView(layer, android.widget.FrameLayout.LayoutParams(-1, dp(400)))
             underLayers.add(layer)
         }
@@ -405,7 +443,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         backContent.addView(text("MEANING  ·  释义与用法", 10f, faceMuted, true))
         backContent.addView(vSpace(38))
         val showChinese = maskMode != "hide_meaning" || browseMaskRevealed
-        backContent.addView(text(if (showChinese) word.meaning else "中文释义已遮挡", 23f, faceInk, true, Gravity.CENTER))
+        backContent.addView(text(if (showChinese) word.meaning else "中文释义已遮挡", 20f, faceInk, true, Gravity.CENTER))
         if (word.example.isNotBlank()) {
             backContent.addView(vSpace(32))
             backContent.addView(text("例句", 11f, faceMuted, true))
@@ -450,9 +488,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             topBody.animate().cancel()
             topBody.animate().translationX(0f).translationY(0f).rotation(0f).alpha(1f)
                 .setDuration(180).setInterpolator(DecelerateInterpolator()).start()
-            nextLayer?.animate()?.translationY(dp(14).toFloat())?.scaleX(0.968f)?.scaleY(0.968f)
+            nextLayer?.animate()?.translationY(0f)?.scaleX(1f)?.scaleY(1f)
                 ?.setDuration(180)?.start()
-            farLayer?.animate()?.translationY(dp(28).toFloat())?.scaleX(0.936f)?.scaleY(0.936f)
+            farLayer?.animate()?.translationY(0f)?.scaleX(1f)?.scaleY(1f)
                 ?.setDuration(180)?.start()
         }
 
@@ -478,7 +516,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 }.start()
             nextLayer?.animate()?.translationY(0f)?.scaleX(1f)?.scaleY(1f)?.setDuration(235)
                 ?.setInterpolator(DecelerateInterpolator())?.start()
-            farLayer?.animate()?.translationY(dp(14).toFloat())?.scaleX(0.968f)?.scaleY(0.968f)
+            farLayer?.animate()?.translationY(0f)?.scaleX(1f)?.scaleY(1f)
                 ?.setDuration(235)?.setInterpolator(DecelerateInterpolator())?.start()
         }
 
@@ -512,12 +550,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         topBody.translationY = -dp(8).toFloat() * progress
                         topBody.rotation = (dx / stage.width.coerceAtLeast(1).toFloat() * 17f).coerceIn(-17f, 17f)
                         topBody.alpha = (1f - progress * 0.14f).coerceIn(0.82f, 1f)
-                        nextLayer?.translationY = dp(14).toFloat() * (1f - progress)
-                        nextLayer?.scaleX = 0.968f + 0.032f * progress
-                        nextLayer?.scaleY = 0.968f + 0.032f * progress
-                        farLayer?.translationY = dp(28).toFloat() - dp(14).toFloat() * progress
-                        farLayer?.scaleX = 0.936f + 0.032f * progress
-                        farLayer?.scaleY = 0.936f + 0.032f * progress
+                        // Under-cards stay aligned and full-size; the departing
+                        // top card alone creates the reveal/replace motion.
+                        nextLayer?.translationY = 0f
+                        nextLayer?.scaleX = 1f
+                        nextLayer?.scaleY = 1f
+                        farLayer?.translationY = 0f
+                        farLayer?.scaleX = 1f
+                        farLayer?.scaleY = 1f
                     }
                     true
                 }
@@ -574,13 +614,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lp.width = (track.width * ((browseIndex + 1f) / browseQueue.size.coerceAtLeast(1))).toInt()
             fill.layoutParams = lp
         }
-        parent.addView(vSpace(12))
-        val nav = row()
-        nav.addView(pillButton("‹  上一张", false) { animateCardChange(-1) }, LinearLayout.LayoutParams(0, -2, 1f))
-        nav.addView(hSpace(10))
-        nav.addView(pillButton("下一张  ›", true) { animateCardChange(1) }, LinearLayout.LayoutParams(0, -2, 1f))
-        parent.addView(nav)
-        parent.addView(vSpace(10))
+        parent.addView(vSpace(18))
         val actions = row()
         actions.addView(pillButton("单词发音", false) { speak(word.word) }, LinearLayout.LayoutParams(0, -2, 1f))
         actions.addView(hSpace(7))
@@ -756,7 +790,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         parent.addView(questionCard)
-        animateCardIn(questionCard, 13)
         parent.addView(vSpace(14))
         parent.addView(row().apply {
             addView(text("答对后巩固记忆，答错后进入重点复习。", 11f, secondary), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -865,7 +898,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         resultCard.addView(vSpace(6))
         resultCard.addView(text(if (correct) "答对了，继续保持。" else "本题已记录为需要复习。正确答案如下。", 12f, secondary))
         parent.addView(resultCard)
-        animateCardIn(resultCard, 10)
         parent.addView(vSpace(13))
 
         val wordCard = card(20)
@@ -900,7 +932,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         })
         parent.addView(wordCard)
-        animateCardIn(wordCard, 14)
         parent.addView(vSpace(12))
 
         if (word.example.isNotBlank()) {
@@ -965,7 +996,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
         parent.addView(card)
-        animateCardIn(card, 16)
         parent.addView(vSpace(10))
     }
 
@@ -1098,7 +1128,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }))
         }
         parent.addView(section)
-        animateCardIn(section, 18)
     }
 
     private fun resetCurrentQuizForSettings() {
