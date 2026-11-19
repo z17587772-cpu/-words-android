@@ -11,8 +11,8 @@ android {
         applicationId = "com.words.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.5.1"
+        versionCode = 100000 + (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1)
+        versionName = "1.5.${System.getenv("GITHUB_RUN_NUMBER") ?: "1"}"
     }
 
     signingConfigs {
