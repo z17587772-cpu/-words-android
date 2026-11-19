@@ -178,8 +178,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
         if (selectedTab == TAB_BROWSE && !showingFavorites && !browseFlipAnimating) {
             when (keyCode) {
-                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { swipeBrowse(1); return true }
-                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { swipeBrowse(-1); return true }
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { swipeBrowse(-1); return true }
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { swipeBrowse(1); return true }
             }
         }
         return super.onKeyDown(keyCode, event)
@@ -378,8 +378,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(4))
         parent.addView(text("随刷", 25f, ink, true))
         parent.addView(vSpace(3))
-        parent.addView(text("左右滑动浏览单词 · 点击卡片切换中英文", 11f, secondary))
-        parent.addView(vSpace(5))
+        parent.addView(text("左滑上一张 · 右滑下一张 · 点击翻面", 11f, secondary))
+        parent.addView(vSpace(6))
 
         if (word == null) {
             val empty = card(18)
@@ -393,7 +393,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val firstSide = prefs.getString(KEY_BROWSE_FIRST_SIDE, "en") ?: "en"
         val englishIsFront = firstSide != "zh"
         val screenHeightDp = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).toInt()
-        val cardHeightDp = (screenHeightDp - 300).coerceIn(300, 520)
+        val cardHeightDp = (screenHeightDp - 470).coerceIn(235, 350)
 
         val darkCard = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -409,11 +409,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 "low" -> "低频"
                 else -> ""
             }
-            val count = if (cardWord.corpusFrequency >= 0) "综合语料 ${cardWord.corpusFrequency} 次" else ""
+            val count = if (cardWord.corpusFrequency >= 0) "综合语料 \${cardWord.corpusFrequency} 次" else ""
             return listOf(level, count).filter { it.isNotBlank() }.joinToString("  ·  ")
         }
 
-        fun createCardFace(cardWord: VocabularyWord, englishSide: Boolean, active: Boolean): LinearLayout {
+        fun createCardFace(
+            cardWord: VocabularyWord,
+            englishSide: Boolean,
+            active: Boolean,
+            backLabel: String
+        ): LinearLayout {
             val face = card(0).apply {
                 gravity = Gravity.CENTER
                 background = rounded(faceSurface, faceBorder, 25)
@@ -421,7 +426,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
             val content = column().apply {
                 gravity = Gravity.CENTER
-                setPadding(dp(22), dp(14), dp(22), dp(14))
+                setPadding(dp(22), dp(13), dp(22), dp(13))
             }
             content.addView(
                 text(
@@ -429,7 +434,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     9f, faceMuted, true, Gravity.CENTER
                 )
             )
-            content.addView(vSpace(14))
+            content.addView(vSpace(12))
             val mainText = text(
                 if (englishSide) cardWord.word else cardWord.meaning,
                 if (englishSide) 34f else 22f,
@@ -440,22 +445,22 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
             content.addView(mainText, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
             if (cardWord.phonetic.isNotBlank()) {
-                content.addView(vSpace(11))
-                content.addView(text("音标  ${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
+                content.addView(vSpace(10))
+                content.addView(text("音标  \${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
             }
             if (cardWord.partOfSpeech.isNotBlank()) {
-                content.addView(vSpace(8))
+                content.addView(vSpace(7))
                 content.addView(text(cardWord.partOfSpeech, 12f, accent, true, Gravity.CENTER))
             }
             val frequency = frequencyText(cardWord)
             if (frequency.isNotBlank()) {
-                content.addView(vSpace(9))
+                content.addView(vSpace(8))
                 content.addView(text(frequency, 10f, faceMuted, false, Gravity.CENTER))
             }
-            content.addView(vSpace(18))
+            content.addView(vSpace(15))
             content.addView(
                 text(
-                    if (active) "点击翻面 · 左右滑动切换" else "下一张",
+                    if (active) "点击翻面" else backLabel,
                     10f, faceMuted, false, Gravity.CENTER
                 )
             )
@@ -463,14 +468,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             return face
         }
 
-        fun createUnderCard(cardWord: VocabularyWord): android.widget.FrameLayout {
+        fun createUnderCard(cardWord: VocabularyWord, label: String): android.widget.FrameLayout {
             val layer = android.widget.FrameLayout(this).apply {
                 clipChildren = false
                 clipToPadding = false
                 elevation = 0f
+                visibility = View.GONE
+                alpha = 0.82f
             }
             layer.addView(
-                createCardFace(cardWord, englishIsFront, false),
+                createCardFace(cardWord, englishIsFront, false, label),
                 android.widget.FrameLayout.LayoutParams(-1, -1)
             )
             return layer
@@ -485,19 +492,24 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.clipChildren = false
         parent.clipToPadding = false
 
-        // The deck is perfectly aligned at rest; the next card is revealed only as
-        // the current card leaves. No scale animation is used, avoiding the old pop/zoom.
-        val underLayers = mutableListOf<android.widget.FrameLayout>()
-        for (depth in 2 downTo 1) {
-            val nextId = browseQueue.getOrNull(browseIndex + depth) ?: continue
-            val nextWord = db.getWord(nextId) ?: continue
-            val layer = createUnderCard(nextWord)
-            stage.addView(layer, android.widget.FrameLayout.LayoutParams(-1, dp(cardHeightDp)))
-            underLayers.add(layer)
+        // Keep both directions ready under the top card. The gesture decides which
+        // layer is revealed, so left and right swipes never reuse the wrong card.
+        val previousLayer = browseQueue.getOrNull(browseIndex - 1)
+            ?.let { db.getWord(it) }
+            ?.let { createUnderCard(it, "上一张") }
+        val nextLayer = browseQueue.getOrNull(browseIndex + 1)
+            ?.let { db.getWord(it) }
+            ?.let { createUnderCard(it, "下一张") }
+
+        previousLayer?.let {
+            stage.addView(it, android.widget.FrameLayout.LayoutParams(-1, dp(cardHeightDp)))
+        }
+        nextLayer?.let {
+            stage.addView(it, android.widget.FrameLayout.LayoutParams(-1, dp(cardHeightDp)))
         }
 
-        val front = createCardFace(word, englishIsFront, true)
-        val back = createCardFace(word, !englishIsFront, true).apply {
+        val front = createCardFace(word, englishIsFront, true, "")
+        val back = createCardFace(word, !englishIsFront, true, "").apply {
             rotationY = 180f
         }
         val topBody = android.widget.FrameLayout(this).apply {
@@ -513,53 +525,90 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         topBody.addView(front, android.widget.FrameLayout.LayoutParams(-1, -1))
         topBody.addView(back, android.widget.FrameLayout.LayoutParams(-1, -1))
         stage.addView(topBody, android.widget.FrameLayout.LayoutParams(-1, dp(cardHeightDp)))
-
         parent.addView(stage, LinearLayout.LayoutParams(-1, dp(cardHeightDp)))
-        val nextLayer = underLayers.lastOrNull()
+
+        fun incomingLayer(direction: Int): android.widget.FrameLayout? =
+            if (direction < 0) previousLayer else nextLayer
+
+        fun resetIncomingLayers() {
+            listOfNotNull(previousLayer, nextLayer).forEach { layer ->
+                layer.animate().cancel()
+                layer.visibility = View.GONE
+                layer.translationX = 0f
+                layer.translationY = 0f
+                layer.alpha = 0.82f
+            }
+        }
 
         fun restoreStack() {
             topBody.animate().cancel()
             topBody.animate()
                 .translationX(0f).translationY(0f).rotation(0f).alpha(1f)
-                .setDuration(155)
+                .setDuration(160)
                 .setInterpolator(DecelerateInterpolator())
                 .start()
-            nextLayer?.animate()?.translationY(0f)?.alpha(1f)
-                ?.setDuration(155)?.start()
+            resetIncomingLayers()
         }
 
-        fun animateCardChange(delta: Int) {
+        fun showIncomingDuringDrag(direction: Int, progress: Float) {
+            val selected = incomingLayer(direction)
+            val other = if (direction < 0) nextLayer else previousLayer
+            other?.visibility = View.GONE
+            if (selected != null) {
+                selected.visibility = View.VISIBLE
+                selected.translationX = dp(18 * -direction).toFloat() * (1f - progress)
+                selected.translationY = dp(5).toFloat() * (1f - progress)
+                selected.alpha = (0.82f + 0.18f * progress).coerceIn(0.82f, 1f)
+            }
+        }
+
+        fun animateCardChange(direction: Int) {
             if (browseFlipAnimating) return
-            if (delta < 0 && browseIndex <= 0) {
-                val bounce = dp(14).toFloat()
+
+            // Physical direction and queue direction are intentionally separate:
+            // swipe left = previous queue item; swipe right = next queue item.
+            if (direction < 0 && browseIndex <= 0) {
+                resetIncomingLayers()
                 topBody.animate().cancel()
-                topBody.animate().translationX(bounce).rotation(1.6f)
+                topBody.animate().translationX(dp(15).toFloat()).rotation(1.4f)
                     .setDuration(85).withEndAction {
                         topBody.animate().translationX(0f).rotation(0f)
-                            .setDuration(175).setInterpolator(DecelerateInterpolator()).start()
+                            .setDuration(170).setInterpolator(DecelerateInterpolator()).start()
                     }.start()
-                Toast.makeText(this, "已经是本轮第一个单词", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "已经是本轮第一张", Toast.LENGTH_SHORT).show()
                 return
             }
 
             browseFlipAnimating = true
-            // Commit the target index once the gesture is accepted. The outgoing
-            // view remains on screen until its exit animation finishes.
-            if (delta > 0) advanceBrowseWord() else showPreviousBrowseWord()
+            browseCardFlipped = false
+            if (direction < 0) showPreviousBrowseWord() else advanceBrowseWord()
             provideFeedback(isSwipe = true)
-            val exitDirection = if (delta > 0) -1f else 1f
+
+            val selected = incomingLayer(direction)
+            val other = if (direction < 0) nextLayer else previousLayer
+            other?.visibility = View.GONE
+            selected?.apply {
+                visibility = View.VISIBLE
+                translationX = dp(18 * -direction).toFloat()
+                translationY = dp(5).toFloat()
+                alpha = 0.82f
+            }
+
             topBody.animate().cancel()
             topBody.animate()
-                .translationX(exitDirection * (stage.width.coerceAtLeast(dp(280))).toFloat() * 1.12f)
-                .translationY(-dp(10).toFloat())
-                .rotation(exitDirection * 13f)
+                .translationX(direction * (stage.width.coerceAtLeast(dp(280))).toFloat() * 1.12f)
+                .translationY(-dp(9).toFloat())
+                .rotation(direction * 13f)
                 .alpha(0f)
-                .setDuration(225)
+                .setDuration(230)
                 .setInterpolator(DecelerateInterpolator())
                 .withEndAction {
                     browseFlipAnimating = false
                     renderPage()
                 }.start()
+
+            selected?.animate()?.translationX(0f)?.translationY(0f)?.alpha(1f)
+                ?.setDuration(230)?.setInterpolator(DecelerateInterpolator())?.start()
         }
 
         var downX = 0f
@@ -577,6 +626,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     horizontalDrag = false
                     verticalDrag = false
                     moved = false
+                    resetIncomingLayers()
                     view.parent?.requestDisallowInterceptTouchEvent(false)
                     true
                 }
@@ -598,7 +648,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     }
                     if (horizontalDrag) {
                         moved = true
+                        val direction = if (dx < 0f) -1 else 1
                         val progress = (kotlin.math.abs(dx) / dp(220).toFloat()).coerceIn(0f, 1f)
+                        showIncomingDuringDrag(direction, progress)
                         topBody.translationX = dx * 0.82f
                         topBody.translationY = -dp(7).toFloat() * progress
                         topBody.rotation = (dx / stage.width.coerceAtLeast(1).toFloat() * 13f).coerceIn(-13f, 13f)
@@ -613,10 +665,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     if (horizontalDrag && kotlin.math.abs(dx) >= dp(68) &&
                         kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.15f
                     ) {
-                        animateCardChange(if (dx < 0) 1 else -1)
+                        animateCardChange(if (dx < 0f) -1 else 1)
                     } else if (!verticalDrag && !moved &&
                         kotlin.math.abs(dx) < slop && kotlin.math.abs(dy) < slop
                     ) {
+                        resetIncomingLayers()
                         browseFlipAnimating = true
                         val from = if (browseCardFlipped) 180f else 0f
                         val to = if (browseCardFlipped) 0f else 180f
@@ -656,29 +709,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
 
-        parent.addView(vSpace(5))
-        val progress = row()
-        progress.addView(
-            text("本轮 ${browseIndex + 1} / ${browseQueue.size.coerceAtLeast(1)}", 10f, secondary, true),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        )
-        progress.addView(text("累计浏览 ${browseCount} 词", 10f, secondary))
-        parent.addView(progress)
-        parent.addView(vSpace(6))
-        val track = LinearLayout(this).apply {
-            background = rounded(line, 0, 5)
-            clipToOutline = true
-        }
-        val fill = View(this).apply { background = rounded(accent, 0, 5) }
-        track.addView(fill, LinearLayout.LayoutParams(0, dp(4)))
-        parent.addView(track, LinearLayout.LayoutParams(-1, dp(4)))
-        track.post {
-            val lp = fill.layoutParams as LinearLayout.LayoutParams
-            lp.width = (track.width * ((browseIndex + 1f) / browseQueue.size.coerceAtLeast(1))).toInt()
-            fill.layoutParams = lp
-        }
-        parent.addView(vSpace(6))
-
         val actions = row()
         actions.addView(pillButton("单词发音", false) { speak(word.word) },
             LinearLayout.LayoutParams(0, -2, 1f))
@@ -695,7 +725,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(actions)
         parent.addView(vSpace(3))
         parent.addView(text(
-            "${book.name}  ·  随刷不计入每日背词进度",
+            "\${book.name}  ·  已浏览 \${browseCount} 词",
             9f, secondary, false, Gravity.CENTER
         ))
 
@@ -1315,10 +1345,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         saveBrowseState()
     }
 
-    private fun swipeBrowse(delta: Int) {
+    private fun swipeBrowse(direction: Int) {
         if (browseFlipAnimating) return
         browseCardFlipped = false
-        if (delta > 0) advanceBrowseWord() else showPreviousBrowseWord()
+        if (direction < 0) showPreviousBrowseWord() else advanceBrowseWord()
         provideFeedback(isSwipe = true)
         renderPage()
     }
