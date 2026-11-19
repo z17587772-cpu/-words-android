@@ -193,13 +193,14 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.1
+          tag_name: v1.5.${{ github.run_number }}
           target_commitish: main
-          name: words 1.5.1
+          name: words 1.5.${{ github.run_number }}
           body: |
-            words 1.5.1 — polished stacked cards, stable app signing and seamless in-place updates.
+            words 1.5.${{ github.run_number }} — polished stacked cards, stable app signing and seamless in-place updates.
 
-            - APK signing now uses a persistent key; later versions can update without uninstalling this version.\n            - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
+            - APK signing now uses a persistent key; later versions can update without uninstalling this version.
+            - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
             - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
             - Quick Browse removes the next-word button and uses horizontal card swipes with directional motion.
