@@ -750,6 +750,33 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         addView(text(caption, 11f, secondary))
     }
 
+    /** Format packed translations as separated senses and emphasize the primary sense. */
+    private fun formatMeaning(raw: String): CharSequence {
+        val senses = raw.replace("\\r\\n", "\\n")
+            .split(Regex("[；;\\n]+"))
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        if (senses.isEmpty()) return raw.trim()
+
+        val result = android.text.SpannableStringBuilder()
+        val posPattern = Regex("^(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl)\\.\\s*", RegexOption.IGNORE_CASE)
+        senses.forEachIndexed { index, sense ->
+            if (index > 0) result.append("\\n\\n")
+            val start = result.length
+            result.append(sense)
+            val end = result.length
+            if (index == 0) {
+                result.setSpan(StyleSpan(Typeface.BOLD), start, end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            val pos = posPattern.find(sense)
+            if (pos != null) {
+                result.setSpan(StyleSpan(Typeface.BOLD), start + pos.range.first, start + pos.range.last + 1, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                result.setSpan(ForegroundColorSpan(accent), start + pos.range.first, start + pos.range.last + 1, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        return result
+    }
+
     private fun renderStudy(parent: LinearLayout) {
         if (queue.isEmpty()) ensureQueue(forceNew = true)
         val book = activeBook()
@@ -816,7 +843,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         head.addView(text(if (englishPrompt) "EN → 中文" else "中文 → EN", 11f, accent, true))
         questionCard.addView(head)
         questionCard.addView(vSpace(25))
-        questionCard.addView(text(if (englishPrompt) word.word else word.meaning, if (englishPrompt) 34f else 24f, ink, true, Gravity.CENTER))
+        questionCard.addView(text(if (englishPrompt) word.word else formatMeaning(word.meaning), if (englishPrompt) 34f else 21f, ink, true, Gravity.CENTER))
         if (englishPrompt) {
             if (word.phonetic.isNotBlank()) {
                 questionCard.addView(vSpace(9))
@@ -830,7 +857,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         questionCard.addView(vSpace(14))
 
         options.forEachIndexed { index, option ->
-            val label = if (englishPrompt) option.meaning else option.word
+            val label = if (englishPrompt) formatMeaning(option.meaning) else option.word
             val isCorrectOption = option.id == word.id
             val isSelected = option.id == quizSelectedOptionId
             val fill = when {
@@ -857,7 +884,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 else -> ""
             }
             questionCard.addView(
-                quizOptionButton("${index + 1}.  $marker$label", fill, stroke, color) {
+                quizOptionButton(android.text.SpannableStringBuilder().append("${index + 1}.  $marker").append(label), fill, stroke, color) {
                     if (!answered) {
                         chooseQuizOption(word, option)
                     } else {
@@ -909,7 +936,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun quizOptionButton(
-        label: String,
+        label: CharSequence,
         fillColor: Int,
         strokeColor: Int,
         textColor: Int,
@@ -1030,7 +1057,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         wordCard.addView(vSpace(12))
         wordCard.addView(text("核心释义", 11f, accent, true))
         wordCard.addView(vSpace(6))
-        wordCard.addView(text(word.meaning, 19f, ink, true))
+        wordCard.addView(text(formatMeaning(word.meaning), 19f, ink))
         wordCard.addView(vSpace(11))
         wordCard.addView(row().apply {
             addView(pillButton("播放单词", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -1156,7 +1183,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun requestDictionaryDefinitionTranslation(definition: String, wordId: Long) {
+    private fun requestDictionaryDefinitionTranslation(definition: String, statusView: TextView) {
         if (definition.isBlank() || translationLoading.contains(definition) ||
             translationFailed.contains(definition) || db.getExampleTranslation(definition) != null
         ) return
@@ -1173,10 +1200,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 } else {
                     translationFailed.add(definition)
                 }
-                // Refresh the explanation in-place as soon as the translation arrives;
-                // the learner never has to leave the question and open it again.
-                if (selectedTab == TAB_STUDY && quizShowExplanation && quizCurrentWordId == wordId) {
-                    renderPage()
+                // Update only this label. Rebuilding the entire answer page for
+                // each translated sense caused repeated jumps and flicker.
+                if (!translated.isNullOrBlank()) {
+                    statusView.text = "中文释义 · 机器翻译参考\\n$translated"
+                    statusView.setTextColor(ink)
+                } else {
+                    statusView.text = "中文释义暂时获取失败。"
+                    statusView.setTextColor(secondary)
                 }
             }
         }.start()
@@ -1348,8 +1379,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                             }))
                         }
                         else -> {
-                            senseCard.addView(text("正在生成中文释义参考…", 11f, secondary))
-                            requestDictionaryDefinitionTranslation(definition, word.id)
+                            val translationStatus = text("正在生成中文释义参考…", 12f, secondary)
+                            senseCard.addView(translationStatus)
+                            requestDictionaryDefinitionTranslation(definition, translationStatus)
                         }
                     }
                 }
