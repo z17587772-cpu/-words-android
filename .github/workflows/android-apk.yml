@@ -173,11 +173,11 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.4
+          tag_name: v1.6.5
           target_commitish: main
-          name: words 1.6.4
+          name: words 1.6.5
           body: |
-            words 1.6.4 — fixes dynamic labels, organizes Chinese meanings and reduces explanation-page flicker.
+            words 1.6.5 — keeps meaning groups compact, slightly enlarges dictionary expansion text, and refreshes online details in place.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
@@ -198,7 +198,9 @@ jobs:
             - Keeps optional cached FreeDictionaryAPI / Wiktionary expansion, system TTS, favorites, and user-provided vector launcher icon.
             - Example sentence translations use MyMemory's public translation endpoint and are labelled as machine-translation references.
 
-            This is a debug-signed APK for direct testing.
+            Dictionary meaning groups remain inline with a subtle gap between major senses; the first/main sense stays bold. Dictionary expansion typography increases by only 1sp. Online dictionary data refreshes the existing dictionary card in place, avoiding a full explanation-page rebuild.
+
+This is a debug-signed APK for direct testing.
           files: dist/words.apk
           overwrite_files: true
           fail_on_unmatched_files: true
