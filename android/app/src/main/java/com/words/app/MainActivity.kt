@@ -385,7 +385,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 "low" -> "低频"
                 else -> ""
             }
-            val count = if (cardWord.corpusFrequency >= 0) "语料 \${cardWord.corpusFrequency} 次" else ""
+            val count = if (cardWord.corpusFrequency >= 0) "语料 ${cardWord.corpusFrequency} 次" else ""
             return listOf(level, count).filter { it.isNotBlank() }.joinToString("  ·  ")
         }
 
@@ -417,7 +417,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             content.addView(mainText, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
             if (cardWord.phonetic.isNotBlank()) {
                 content.addView(vSpace(11))
-                content.addView(text("音标  \${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
+                content.addView(text("音标  ${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
             }
             if (cardWord.partOfSpeech.isNotBlank()) {
                 content.addView(vSpace(8))
@@ -651,10 +651,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(5))
         val progress = row()
         progress.addView(
-            text("本轮 \${browseIndex + 1} / \${browseQueue.size.coerceAtLeast(1)}", 10f, secondary, true),
+            text("本轮 ${browseIndex + 1} / ${browseQueue.size.coerceAtLeast(1)}", 10f, secondary, true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         )
-        progress.addView(text("累计浏览 \${browseCount} 词", 10f, secondary))
+        progress.addView(text("累计浏览 ${browseCount} 词", 10f, secondary))
         parent.addView(progress)
         parent.addView(vSpace(6))
         val track = LinearLayout(this).apply {
@@ -687,7 +687,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(actions)
         parent.addView(vSpace(6))
         parent.addView(text(
-            "\${book.name}  ·  随刷不计入每日背词进度",
+            "${book.name}  ·  随刷不计入每日背词进度",
             9f, secondary, false, Gravity.CENTER
         ))
 
@@ -1599,6 +1599,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             .putInt(KEY_BROWSE_INDEX, browseIndex)
             .putString(KEY_BROWSE_RECENT, browseRecentIds.joinToString(","))
             .putInt(KEY_BROWSE_COUNT, browseCount)
+            .putInt(KEY_BROWSE_QUEUE_VERSION, 2)
             .apply()
     }
 
@@ -1611,6 +1612,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         browseQueue = (prefs.getString(KEY_BROWSE_QUEUE, "") ?: "").split(",")
             .mapNotNull { it.toLongOrNull() }.toMutableList()
         browseIndex = prefs.getInt(KEY_BROWSE_INDEX, 0).coerceIn(0, browseQueue.size)
+        // Rebuild the saved browse sequence once so users move from the old
+        // one-appearance-per-cycle queue to the weighted repeat scheduler.
+        if (prefs.getInt(KEY_BROWSE_QUEUE_VERSION, 0) < 2) {
+            browseQueue.clear()
+            browseIndex = 0
+            prefs.edit().putInt(KEY_BROWSE_QUEUE_VERSION, 2).apply()
+        }
         browseRecentIds = (prefs.getString(KEY_BROWSE_RECENT, "") ?: "").split(",")
             .mapNotNull { it.toLongOrNull() }.take(30).toMutableList()
         browseCount = prefs.getInt(KEY_BROWSE_COUNT, 0).coerceAtLeast(0)
@@ -1826,6 +1834,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         private const val KEY_GOAL = "daily_goal"
         private const val KEY_TTS_LOCALE = "tts_locale"
         private const val KEY_BROWSE_FIRST_SIDE = "browse_first_side"
+        private const val KEY_BROWSE_QUEUE_VERSION = "browse_queue_version"
         private const val KEY_QUIZ_DIRECTION = "quiz_direction"
         private const val KEY_ONLINE_DETAIL = "online_detail"
         private const val KEY_QUIZ_WORD_ID = "quiz_word_id"
