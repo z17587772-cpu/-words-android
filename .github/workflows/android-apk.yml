@@ -173,16 +173,19 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.1
+          tag_name: v1.6.0
           target_commitish: main
-          name: words 1.5.1
+          name: words 1.6.0
           body: |
-            words 1.5.1 — polished stacked cards, system-bar layout and reduced quiz flicker.
+            words 1.6.0 — refined Quick Browse layout, smooth card transitions and weighted vocabulary frequency.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
             - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
-            - Quick Browse removes the next-word button and uses horizontal card swipes with directional motion.
+            - Quick Browse fits the initial view without vertical scrolling where the device viewport permits; edge pulls retain the native rebound effect.
+            - Choose whether English or Chinese is the default card face; flipping always reveals the other language without masking state.
+            - Card faces share a compact layout and show IPA, part of speech and third-party combined-corpus frequency when available.
+            - Quick Browse guarantees full wordbook coverage and interleaves bonus appearances sampled by curriculum importance and corpus-frequency tier; recently browsed words stay in cooldown.
             - Optional sound and haptic feedback for right/wrong answers and card navigation.
             - Keeps optional cached FreeDictionaryAPI / Wiktionary expansion, system TTS, favorites, and user-provided vector launcher icon.
             - Example sentence translations use MyMemory's public translation endpoint and are labelled as machine-translation references.
