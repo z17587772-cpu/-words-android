@@ -47,6 +47,6 @@ APK 输出：`android/app/build/outputs/apk/debug/app-debug.apk`。
 
 ## GitHub 构建与下载
 
-向 `main` 推送代码或手动运行 Actions 中的 **Build words APK**。构建通过后会上传 `words-debug-apk` 制品并更新 [v1.2.0 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.2.0)。
+向 `main` 推送代码或手动运行 Actions 中的 **Build words APK**。构建通过后会上传 `words-debug-apk` 制品并更新 [v1.2.1 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.2.0)。
 
 当前发布包为 debug 签名测试版，不是 Play Store 正式发布包。
