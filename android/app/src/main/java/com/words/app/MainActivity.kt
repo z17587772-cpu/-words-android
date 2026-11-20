@@ -387,7 +387,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(4))
         parent.addView(text("随刷", 25f, ink, true))
         parent.addView(vSpace(3))
-        parent.addView(text("左滑下一张 · 右滑上一张 · 点击翻面", 11f, secondary))
+        parent.addView(text("左滑下一张 · 右滑上一张 · 点击翻面", 12f, secondary))
         parent.addView(vSpace(6))
 
         if (word == null) {
@@ -440,13 +440,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             content.addView(
                 text(
                     if (englishSide) "ENGLISH  ·  WORD" else "中文释义  ·  MEANING",
-                    9f, faceMuted, true, Gravity.CENTER
+                    10f, faceMuted, true, Gravity.CENTER
                 )
             )
             content.addView(vSpace(12))
             val mainText = text(
                 if (englishSide) cardWord.word else cardWord.meaning,
-                if (englishSide) 34f else 22f,
+                if (englishSide) 35.5f else 23.5f,
                 faceInk, true, Gravity.CENTER
             ).apply {
                 maxLines = if (englishSide) 2 else 3
@@ -455,22 +455,22 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             content.addView(mainText, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
             if (cardWord.phonetic.isNotBlank()) {
                 content.addView(vSpace(10))
-                content.addView(text("音标  ${cardWord.phonetic}", 13f, faceMuted, false, Gravity.CENTER))
+                content.addView(text("音标  ${cardWord.phonetic}", 14f, faceMuted, false, Gravity.CENTER))
             }
             if (cardWord.partOfSpeech.isNotBlank()) {
                 content.addView(vSpace(7))
-                content.addView(text(cardWord.partOfSpeech, 12f, accent, true, Gravity.CENTER))
+                content.addView(text(cardWord.partOfSpeech, 13f, accent, true, Gravity.CENTER))
             }
             val frequency = frequencyText(cardWord)
             if (frequency.isNotBlank()) {
                 content.addView(vSpace(8))
-                content.addView(text(frequency, 10f, faceMuted, false, Gravity.CENTER))
+                content.addView(text(frequency, 11f, faceMuted, false, Gravity.CENTER))
             }
             content.addView(vSpace(15))
             content.addView(
                 text(
                     if (active) "点击翻面" else backLabel,
-                    10f, faceMuted, false, Gravity.CENTER
+                    11f, faceMuted, false, Gravity.CENTER
                 )
             )
             face.addView(content, LinearLayout.LayoutParams(-1, -1))
@@ -733,7 +733,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             renderPage()
         }, LinearLayout.LayoutParams(0, -2, 1f))
         parent.addView(actions)
-        parent.addView(vSpace(3))
+        parent.addView(vSpace(7))
         parent.addView(text(
             "${book.name}  ·  已浏览 ${browseCount} 词",
             9f, secondary, false, Gravity.CENTER
