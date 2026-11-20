@@ -277,7 +277,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             isVerticalScrollBarEnabled = false
         }
         val content = column().apply {
-            setPadding(dp(20), dp(18), dp(20), dp(if (compactBrowse) 8 else 30))
+            setPadding(dp(20), dp(12), dp(20), dp(if (compactBrowse) 8 else 30))
         }
         scroll.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         pageHost.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -445,7 +445,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             )
             content.addView(vSpace(12))
             val mainText = text(
-                if (englishSide) cardWord.word else cardWord.meaning,
+                if (englishSide) cardWord.word else formatMeaning(cardWord.meaning, cardWord.partOfSpeech),
                 if (englishSide) 35.5f else 23.5f,
                 faceInk, true, Gravity.CENTER
             ).apply {
@@ -752,17 +752,23 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     /**
-     * Format packed definitions by part of speech and major sense.
-     * Chinese semicolons separate major senses; Chinese commas keep related glosses together.
-     * POS markers are recognized throughout the definition, not just at the beginning.
+     * Group definitions by part of speech, then merge repeated source entries.
+     * Semicolons separate major senses; commas/enumeration marks group close glosses.
      */
     private fun formatMeaning(raw: String, fallbackPos: String = ""): CharSequence {
         val source = raw.replace("\r\n", "\n").replace('　', ' ').trim()
         if (source.isBlank()) return source
 
-        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|neg|n|v))\.(?=\s|$)\s*""")
+        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:prep&adv|prep&pron|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|neg|n|v))\.(?=\s|$)\s*""")
         val markers = posPattern.findAll(source).toList()
-        val groups = mutableListOf<Pair<String, String>>()
+        val groupedBodies = linkedMapOf<String, MutableList<String>>()
+
+        fun addBody(label: String, body: String) {
+            val cleanBody = body.trim()
+            if (cleanBody.isBlank()) return
+            val cleanLabel = label.trim()
+            groupedBodies.getOrPut(cleanLabel.lowercase()) { mutableListOf() }.add(cleanBody)
+        }
 
         fun fallbackLabel(): String {
             val value = fallbackPos.trim()
@@ -780,17 +786,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         if (markers.isEmpty()) {
-            groups.add(Pair(fallbackLabel(), source))
+            addBody(fallbackLabel(), source)
         } else {
             val prefix = source.substring(0, markers.first().range.first).trim()
-            if (prefix.isNotBlank()) groups.add(Pair(fallbackLabel(), prefix))
+            if (prefix.isNotBlank()) addBody(fallbackLabel(), prefix)
             markers.forEachIndexed { index, marker ->
                 val bodyStart = marker.range.last + 1
                 val bodyEnd = markers.getOrNull(index + 1)?.range?.first ?: source.length
-                val body = source.substring(bodyStart, bodyEnd).trim()
-                if (body.isNotBlank()) {
-                    groups.add(Pair(marker.groupValues[1] + ".", body))
-                }
+                addBody(marker.groupValues[1] + ".", source.substring(bodyStart, bodyEnd))
             }
         }
 
@@ -798,65 +801,74 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val bracketAnnotation = Regex("""\[([^\]]+)]\s*""")
         val chineseWordGap = Regex("""(?<=\p{IsHan})\s+(?=\p{IsHan})""")
 
-        groups.forEach { (pos, body) ->
-            val seenSenses = linkedSetOf<String>()
-            val senses = body.split(Regex("""[；;\n]+"""))
-                .map { rawSense ->
-                    var sense = rawSense.trim()
-                    val annotation = bracketAnnotation.find(sense)
-                    if (annotation != null) {
-                        val note = annotation.groupValues[1].trim()
-                        val rest = sense.removeRange(annotation.range).trimStart()
-                        // For example, "[病毒] 病毒" becomes just "病毒".
-                        if (note.isNotBlank() && rest.startsWith(note)) {
-                            sense = rest
-                        }
+        groupedBodies.forEach { (posKey, bodies) ->
+            // Each set represents one major meaning and its compact gloss variants.
+            val senseGroups = mutableListOf<LinkedHashSet<String>>()
+            val allSegments = bodies.flatMap { it.split(Regex("""[；;\n]+""")) }
+
+            allSegments.forEach { rawSense ->
+                var sense = rawSense.trim()
+                if (sense.isBlank()) return@forEach
+
+                val annotation = bracketAnnotation.find(sense)
+                if (annotation != null) {
+                    val note = annotation.groupValues[1].trim()
+                    val remainder = sense.removeRange(annotation.range).trimStart()
+                    // "[病毒] 病毒" -> "病毒"; other non-duplicated notes stay intact.
+                    if (note.isNotBlank() && remainder.startsWith(note)) {
+                        sense = remainder
                     }
-
-                    sense = chineseWordGap.replace(sense, "，")
-                    val glosses = sense.split(Regex("""[，、,]"""))
-                        .map { it.trim() }
-                        .filter { it.isNotBlank() }
-                        .distinct()
-                    glosses.joinToString("，")
                 }
-                .filter { it.isNotBlank() }
-                .filter { seenSenses.add(it) }
 
-            if (senses.isEmpty()) return@forEach
-            if (result.isNotEmpty()) result.append("\u2002\u2002")
+                // Spaces between Chinese glosses in source records act as a list separator.
+                sense = chineseWordGap.replace(sense, "、")
+                val glosses = sense.split(Regex("""[，,、；;]"""))
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinctBy { it.lowercase().replace(Regex("""\s+"""), "") }
+                if (glosses.isEmpty()) return@forEach
 
-            val cleanPos = pos.trim()
-            if (cleanPos.isNotBlank()) {
+                // A later source line may repeat an earlier POS sense with one extra synonym.
+                // Merge its new glosses into that sense rather than outputting another POS tag.
+                val overlappingIndex = senseGroups.indexOfFirst { existing ->
+                    glosses.any { candidate ->
+                        existing.any { it.equals(candidate, ignoreCase = true) }
+                    }
+                }
+                if (overlappingIndex >= 0) {
+                    senseGroups[overlappingIndex].addAll(glosses)
+                } else {
+                    senseGroups.add(LinkedHashSet(glosses))
+                }
+            }
+
+            if (senseGroups.isEmpty()) return@forEach
+            if (result.isNotEmpty()) result.append("\u2002")
+
+            val displayPos = bodies.firstOrNull()?.let {
+                val firstMarker = posPattern.find(source)
+                if (firstMarker != null && firstMarker.groupValues[1].lowercase() == posKey) {
+                    firstMarker.groupValues[1] + "."
+                } else {
+                    posKey
+                }
+            } ?: posKey
+
+            if (displayPos.isNotBlank()) {
                 val posStart = result.length
-                result.append(cleanPos)
+                result.append(displayPos)
                 val posEnd = result.length
-                result.setSpan(
-                    StyleSpan(Typeface.BOLD),
-                    posStart,
-                    posEnd,
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                result.setSpan(
-                    ForegroundColorSpan(accent),
-                    posStart,
-                    posEnd,
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+                result.setSpan(StyleSpan(Typeface.BOLD), posStart, posEnd, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                result.setSpan(ForegroundColorSpan(accent), posStart, posEnd, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 result.append(" ")
             }
 
-            senses.forEachIndexed { index, sense ->
-                if (index > 0) result.append("\u2002\u2002")
+            senseGroups.forEachIndexed { index, glossGroup ->
+                if (index > 0) result.append("\u2002")
                 val senseStart = result.length
-                result.append(sense)
+                result.append(glossGroup.joinToString("、"))
                 if (index == 0) {
-                    result.setSpan(
-                        StyleSpan(Typeface.BOLD),
-                        senseStart,
-                        result.length,
-                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
+                    result.setSpan(StyleSpan(Typeface.BOLD), senseStart, result.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
         }
@@ -1105,16 +1117,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderQuizAnswer(parent: LinearLayout, word: VocabularyWord) {
         val correct = quizAnswerCorrect == true
-        parent.addView(row().apply {
-            addView(quietButton("‹  返回选项", onClick = {
-                quizShowExplanation = false
-                prefs.edit().putBoolean(KEY_QUIZ_SHOW_EXPLANATION, false).apply()
-                renderPage()
-            }))
-            addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
-            addView(text("ANSWER REVIEW", 10f, secondary, true))
-        })
-        parent.addView(vSpace(15))
 
         val resultCard = card(18)
         resultCard.background = rounded(if (correct) softAccent else 0xFFFFF3F3.toInt(), 0, 18)
@@ -1122,7 +1124,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         resultCard.addView(vSpace(6))
         resultCard.addView(text(if (correct) "答对了，继续保持。" else "本题已记录为需要复习。正确答案如下。", 12f, secondary))
         parent.addView(resultCard)
-        parent.addView(vSpace(13))
+        parent.addView(vSpace(15))
 
         val wordCard = card(20)
         wordCard.addView(row().apply {
