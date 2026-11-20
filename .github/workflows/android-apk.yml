@@ -78,11 +78,15 @@ jobs:
           PY
 
           mkdir -p "$PROJECT_DIR/app/src/main/assets/books" "$PROJECT_DIR/app/src/main/assets/licenses"
+          python tools/sync_wordbooks.py wordbooks
           python tools/enrich_wordbook_pos.py wordbooks
           python tools/enrich_wordbooks.py "$PROJECT_DIR" wordbooks
           cp wordbooks/*.json "$PROJECT_DIR/app/src/main/assets/books/"
           cp wordbooks/KyleBing-LICENSE.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
           cp wordbooks/ECDICT-LICENSE-MIT.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
+          cp wordbooks/WordTyper-LICENSE-MIT.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
+          cp wordbooks/WordTyper-NOTICE.md "$PROJECT_DIR/app/src/main/assets/licenses/"
+          cp wordbooks/NGSL-ATTRIBUTION.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
           cp wordbooks/SOURCES.md "$PROJECT_DIR/app/src/main/assets/licenses/"
 
           # Persist enriched source wordbooks (not only the copies inside the APK).
@@ -187,11 +191,17 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.7.1
+          tag_name: v1.8.0
           target_commitish: main
-          name: words 1.7.1
+          name: words 1.8.0
           body: |
-            words 1.7.1 — refines Quick Browse swipe continuity while preserving the 1.7.0 study and dictionary improvements.
+            words 1.8.0 — refreshes curriculum vocabulary and adds licensed offline wordbooks.
+
+            - Rebuilds the 2025 curriculum wordbook using structured Appendix 2 headwords and ECDICT dictionary data.
+            - Adds CET-4, CET-6, IELTS, TOEFL, GRE, postgraduate, SAT, GMAT and NGSL/NAWL wordbooks.
+            - Matching words preserve existing review progress and favorites; removed words are deactivated instead of deleted.
+            - Bundles MIT and CC BY-SA attribution/license notices.
+
 
             - The incoming card keeps its final “点击翻面” cue throughout the transition, avoiding a text swap at rest.
             - Card motion tracks the finger directly; a single coordinated exit/entry animation preserves the drag position.

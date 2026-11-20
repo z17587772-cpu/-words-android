@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 4) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 5) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -35,6 +35,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 example_zh TEXT NOT NULL DEFAULT '',
                 importance INTEGER NOT NULL DEFAULT 3,
                 favorite INTEGER NOT NULL DEFAULT 0,
+                is_active INTEGER NOT NULL DEFAULT 1,
                 corpus_frequency INTEGER NOT NULL DEFAULT -1,
                 frequency_rank TEXT NOT NULL DEFAULT '',
                 frequency_source TEXT NOT NULL DEFAULT '',
@@ -103,6 +104,9 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 )
             """.trimIndent())
         }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE words ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+        }
     }
 
     fun seedBuiltInPack(context: Context) {
@@ -142,11 +146,14 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             val bookExists = db.rawQuery("SELECT 1 FROM books WHERE id=?", arrayOf(pack.id)).use { it.moveToFirst() }
             if (bookExists) db.update("books", bookValues, "id=?", arrayOf(pack.id))
             else db.insert("books", null, bookValues)
+            // Deactivate removed headwords without deleting their review/history rows.
+            db.execSQL("UPDATE words SET is_active=0 WHERE book_id=?", arrayOf(pack.id))
+            val existingIds = HashMap<String, Long>()
+            db.rawQuery("SELECT id,word FROM words WHERE book_id=?", arrayOf(pack.id)).use { cursor ->
+                while (cursor.moveToNext()) existingIds[cursor.getString(1).trim().lowercase()] = cursor.getLong(0)
+            }
             pack.words.forEach { item ->
-                val existingId = db.rawQuery(
-                    "SELECT id FROM words WHERE book_id=? AND word=?",
-                    arrayOf(pack.id, item.word.trim())
-                ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
+                val existingId = existingIds[item.word.trim().lowercase()]
                 val values = ContentValues().apply {
                     put("book_id", pack.id)
                     put("word", item.word.trim())
@@ -156,6 +163,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                     put("example", item.example)
                     put("example_zh", item.exampleZh)
                     put("importance", item.importance.coerceIn(1, 5))
+                    put("is_active", 1)
                 put("corpus_frequency", item.corpusFrequency)
                 put("frequency_rank", item.frequencyRank)
                 put("frequency_source", item.frequencySource)
@@ -163,7 +171,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 if (existingId == null) db.insert("words", null, values)
                 else db.update("words", values, "id=?", arrayOf(existingId.toString()))
             }
-            db.execSQL("UPDATE books SET word_count=(SELECT COUNT(*) FROM words WHERE words.book_id=books.id) WHERE id=?", arrayOf(pack.id))
+            db.execSQL("UPDATE books SET word_count=(SELECT COUNT(*) FROM words WHERE words.book_id=books.id AND words.is_active=1) WHERE id=?", arrayOf(pack.id))
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -181,7 +189,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
     fun getWords(bookId: String): List<VocabularyWord> = readableDatabase.rawQuery(
         """SELECT w.id,w.book_id,w.word,w.phonetic,w.pos,w.meaning,w.example,w.example_zh,w.importance,
            COALESCE(r.mastery,0),COALESCE(r.seen_count,0),COALESCE(r.correct_count,0),COALESCE(r.last_seen,0),w.favorite,w.corpus_frequency,w.frequency_rank,w.frequency_source
-           FROM words w LEFT JOIN reviews r ON r.word_id=w.id WHERE w.book_id=? ORDER BY w.word COLLATE NOCASE""",
+           FROM words w LEFT JOIN reviews r ON r.word_id=w.id WHERE w.book_id=? AND w.is_active=1 ORDER BY w.word COLLATE NOCASE""",
         arrayOf(bookId)
     ).use(::readWords)
 
@@ -200,12 +208,12 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         """SELECT w.id,w.book_id,w.word,w.phonetic,w.pos,w.meaning,w.example,w.example_zh,w.importance,
            COALESCE(r.mastery,0),COALESCE(r.seen_count,0),COALESCE(r.correct_count,0),COALESCE(r.last_seen,0),w.favorite,w.corpus_frequency,w.frequency_rank,w.frequency_source
            FROM words w LEFT JOIN reviews r ON r.word_id=w.id
-           WHERE w.favorite=1
+           WHERE w.favorite=1 AND w.is_active=1
            ORDER BY w.book_id COLLATE NOCASE, w.word COLLATE NOCASE""",
         null
     ).use(::readWords)
 
-    fun favoriteCountAll(): Int = scalar("SELECT COUNT(*) FROM words WHERE favorite=1")
+    fun favoriteCountAll(): Int = scalar("SELECT COUNT(*) FROM words WHERE favorite=1 AND is_active=1")
 
     /** Cached online dictionary responses are stored locally for later offline reading. */
     fun getDictionaryCache(word: String): String? = readableDatabase.rawQuery(
@@ -245,7 +253,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
     }
 
     fun recentWordIds(bookId: String, limit: Int = 60): List<Long> = readableDatabase.rawQuery(
-        "SELECT h.word_id FROM history h JOIN words w ON w.id=h.word_id WHERE w.book_id=? GROUP BY h.word_id ORDER BY MAX(h.rated_at) DESC LIMIT ?",
+        "SELECT h.word_id FROM history h JOIN words w ON w.id=h.word_id WHERE w.book_id=? AND w.is_active=1 GROUP BY h.word_id ORDER BY MAX(h.rated_at) DESC LIMIT ?",
         arrayOf(bookId, limit.toString())
     ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
 
@@ -288,19 +296,19 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
 
     fun totalReviewedCount(): Int = scalar("SELECT COUNT(*) FROM history")
     fun knownCount(bookId: String): Int = readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM reviews r JOIN words w ON w.id=r.word_id WHERE w.book_id=? AND r.mastery=3", arrayOf(bookId)
+        "SELECT COUNT(*) FROM reviews r JOIN words w ON w.id=r.word_id WHERE w.book_id=? AND w.is_active=1 AND r.mastery=3", arrayOf(bookId)
     ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
     fun weakCount(bookId: String): Int = readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM reviews r JOIN words w ON w.id=r.word_id WHERE w.book_id=? AND r.mastery IN (1,2)", arrayOf(bookId)
+        "SELECT COUNT(*) FROM reviews r JOIN words w ON w.id=r.word_id WHERE w.book_id=? AND w.is_active=1 AND r.mastery IN (1,2)", arrayOf(bookId)
     ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-    fun favoriteCount(bookId: String): Int = scalar("SELECT COUNT(*) FROM words WHERE book_id=? AND favorite=1", bookId)
-    fun totalWordCount(bookId: String): Int = scalar("SELECT COUNT(*) FROM words WHERE book_id=?", bookId)
+    fun favoriteCount(bookId: String): Int = scalar("SELECT COUNT(*) FROM words WHERE book_id=? AND favorite=1 AND is_active=1", bookId)
+    fun totalWordCount(bookId: String): Int = scalar("SELECT COUNT(*) FROM words WHERE book_id=? AND is_active=1", bookId)
 
     fun searchWords(bookId: String, query: String): List<VocabularyWord> = readableDatabase.rawQuery(
         """SELECT w.id,w.book_id,w.word,w.phonetic,w.pos,w.meaning,w.example,w.example_zh,w.importance,
            COALESCE(r.mastery,0),COALESCE(r.seen_count,0),COALESCE(r.correct_count,0),COALESCE(r.last_seen,0),w.favorite,w.corpus_frequency,w.frequency_rank,w.frequency_source
            FROM words w LEFT JOIN reviews r ON r.word_id=w.id
-           WHERE w.book_id=? AND (w.word LIKE ? OR w.meaning LIKE ?) ORDER BY w.word LIMIT 100""",
+           WHERE w.book_id=? AND w.is_active=1 AND (w.word LIKE ? OR w.meaning LIKE ?) ORDER BY w.word LIMIT 100""",
         arrayOf(bookId, "%$query%", "%$query%")
     ).use(::readWords)
 

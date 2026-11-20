@@ -30,10 +30,12 @@
 - 支持美式 / 英式英语选择，播放单词和例句。
 - 「我的 → 答题与翻页反馈」可分别关闭音效、震动；默认轻触感开启，提示音关闭。
 
-## 词库口径
-- 2025 核心词书当前提取 2,974 条，仍有约 126 条需与约 3,100 词目标核对。
-- `importance` 表示课标 / 词表层级，不等于历年高考考频。
-- 第三方语料频率是“真题 + 高中教材”综合参考，不是官方完整高考单独语料。
+## 内置词书（v1.8.0）
+- 新课标核心词汇（2025修订）：3,097 个可检索词条。结构化来源分组为义务教育 1,600、高中必修 502、选择性必修 997；China/china、Miss/miss 两组大小写词头因数据库不区分大小写规则而合并，不将统计冒称为官方逐行恰好 3,100 条。
+- 高中扩展词汇：3,743。
+- 新增 CET-4、CET-6、IELTS、TOEFL、GRE、考研、SAT、GMAT 八套独立参考词书。
+- 通用核心词汇采用 NGSL + NAWL 开放词表（约 3,000 词），作为 Oxford 3000/5000 的开放替代。未打包 Oxford 原表，因为没有确认其内容具有可再分发授权。
+- 词库来源、许可和新课标数量差异见 wordbooks/SOURCES.md 与 wordbooks/CURRICULUM-AUDIT.md。
 
 ## 项目结构与构建
 ```
@@ -53,4 +55,4 @@ gradle --no-daemon clean assembleDebug
 
 输出：`app/build/outputs/apk/debug/app-debug.apk`。
 
-当前 APK 为 debug 签名测试包。GitHub Actions 成功后发布到 [v1.6.2 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.6.2)。
+当前 APK 为 debug 签名测试包，版本 1.8.0。GitHub Actions 成功后发布到 [v1.6.2 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.6.2)。
