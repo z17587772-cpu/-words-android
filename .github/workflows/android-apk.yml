@@ -173,11 +173,11 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.8
+          tag_name: v1.6.9
           target_commitish: main
-          name: words 1.6.8
+          name: words 1.6.9
           body: |
-            words 1.6.8 — applies grouped Chinese meanings to Quick Browse, merges repeated POS sources and tightens the Study answer layout.
+            words 1.6.9 — removes the Study screen return row and improves POS coverage and meaning spacing.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
@@ -205,7 +205,10 @@ jobs:
             Meaning formatting recognizes n./v./vt./vi./adj./adv. and related POS tags throughout the raw definition. Chinese semicolons separate major senses with a subtle gap; Chinese commas keep related glosses together. Repeated bracket notes such as [病毒] 病毒 are deduplicated, only POS tokens receive blue styling, and the wordbook POS field fills a missing inline POS marker.
             Global content inset is 12 dp below the status-bar/system inset across pages.
             Quick Browse's Chinese side now uses the same POS-aware meaning formatter as Study. Repeated n./v. source entries merge into one POS group; duplicate glosses are removed, related glosses use the enumeration comma 、, and major senses use a smaller single-en-space gap.
-            The redundant 返回选项 / ANSWER REVIEW row is removed from the explanation screen. The progress-to-result-card and result-card-to-word-card spacing are standardized at 15 dp.
+            The actual Study question screen no longer shows the top ‹ 返回 / DAILY QUIZ row; 今日背词计划 is now the first content at the top.
+            Combined POS metadata such as v./n. is parsed into separate blue labels when legacy source definitions have no inline markers. vt./vi. are normalized to v. so declared verb POS is not lost.
+            Enumeration punctuation is reduced to 68% size; different major senses retain a visibly wider two-en-space gap. Duplicate source senses merge only when one gloss set is fully contained in the other, avoiding accidental collapse of unrelated meanings.
+            Study progress-to-question/result-card and result-card-to-word-card gaps remain consistently 15 dp.
 
             This is a debug-signed APK for direct testing.
           files: dist/words.apk

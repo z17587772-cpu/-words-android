@@ -11,6 +11,7 @@ import android.os.Vibrator
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.text.style.RelativeSizeSpan
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -752,122 +753,140 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     /**
-     * Group definitions by part of speech, then merge repeated source entries.
-     * Semicolons separate major senses; commas/enumeration marks group close glosses.
+     * Formats meanings by real POS markers and source POS metadata.
+     * Semicolons split major senses; enumeration commas stay compact.
      */
     private fun formatMeaning(raw: String, fallbackPos: String = ""): CharSequence {
         val source = raw.replace("\r\n", "\n").replace('　', ' ').trim()
         if (source.isBlank()) return source
 
-        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:prep&adv|prep&pron|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|neg|n|v))\.(?=\s|$)\s*""")
+        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:prep&adv|prep&pron|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|neg|n|v))\.(?=\s|[/&,]|$)\s*""")
+
+        fun canonicalPos(value: String): String = when (value.trim().lowercase().removeSuffix(".")) {
+            "n", "noun", "名词" -> "n."
+            "v", "vt", "vi", "verb", "动词" -> "v."
+            "adj", "adjective", "形容词" -> "adj."
+            "adv", "adverb", "副词" -> "adv."
+            "prep", "preposition", "介词" -> "prep."
+            "conj", "conjunction", "连词" -> "conj."
+            "pron", "pronoun", "代词" -> "pron."
+            "num", "numeral", "数词" -> "num."
+            "art", "article", "冠词" -> "art."
+            "aux", "auxiliary", "助动词" -> "aux."
+            "int", "interjection", "感叹词" -> "int."
+            "abbr", "abbreviation", "缩写" -> "abbr."
+            "pl", "plural", "复数" -> "pl."
+            "prep&adv" -> "prep.&adv."
+            "prep&pron" -> "prep.&pron."
+            "neg" -> "neg."
+            else -> value.trim().let { if (it.endsWith(".")) it else "$it." }
+        }
+
+        // Split metadata such as "v./n." into separate, visibly styled POS tokens.
+        val declaredPos = posPattern.findAll(fallbackPos)
+            .map { canonicalPos(it.groupValues[1]) }
+            .distinct()
+            .toList()
+            .ifEmpty {
+                fallbackPos.split(Regex("""[/、,;；\s]+"""))
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .map { canonicalPos(it) }
+                    .distinct()
+            }
+
         val markers = posPattern.findAll(source).toList()
         val groupedBodies = linkedMapOf<String, MutableList<String>>()
-
-        fun addBody(label: String, body: String) {
-            val cleanBody = body.trim()
-            if (cleanBody.isBlank()) return
-            val cleanLabel = label.trim()
-            groupedBodies.getOrPut(cleanLabel.lowercase()) { mutableListOf() }.add(cleanBody)
+        fun addBody(pos: String, body: String) {
+            if (body.isBlank()) return
+            groupedBodies.getOrPut(pos.trim()) { mutableListOf() }.add(body.trim())
         }
 
-        fun fallbackLabel(): String {
-            val value = fallbackPos.trim()
-            if (value.isBlank()) return ""
-            return when (value.lowercase().removeSuffix(".")) {
-                "noun", "名词", "n" -> "n."
-                "verb", "动词", "v" -> "v."
-                "adjective", "形容词", "adj" -> "adj."
-                "adverb", "副词", "adv" -> "adv."
-                "preposition", "介词", "prep" -> "prep."
-                "pronoun", "代词", "pron" -> "pron."
-                "conjunction", "连词", "conj" -> "conj."
-                else -> if (value.endsWith(".")) value else value + "."
-            }
-        }
-
-        if (markers.isEmpty()) {
-            addBody(fallbackLabel(), source)
-        } else {
+        if (markers.isNotEmpty()) {
             val prefix = source.substring(0, markers.first().range.first).trim()
-            if (prefix.isNotBlank()) addBody(fallbackLabel(), prefix)
+            if (prefix.isNotBlank()) addBody(declaredPos.firstOrNull().orEmpty(), prefix)
             markers.forEachIndexed { index, marker ->
                 val bodyStart = marker.range.last + 1
                 val bodyEnd = markers.getOrNull(index + 1)?.range?.first ?: source.length
-                addBody(marker.groupValues[1] + ".", source.substring(bodyStart, bodyEnd))
+                addBody(canonicalPos(marker.groupValues[1]), source.substring(bodyStart, bodyEnd))
             }
+        } else {
+            // A malformed or legacy entry may have no inline n./v. at all.
+            // Show every available metadata POS separately rather than "v./n." as one label.
+            addBody(declaredPos.joinToString(" "), source)
         }
 
         val result = android.text.SpannableStringBuilder()
         val bracketAnnotation = Regex("""\[([^\]]+)]\s*""")
         val chineseWordGap = Regex("""(?<=\p{IsHan})\s+(?=\p{IsHan})""")
 
-        groupedBodies.forEach posGroupLoop@ { (posKey, bodies) ->
-            // Each set represents one major meaning and its compact gloss variants.
+        groupedBodies.forEach posGroupLoop@ { (posLabel, bodies) ->
             val senseGroups = mutableListOf<LinkedHashSet<String>>()
-            val allSegments = bodies.flatMap { it.split(Regex("""[；;\n]+""")) }
+            val segments = bodies.flatMap { it.split(Regex("""[；;\n]+""")) }
 
-            allSegments.forEach segmentLoop@ { rawSense ->
+            segments.forEach segmentLoop@ { rawSense ->
                 var sense = rawSense.trim()
                 if (sense.isBlank()) return@segmentLoop
 
+                // "[病毒] 病毒" -> "病毒"; preserve bracket notes when they add information.
                 val annotation = bracketAnnotation.find(sense)
                 if (annotation != null) {
                     val note = annotation.groupValues[1].trim()
                     val remainder = sense.removeRange(annotation.range).trimStart()
-                    // "[病毒] 病毒" -> "病毒"; other non-duplicated notes stay intact.
-                    if (note.isNotBlank() && remainder.startsWith(note)) {
-                        sense = remainder
-                    }
+                    if (note.isNotBlank() && remainder.startsWith(note)) sense = remainder
                 }
 
-                // Spaces between Chinese glosses in source records act as a list separator.
                 sense = chineseWordGap.replace(sense, "、")
-                val glosses = sense.split(Regex("""[，,、；;]"""))
+                val glosses = sense.split(Regex("""[，,、]"""))
                     .map { it.trim() }
                     .filter { it.isNotBlank() }
                     .distinctBy { it.lowercase().replace(Regex("""\s+"""), "") }
                 if (glosses.isEmpty()) return@segmentLoop
 
-                // A later source line may repeat an earlier POS sense with one extra synonym.
-                // Merge its new glosses into that sense rather than outputting another POS tag.
-                val overlappingIndex = senseGroups.indexOfFirst { existing ->
-                    glosses.any { candidate ->
-                        existing.any { it.equals(candidate, ignoreCase = true) }
-                    }
+                // Remove duplicate source entries while retaining genuinely different senses.
+                val duplicateIndex = senseGroups.indexOfFirst { existing ->
+                    glosses.all { candidate -> existing.any { it.equals(candidate, ignoreCase = true) } } ||
+                    existing.all { old -> glosses.any { it.equals(old, ignoreCase = true) } }
                 }
-                if (overlappingIndex >= 0) {
-                    senseGroups[overlappingIndex].addAll(glosses)
+                if (duplicateIndex >= 0) {
+                    senseGroups[duplicateIndex].addAll(glosses)
                 } else {
                     senseGroups.add(LinkedHashSet(glosses))
                 }
             }
 
             if (senseGroups.isEmpty()) return@posGroupLoop
-            if (result.isNotEmpty()) result.append("\u2002")
+            if (result.isNotEmpty()) result.append("\u2002\u2002")
 
-            val displayPos = bodies.firstOrNull()?.let {
-                val firstMarker = posPattern.find(source)
-                if (firstMarker != null && firstMarker.groupValues[1].lowercase() == posKey) {
-                    firstMarker.groupValues[1] + "."
-                } else {
-                    posKey
-                }
-            } ?: posKey
-
-            if (displayPos.isNotBlank()) {
-                val posStart = result.length
-                result.append(displayPos)
-                val posEnd = result.length
-                result.setSpan(StyleSpan(Typeface.BOLD), posStart, posEnd, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                result.setSpan(ForegroundColorSpan(accent), posStart, posEnd, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                result.append(" ")
+            val posTokens = posLabel.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            posTokens.forEachIndexed { index, token ->
+                if (index > 0) result.append(" ")
+                val start = result.length
+                result.append(token)
+                val end = result.length
+                result.setSpan(StyleSpan(Typeface.BOLD), start, end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                result.setSpan(ForegroundColorSpan(accent), start, end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
+            if (posTokens.isNotEmpty()) result.append(" ")
 
-            senseGroups.forEachIndexed { index, glossGroup ->
-                if (index > 0) result.append("\u2002")
+            senseGroups.forEachIndexed { senseIndex, glossGroup ->
+                // Major-sense boundary is wider than the reduced-size enumeration comma.
+                if (senseIndex > 0) result.append("\u2002\u2002")
                 val senseStart = result.length
-                result.append(glossGroup.joinToString("、"))
-                if (index == 0) {
+                glossGroup.forEachIndexed { glossIndex, gloss ->
+                    if (glossIndex > 0) {
+                        val punctuationStart = result.length
+                        result.append("、")
+                        result.setSpan(
+                            RelativeSizeSpan(0.68f),
+                            punctuationStart,
+                            result.length,
+                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
+                    result.append(gloss)
+                }
+                if (senseIndex == 0) {
                     result.setSpan(StyleSpan(Typeface.BOLD), senseStart, result.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
@@ -879,12 +898,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun renderStudy(parent: LinearLayout) {
         if (queue.isEmpty()) ensureQueue(forceNew = true)
         val book = activeBook()
-        parent.addView(row().apply {
-            addView(quietButton("‹  返回", onClick = { selectedTab = TAB_BROWSE; renderPage() }))
-            addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
-            addView(text("DAILY QUIZ", 10f, secondary, true))
-        })
-        parent.addView(vSpace(15))
         if (queue.isEmpty() || queueIndex >= queue.size) {
             renderSessionFinished(parent, book)
             return
