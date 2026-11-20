@@ -2,6 +2,18 @@
 
 高中英语词汇应用：将碎片时间的卡片随刷、每日四选一背词和答后词汇讲解整合在同一套离线词书中。
 
+## 当前版本
+
+- **版本：** 1.8.0
+- **versionCode：** 21
+- **Android applicationId：** `com.words.app`
+- **当前发布包：** debug 签名测试 APK
+- **唯一版本来源：** `android/app/build.gradle.kts` 中的 `versionName` 与 `versionCode`
+- **GitHub Release：** [v1.8.0](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.8.0)
+- **APK 下载：** [words.apk](https://github.com/z17587772-cpu/-words-android/releases/download/v1.8.0/words.apk)
+
+版本号以 Android 工程配置为准；Release tag 使用 `v${versionName}`。修改版本时必须同时递增 versionCode，并检查构建产物和 Release。
+
 ## 随刷
 - 无限连续浏览，左右滑动卡片切换上一个 / 下一个词。
 - 每轮先覆盖整本词书，再按课标重要度与第三方语料频次加权插入重复词；近期浏览词保留冷却期。
@@ -35,7 +47,7 @@
 - 高中扩展词汇：3,743。
 - 新增 CET-4、CET-6、IELTS、TOEFL、GRE、考研、SAT、GMAT 八套独立参考词书。
 - 通用核心词汇采用 NGSL + NAWL 开放词表（约 3,000 词），作为 Oxford 3000/5000 的开放替代。未打包 Oxford 原表，因为没有确认其内容具有可再分发授权。
-- 词库来源、许可和新课标数量差异见 wordbooks/SOURCES.md 与 wordbooks/CURRICULUM-AUDIT.md。
+- 词库来源、许可和新课标数量差异见 `wordbooks/SOURCES.md` 与 `wordbooks/CURRICULUM-AUDIT.md`。
 
 ## 项目结构与构建
 ```
@@ -44,6 +56,7 @@ wordbooks/            离线词书
 tools/                词库数据处理与工程脚本
 .github/workflows/    自动构建与 Release
 PROJECT_PLAN.md       版本规划与实施记录
+android/PROJECT_STATUS.txt  当前实现与验证状态
 ```
 
 环境：JDK 17、Android SDK 35 / Build Tools 35.0.0、Gradle 8.9。
@@ -55,4 +68,9 @@ gradle --no-daemon clean assembleDebug
 
 输出：`app/build/outputs/apk/debug/app-debug.apk`。
 
-当前 APK 为 debug 签名测试包，版本 1.8.0。GitHub Actions 成功后发布到 [v1.6.2 Release](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.6.2)。
+## 版本管理与发布约定
+1. `android/app/build.gradle.kts` 是版本号唯一事实来源。
+2. 每次可安装更新都必须递增 `versionCode`；正式版本同时更新 `versionName`。
+3. GitHub Actions 从 Gradle 配置读取版本，发布对应的 `v<versionName>` tag，不在 workflow 中写死版本号。
+4. 发布后核对 APK 内部版本、SHA-256、Release tag、目标 commit 和下载资产。
+5. 更新功能后同步维护本文件、`PROJECT_PLAN.md` 和 `android/PROJECT_STATUS.txt`。
