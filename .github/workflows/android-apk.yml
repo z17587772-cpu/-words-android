@@ -165,6 +165,24 @@ jobs:
         run: gradle --no-daemon --stacktrace clean assembleDebug
         working-directory: android
 
+      - name: Read Android version
+        id: version
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path("android/app/build.gradle.kts").read_text(encoding="utf-8")
+          name = re.search(r'versionName\\s*=\\s*"([^"]+)"', text)
+          code = re.search(r'versionCode\\s*=\\s*(\\d+)', text)
+          if not name or not code:
+              raise SystemExit("Could not read versionName/versionCode from app/build.gradle.kts")
+          with open("$GITHUB_OUTPUT", "a", encoding="utf-8") as out:
+              out.write(f"version_name={name.group(1)}\\n")
+              out.write(f"version_code={code.group(1)}\\n")
+          print(f"Building words {name.group(1)} (versionCode {code.group(1)})")
+          PY
+
       - name: Prepare install package
         run: |
           mkdir -p dist
@@ -191,55 +209,10 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.8.0
+          tag_name: v${{ steps.version.outputs.version_name }}
           target_commitish: main
-          name: words 1.8.0
-          body: |
-            words 1.8.0 — refreshes curriculum vocabulary and adds licensed offline wordbooks.
-
-            - Rebuilds the 2025 curriculum wordbook using structured Appendix 2 headwords and ECDICT dictionary data.
-            - Adds CET-4, CET-6, IELTS, TOEFL, GRE, postgraduate, SAT, GMAT and NGSL/NAWL wordbooks.
-            - Matching words preserve existing review progress and favorites; removed words are deactivated instead of deleted.
-            - Bundles MIT and CC BY-SA attribution/license notices.
-
-
-            - The incoming card keeps its final “点击翻面” cue throughout the transition, avoiding a text swap at rest.
-            - Card motion tracks the finger directly; a single coordinated exit/entry animation preserves the drag position.
-            - Browse index and history are committed once after the outgoing card finishes; short flings and interrupted drags settle cleanly.
-
-            - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
-            - Tap any option to open the structured answer explanation.
-            - Explanation is organized into core meaning, word information, examples with Chinese translations, dictionary definitions, word forms and related words.
-            - Quick Browse fits the initial view without vertical scrolling where the device viewport permits; edge pulls retain the native rebound effect.
-            - Swipe left advances to the next word and sends the current card left; swipe right returns to the previous word and sends it right. Each direction reveals the correct matching under-card.
-            - Round progress and its bar are removed; the Quick Browse card is slightly taller, with 12 dp of clear space before the three action buttons.
-            - Card position is committed at gesture acceptance and rendered once after exit; no second rightward entrance bounce.
-            - Card faces no longer use drop shadows.
-            - Choose whether English or Chinese is the default card face; flipping always reveals the other language without masking state.
-            - Card faces share a compact layout and show IPA, part of speech and third-party combined-corpus frequency when available.
-            - Quick Browse guarantees full wordbook coverage and interleaves bonus appearances sampled by curriculum importance and corpus-frequency tier; recently browsed words stay in cooldown.
-            - Optional sound and haptic feedback for right/wrong answers and card navigation.
-            - Dictionary enrichment appears on the current explanation as soon as online data arrives; individual Chinese machine-reference translations update in place without rebuilding the whole answer page, and the reading position is preserved when new dictionary data arrives.
-            - Dictionary senses prioritize Chinese translations; source definitions remain available as smaller English references.
-            - Collocation snippets are shown from dictionary fields when available, otherwise clearly labelled as extracted from real example sentences.
-            - Inflection labels are translated into Chinese (past tense, past participle, plural, comparative, etc.); no unsupported root is guessed. A direct Youdao full-entry link opens its public dictionary page.
-            - Keeps optional cached FreeDictionaryAPI / Wiktionary expansion, system TTS, favorites, and user-provided vector launcher icon.
-            - Example sentence translations use MyMemory's public translation endpoint and are labelled as machine-translation references.
-
-            Dictionary meaning groups remain inline with a subtle gap between major senses; the first/main sense stays bold. Dictionary expansion typography increases by only 1sp. Online dictionary data refreshes the existing dictionary card in place, avoiding a full explanation-page rebuild.
-
-            All page content now starts 12 dp below the system status-bar inset across Browse, Study, Books, Stats, Settings and Favorites.
-            The Study plan is 15 dp below the return row, and the question card is 15 dp below the progress bar.
-            Meaning formatting recognizes n./v./vt./vi./adj./adv. and related POS tags throughout the raw definition. Chinese semicolons separate major senses with a subtle gap; Chinese commas keep related glosses together. Repeated bracket notes such as [病毒] 病毒 are deduplicated, only POS tokens receive blue styling, and the wordbook POS field fills a missing inline POS marker.
-            Global content inset is 12 dp below the status-bar/system inset across pages.
-            Quick Browse's Chinese side now uses the same POS-aware meaning formatter as Study. Repeated n./v. source entries merge into one POS group; duplicate glosses are removed, related glosses use the enumeration comma 、, and major senses use a smaller single-en-space gap.
-            The actual Study question screen no longer shows the top ‹ 返回 / DAILY QUIZ row; 今日背词计划 is now the first content at the top.
-            Combined POS metadata such as v./n. is parsed into separate blue labels when legacy source definitions have no inline markers. vt./vi. are normalized to v. so declared verb POS is not lost.
-            Enumeration punctuation is reduced to 48% size; different major senses use a full em-space gap, making the boundary clearer without splitting each gloss onto a new line. The question and answer screens both start with the daily plan/progress area and contain no visible back row.
-            Missing POS labels are filled from ECDICT's pinned corpus POS field and local school-wordbook TSV records. The built-in packs are upgraded to version 3 so existing installations refresh the metadata in place while keeping separate review history.
-            Study progress-to-question/result-card and result-card-to-word-card gaps remain consistently 15 dp.
-
-            This is a debug-signed APK for direct testing.
+          name: words ${{ steps.version.outputs.version_name }}
+          body_path: RELEASE_NOTES.md
           files: dist/words.apk
           overwrite_files: true
           fail_on_unmatched_files: true
