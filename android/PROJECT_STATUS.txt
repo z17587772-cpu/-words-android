@@ -1,24 +1,41 @@
-words Android v1.5.0 — implementation status
+words Android v1.8.0 — implementation status
 
-Implemented in source:
-- Quick Browse removed the next-word button; left/right horizontal card swipe moves between words with directional animation.
-- Browse setting keeps none / hide English / hide Chinese masking.
-- Daily Quiz retains the source question after choosing; correct option and chosen wrong option receive separate highlights and correctness feedback.
-- Tapping any option after answering opens the detail explanation; answers are persisted exactly once.
-- Larger question card and entry animations.
-- Explanation hierarchy: answer result, headword, core meaning, example sentence, optional translation, online definitions/forms/examples/synonyms/antonyms and source.
+Version source of truth:
+- android/app/build.gradle.kts
+- versionName: 1.8.0
+- versionCode: 21
+- applicationId: com.words.app
+- GitHub Release: https://github.com/z17587772-cpu/-words-android/releases/tag/v1.8.0
+- Release asset: words.apk (debug-signed test build)
+
+Implemented in source (based on current main and v1.8.0 release notes):
+- Quick Browse supports left/right horizontal card swipes with coordinated directional animation.
+- Browse settings support none / hide English / hide Chinese masking.
+- Daily Quiz retains the source question after choosing; correct and incorrect selections receive separate visual feedback.
+- Tapping an option after answering opens the detail explanation; answers are persisted once.
+- Explanation includes headword, core meaning, examples, optional translations, online definitions/forms/examples/synonyms/antonyms and source attribution.
 - Local example translations are preferred; MyMemory machine-translation fallback is labelled and cached in SQLite.
-- Sound and vibration feedback can be turned on/off independently in settings.
-- FreeDictionaryAPI/Wiktionary response parser includes entry-level and sense-level synonyms/antonyms.
-- Database v4 adds example translation cache without deleting prior reviews, favorites or dictionary details.
+- Sound and vibration feedback can be configured independently.
+- Wordbooks include the 2025 curriculum pack, high-school extension, CET-4/6, IELTS, TOEFL, GRE, postgraduate, SAT, GMAT and NGSL/NAWL resources.
+- Wordbook updates preserve matching entries' review progress and favorites; obsolete entries are deactivated rather than physically deleted.
+- POS and meaning formatting improvements are included in v1.8.0 release notes.
 
-Validation:
-- Pending final GitHub Actions build and APK inspection.
+Release validation evidence:
+- GitHub Release v1.8.0 exists and contains words.apk.
+- Published asset size: 3,575,470 bytes.
+- Published asset SHA-256: 038618a1461caa10bc855aac02f25481471d435e4360d871093cd6146514ba89
+- Release publisher: github-actions[bot].
+- Release published at 2026-11-20T13:25:15Z.
+- This confirms an uploaded APK asset exists; it does not by itself prove installation or real-device runtime testing.
 
-Limitations:
-- Example machine translation depends on network and MyMemory anonymous daily quota (official docs specify 5,000 characters/day anonymous).
-- Third-party dictionary entries vary; roots, collocations and exam-source tags are not invented when the API does not supply them.
-- Core 2025 wordbook still contains 2,974 entries, with approximately 126 remaining to reconcile.
+Validation still required:
+- Re-run GitHub Actions after documentation/workflow changes and confirm the new run succeeds.
+- Inspect the generated APK's embedded versionName/versionCode and compare its SHA-256 with the Release asset.
+- Run real-device regression tests for Browse, Study, explanation, wordbook refresh and preservation of local progress.
+- Do not report device testing as complete unless it was actually performed.
 
-Build:
+Known release limitation:
+- v1.8.0 is a debug-signed APK intended for direct testing, not a production/release-signed distribution package.
+
+Build environment:
 - JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
