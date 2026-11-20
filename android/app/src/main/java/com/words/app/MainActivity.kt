@@ -801,14 +801,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val bracketAnnotation = Regex("""\[([^\]]+)]\s*""")
         val chineseWordGap = Regex("""(?<=\p{IsHan})\s+(?=\p{IsHan})""")
 
-        groupedBodies.forEach { (posKey, bodies) ->
+        groupedBodies.forEach posGroupLoop@ { (posKey, bodies) ->
             // Each set represents one major meaning and its compact gloss variants.
             val senseGroups = mutableListOf<LinkedHashSet<String>>()
             val allSegments = bodies.flatMap { it.split(Regex("""[；;\n]+""")) }
 
-            allSegments.forEach { rawSense ->
+            allSegments.forEach segmentLoop@ { rawSense ->
                 var sense = rawSense.trim()
-                if (sense.isBlank()) return@forEach
+                if (sense.isBlank()) return@segmentLoop
 
                 val annotation = bracketAnnotation.find(sense)
                 if (annotation != null) {
@@ -826,7 +826,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     .map { it.trim() }
                     .filter { it.isNotBlank() }
                     .distinctBy { it.lowercase().replace(Regex("""\s+"""), "") }
-                if (glosses.isEmpty()) return@forEach
+                if (glosses.isEmpty()) return@segmentLoop
 
                 // A later source line may repeat an earlier POS sense with one extra synonym.
                 // Merge its new glosses into that sense rather than outputting another POS tag.
@@ -842,7 +842,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 }
             }
 
-            if (senseGroups.isEmpty()) return@forEach
+            if (senseGroups.isEmpty()) return@posGroupLoop
             if (result.isNotEmpty()) result.append("\u2002")
 
             val displayPos = bodies.firstOrNull()?.let {
