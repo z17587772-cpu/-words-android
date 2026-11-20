@@ -2,7 +2,7 @@
   "id": "gaokao_standard_2025",
   "name": "新课标核心词汇（2025修订）",
   "description": "依据《普通高中英语课程标准（2017年版2025年修订）》附录2词头与星级标记整理。官方标准标注3100词；本次可核验的公开词表提取出2974条去重词条，当前包按已识别词头收录，不冒称已完全核齐3100词。中文释义主要由 BSD-3 许可词库匹配并补充人工释义；未提供音标时使用 Android 英语语音朗读。星级用于学习权重，不代表高考真题频次。",
-  "version": 2,
+  "version": 3,
   "language": "en",
   "words": [
     {
@@ -2300,7 +2300,7 @@
     {
       "word": "attack",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "v&n.  攻击， 袭击",
       "example": "",
       "example_zh": "",
@@ -2876,7 +2876,7 @@
     {
       "word": "baseball",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "棒球",
       "example": "",
       "example_zh": "",
@@ -3836,7 +3836,7 @@
     {
       "word": "body",
       "phonetic": "",
-      "pos": "",
+      "pos": "n./v.",
       "meaning": "身体；主体；正文",
       "example": "",
       "example_zh": "",
@@ -4772,7 +4772,7 @@
     {
       "word": "calendar",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "日历；日程表",
       "example": "",
       "example_zh": "",
@@ -5672,7 +5672,7 @@
     {
       "word": "charity",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "慈善；慈善机构",
       "example": "",
       "example_zh": "",
@@ -5912,7 +5912,7 @@
     {
       "word": "chip",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "芯片；碎片；炸薯条",
       "example": "",
       "example_zh": "",
@@ -5984,7 +5984,7 @@
     {
       "word": "chore",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "日常杂务；家务",
       "example": "",
       "example_zh": "",
@@ -6908,7 +6908,7 @@
     {
       "word": "complain",
       "phonetic": "",
-      "pos": "",
+      "pos": "v.",
       "meaning": "抱怨；投诉",
       "example": "",
       "example_zh": "",
@@ -7760,7 +7760,7 @@
     {
       "word": "costume",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "服装；戏服",
       "example": "",
       "example_zh": "",
@@ -8036,7 +8036,7 @@
     {
       "word": "creative",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "有创造力的；创造性的",
       "example": "",
       "example_zh": "",
@@ -8360,7 +8360,7 @@
     {
       "word": "cute",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "可爱的；机灵的",
       "example": "",
       "example_zh": "",
@@ -9092,7 +9092,7 @@
     {
       "word": "desk",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "书桌；办公桌",
       "example": "",
       "example_zh": "",
@@ -9764,7 +9764,7 @@
     {
       "word": "display",
       "phonetic": "",
-      "pos": "",
+      "pos": "v.",
       "meaning": "展示；陈列；显示",
       "example": "",
       "example_zh": "",
@@ -10892,7 +10892,7 @@
     {
       "word": "elevator",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "电梯；升降机",
       "example": "",
       "example_zh": "",
@@ -10940,7 +10940,7 @@
     {
       "word": "embarrassed",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "尴尬的；难为情的",
       "example": "",
       "example_zh": "",
@@ -10976,7 +10976,7 @@
     {
       "word": "emotion",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "情感；情绪",
       "example": "",
       "example_zh": "",
@@ -11492,7 +11492,7 @@
     {
       "word": "establish",
       "phonetic": "",
-      "pos": "",
+      "pos": "v.",
       "meaning": "建立；确立；证实",
       "example": "",
       "example_zh": "",
@@ -12488,7 +12488,7 @@
     {
       "word": "fashion",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "时尚；方式；流行",
       "example": "",
       "example_zh": "",
@@ -12584,7 +12584,7 @@
     {
       "word": "feature",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "特点；特征；以……为特色",
       "example": "",
       "example_zh": "",
@@ -14612,7 +14612,7 @@
     {
       "word": "grandparent",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "祖父母；外祖父母",
       "example": "",
       "example_zh": "",
@@ -14804,7 +14804,7 @@
     {
       "word": "guarantee",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "vt&n.  保证， 担保",
       "example": "",
       "example_zh": "",
@@ -16868,7 +16868,7 @@
     {
       "word": "instance",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "例子；实例；情况",
       "example": "",
       "example_zh": "",
@@ -17624,7 +17624,7 @@
     {
       "word": "keen",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "热衷的；敏锐的；渴望的",
       "example": "",
       "example_zh": "",
@@ -18560,7 +18560,7 @@
     {
       "word": "lifestyle",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "生活方式",
       "example": "",
       "example_zh": "",
@@ -19508,7 +19508,7 @@
     {
       "word": "maths",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "数学；（美式常用）math；mathematics",
       "example": "",
       "example_zh": "",
@@ -20960,7 +20960,7 @@
     {
       "word": "negative",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj./n.",
       "meaning": "消极的；负面的；否定的",
       "example": "",
       "example_zh": "",
@@ -21656,7 +21656,7 @@
     {
       "word": "ocean",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "海洋；大海",
       "example": "",
       "example_zh": "",
@@ -21716,7 +21716,7 @@
     {
       "word": "offend",
       "phonetic": "",
-      "pos": "",
+      "pos": "v.",
       "meaning": "冒犯；得罪；使不快",
       "example": "",
       "example_zh": "",
@@ -21872,7 +21872,7 @@
     {
       "word": "online",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "在线的；联网的",
       "example": "",
       "example_zh": "",
@@ -21992,7 +21992,7 @@
     {
       "word": "opportunity",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "机会；时机",
       "example": "",
       "example_zh": "",
@@ -22184,7 +22184,7 @@
     {
       "word": "original",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj./n.",
       "meaning": "原来的；原创的；原作",
       "example": "",
       "example_zh": "",
@@ -22388,7 +22388,7 @@
     {
       "word": "overseas",
       "phonetic": "",
-      "pos": "",
+      "pos": "adv./adj.",
       "meaning": "海外的；在国外",
       "example": "",
       "example_zh": "",
@@ -22772,7 +22772,7 @@
     {
       "word": "party",
       "phonetic": "",
-      "pos": "",
+      "pos": "n./v.",
       "meaning": "聚会；政党；一方",
       "example": "",
       "example_zh": "",
@@ -23828,7 +23828,7 @@
     {
       "word": "polar",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "极地的；两极的",
       "example": "",
       "example_zh": "",
@@ -24008,7 +24008,7 @@
     {
       "word": "pop",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr./v./n.",
       "meaning": "abbr. 卖点广告（Point of Purchase）",
       "example": "",
       "example_zh": "",
@@ -24788,7 +24788,7 @@
     {
       "word": "professional",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj./n.",
       "meaning": "专业的；职业的；专业人士",
       "example": "",
       "example_zh": "",
@@ -25748,7 +25748,7 @@
     {
       "word": "realistic",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "现实的；现实主义的；逼真的",
       "example": "",
       "example_zh": "",
@@ -25772,7 +25772,7 @@
     {
       "word": "really",
       "phonetic": "",
-      "pos": "",
+      "pos": "adv.",
       "meaning": "真正地；实际上；非常",
       "example": "",
       "example_zh": "",
@@ -26576,7 +26576,7 @@
     {
       "word": "resolution",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "决心；解决；分辨率",
       "example": "",
       "example_zh": "",
@@ -26756,7 +26756,7 @@
     {
       "word": "reveal",
       "phonetic": "",
-      "pos": "",
+      "pos": "v.",
       "meaning": "揭示；透露；显示",
       "example": "",
       "example_zh": "",
@@ -27140,7 +27140,7 @@
     {
       "word": "route",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "路线；途径；航线",
       "example": "",
       "example_zh": "",
@@ -27284,7 +27284,7 @@
     {
       "word": "rural",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "农村的；乡村的",
       "example": "",
       "example_zh": "",
@@ -28268,7 +28268,7 @@
     {
       "word": "shall",
       "phonetic": "",
-      "pos": "",
+      "pos": "aux.",
       "meaning": "aux. 应；会；将；必须；modal verb. 〔某事〕必定，一定〔发生〕",
       "example": "",
       "example_zh": "",
@@ -28412,7 +28412,7 @@
     {
       "word": "shell",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "贝壳；外壳；炮弹",
       "example": "",
       "example_zh": "",
@@ -28580,7 +28580,7 @@
     {
       "word": "should",
       "phonetic": "",
-      "pos": "",
+      "pos": "aux.",
       "meaning": "aux. 应该；就；可能；将要；modal verb. 应当，应该 〔用于提供或征求建议〕",
       "example": "",
       "example_zh": "",
@@ -28772,7 +28772,7 @@
     {
       "word": "silver",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "银；银色；银制品",
       "example": "",
       "example_zh": "",
@@ -29444,7 +29444,7 @@
     {
       "word": "solution",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "解决办法；答案；溶液",
       "example": "",
       "example_zh": "",
@@ -29456,7 +29456,7 @@
     {
       "word": "solve",
       "phonetic": "",
-      "pos": "",
+      "pos": "v.",
       "meaning": "解决；解答",
       "example": "",
       "example_zh": "",
@@ -30116,7 +30116,7 @@
     {
       "word": "star",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "星星；明星；主演",
       "example": "",
       "example_zh": "",
@@ -30488,7 +30488,7 @@
     {
       "word": "strategy",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "策略；战略；计划",
       "example": "",
       "example_zh": "",
@@ -30632,7 +30632,7 @@
     {
       "word": "structure",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "结构；构造；组织",
       "example": "",
       "example_zh": "",
@@ -30824,7 +30824,7 @@
     {
       "word": "subway",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "地铁；地下通道",
       "example": "",
       "example_zh": "",
@@ -30992,7 +30992,7 @@
     {
       "word": "summer",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "夏天；夏季",
       "example": "",
       "example_zh": "",
@@ -31124,7 +31124,7 @@
     {
       "word": "surf",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "冲浪；网上冲浪",
       "example": "",
       "example_zh": "",
@@ -31832,7 +31832,7 @@
     {
       "word": "tennis",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "网球",
       "example": "",
       "example_zh": "",
@@ -32768,7 +32768,7 @@
     {
       "word": "tournament",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "锦标赛；联赛；赛事",
       "example": "",
       "example_zh": "",
@@ -32996,7 +32996,7 @@
     {
       "word": "travel",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "n&vi.  旅行",
       "example": "",
       "example_zh": "",
@@ -33296,7 +33296,7 @@
     {
       "word": "TV",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 电视（television）",
       "example": "",
       "example_zh": "",
@@ -33572,7 +33572,7 @@
     {
       "word": "update",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "vt&n.   现代化； 更新",
       "example": "",
       "example_zh": "",
@@ -33656,7 +33656,7 @@
     {
       "word": "us",
       "phonetic": "",
-      "pos": "",
+      "pos": "pron.",
       "meaning": "我们（宾格）",
       "example": "",
       "example_zh": "",
@@ -35468,7 +35468,7 @@
     {
       "word": "writer",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "作者；作家；写作者",
       "example": "",
       "example_zh": "",
@@ -35492,7 +35492,7 @@
     {
       "word": "X-ray",
       "phonetic": "",
-      "pos": "",
+      "pos": "adj.",
       "meaning": "X射线；X光照片",
       "example": "",
       "example_zh": "",

@@ -2,7 +2,7 @@
   "id": "highschool_extension_3743",
   "name": "高中扩展词库（3743词）",
   "description": "来自 KyleBing/english-vocabulary 高中乱序词表的6008条记录，按单词去重后3743项，合并同词的多条中英释义。该词库是扩展学习材料，不等同于教育部课程标准词表。数据按 BSD 3-Clause License 使用；importance=3为普通扩展权重，不代表考试频次。",
-  "version": 2,
+  "version": 3,
   "language": "en",
   "words": [
     {
@@ -1340,7 +1340,7 @@
     {
       "word": "AIDS",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 获得性免疫缺乏综合征；爱滋病（Acquired Immune Deficiency Syndrome）",
       "example": "",
       "example_zh": "",
@@ -3344,7 +3344,7 @@
     {
       "word": "attack",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "v&n.  攻击， 袭击",
       "example": "",
       "example_zh": "",
@@ -7364,7 +7364,7 @@
     {
       "word": "CD",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 光盘，激光唱片（Compact Disc）；呼叫设备（Calling Device）；中央地区（Central District）；商务部（Commerce Department）",
       "example": "",
       "example_zh": "",
@@ -12908,7 +12908,7 @@
     {
       "word": "Dr",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 速度三角形定位法（dead reckoning）；数据记录器（Data Recorder）",
       "example": "",
       "example_zh": "",
@@ -13268,7 +13268,7 @@
     {
       "word": "DVD",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 数字化视频光盘（Digital Video Disk）",
       "example": "",
       "example_zh": "",
@@ -18416,7 +18416,7 @@
     {
       "word": "guarantee",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "vt&n.  保证， 担保",
       "example": "",
       "example_zh": "",
@@ -20120,7 +20120,7 @@
     {
       "word": "hur",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 飓风（hurricane）",
       "example": "",
       "example_zh": "",
@@ -25916,7 +25916,7 @@
     {
       "word": "non-stop",
       "phonetic": "",
-      "pos": "",
+      "pos": "adv.",
       "meaning": "adj&adv.  不停的， 不断的",
       "example": "",
       "example_zh": "",
@@ -27260,7 +27260,7 @@
     {
       "word": "overhead",
       "phonetic": "",
-      "pos": "",
+      "pos": "adv.",
       "meaning": "adj&adv.  在高处， 在空中",
       "example": "",
       "example_zh": "",
@@ -29024,7 +29024,7 @@
     {
       "word": "PM",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. （拉）下午（Post Meridiem，等于afternoon）；调相（Phase Modulation）",
       "example": "",
       "example_zh": "",
@@ -29276,7 +29276,7 @@
     {
       "word": "pop",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr./v./n.",
       "meaning": "abbr. 卖点广告（Point of Purchase）",
       "example": "",
       "example_zh": "",
@@ -34592,7 +34592,7 @@
     {
       "word": "shall",
       "phonetic": "",
-      "pos": "",
+      "pos": "aux.",
       "meaning": "aux. 应；会；将；必须；modal verb. 〔某事〕必定，一定〔发生〕",
       "example": "",
       "example_zh": "",
@@ -34988,7 +34988,7 @@
     {
       "word": "should",
       "phonetic": "",
-      "pos": "",
+      "pos": "aux.",
       "meaning": "aux. 应该；就；可能；将要；modal verb. 应当，应该 〔用于提供或征求建议〕",
       "example": "",
       "example_zh": "",
@@ -40868,7 +40868,7 @@
     {
       "word": "travel",
       "phonetic": "",
-      "pos": "",
+      "pos": "v./n.",
       "meaning": "n&vi.  旅行",
       "example": "",
       "example_zh": "",
@@ -41240,7 +41240,7 @@
     {
       "word": "TV",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 电视（television）",
       "example": "",
       "example_zh": "",
@@ -41456,7 +41456,7 @@
     {
       "word": "UN",
       "phonetic": "",
-      "pos": "",
+      "pos": "abbr.",
       "meaning": "abbr. 联合国（United Nations）；硝酸铀铣（Uranyl Nitrate）",
       "example": "",
       "example_zh": "",
@@ -42032,7 +42032,7 @@
     {
       "word": "update",
       "phonetic": "",
-      "pos": "",
+      "pos": "n.",
       "meaning": "vt&n.   现代化； 更新",
       "example": "",
       "example_zh": "",
