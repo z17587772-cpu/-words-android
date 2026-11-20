@@ -277,7 +277,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             isVerticalScrollBarEnabled = false
         }
         val content = column().apply {
-            setPadding(dp(20), dp(if (compactBrowse) 8 else 22), dp(20), dp(if (compactBrowse) 8 else 30))
+            setPadding(dp(20), dp(18), dp(20), dp(if (compactBrowse) 8 else 30))
         }
         scroll.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         pageHost.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -751,31 +751,117 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         addView(text(caption, 11f, secondary))
     }
 
-    /** Format packed translations as separated senses and emphasize the primary sense. */
-    private fun formatMeaning(raw: String): CharSequence {
-        val senses = raw.replace("\r\n", "\n")
-            .split(Regex("[；;\\n]+"))
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-        if (senses.isEmpty()) return raw.trim()
+    /**
+     * Format packed definitions by part of speech and major sense.
+     * Chinese semicolons separate major senses; Chinese commas keep related glosses together.
+     * POS markers are recognized throughout the definition, not just at the beginning.
+     */
+    private fun formatMeaning(raw: String, fallbackPos: String = ""): CharSequence {
+        val source = raw.replace("\r\n", "\n").replace('　', ' ').trim()
+        if (source.isBlank()) return source
 
-        val result = android.text.SpannableStringBuilder()
-        val posPattern = Regex("^(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl)\\.\\s*", RegexOption.IGNORE_CASE)
-        senses.forEachIndexed { index, sense ->
-            if (index > 0) result.append("\u2002\u2002")
-            val start = result.length
-            result.append(sense)
-            val end = result.length
-            if (index == 0) {
-                result.setSpan(StyleSpan(Typeface.BOLD), start, end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-            val pos = posPattern.find(sense)
-            if (pos != null) {
-                result.setSpan(StyleSpan(Typeface.BOLD), start + pos.range.first, start + pos.range.last + 1, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                result.setSpan(ForegroundColorSpan(accent), start + pos.range.first, start + pos.range.last + 1, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|neg|n|v))\.(?=\s|$)\s*""")
+        val markers = posPattern.findAll(source).toList()
+        val groups = mutableListOf<Pair<String, String>>()
+
+        fun fallbackLabel(): String {
+            val value = fallbackPos.trim()
+            if (value.isBlank()) return ""
+            return when (value.lowercase().removeSuffix(".")) {
+                "noun", "名词", "n" -> "n."
+                "verb", "动词", "v" -> "v."
+                "adjective", "形容词", "adj" -> "adj."
+                "adverb", "副词", "adv" -> "adv."
+                "preposition", "介词", "prep" -> "prep."
+                "pronoun", "代词", "pron" -> "pron."
+                "conjunction", "连词", "conj" -> "conj."
+                else -> if (value.endsWith(".")) value else value + "."
             }
         }
-        return result
+
+        if (markers.isEmpty()) {
+            groups.add(Pair(fallbackLabel(), source))
+        } else {
+            val prefix = source.substring(0, markers.first().range.first).trim()
+            if (prefix.isNotBlank()) groups.add(Pair(fallbackLabel(), prefix))
+            markers.forEachIndexed { index, marker ->
+                val bodyStart = marker.range.last + 1
+                val bodyEnd = markers.getOrNull(index + 1)?.range?.first ?: source.length
+                val body = source.substring(bodyStart, bodyEnd).trim()
+                if (body.isNotBlank()) {
+                    groups.add(Pair(marker.groupValues[1] + ".", body))
+                }
+            }
+        }
+
+        val result = android.text.SpannableStringBuilder()
+        val bracketAnnotation = Regex("""\[([^\]]+)]\s*""")
+        val chineseWordGap = Regex("""(?<=\p{IsHan})\s+(?=\p{IsHan})""")
+
+        groups.forEach { (pos, body) ->
+            val seenSenses = linkedSetOf<String>()
+            val senses = body.split(Regex("""[；;\n]+"""))
+                .map { rawSense ->
+                    var sense = rawSense.trim()
+                    val annotation = bracketAnnotation.find(sense)
+                    if (annotation != null) {
+                        val note = annotation.groupValues[1].trim()
+                        val rest = sense.removeRange(annotation.range).trimStart()
+                        // For example, "[病毒] 病毒" becomes just "病毒".
+                        if (note.isNotBlank() && rest.startsWith(note)) {
+                            sense = rest
+                        }
+                    }
+
+                    sense = chineseWordGap.replace(sense, "，")
+                    val glosses = sense.split(Regex("""[，、,]"""))
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                    glosses.joinToString("，")
+                }
+                .filter { it.isNotBlank() }
+                .filter { seenSenses.add(it) }
+
+            if (senses.isEmpty()) return@forEach
+            if (result.isNotEmpty()) result.append("\u2002\u2002")
+
+            val cleanPos = pos.trim()
+            if (cleanPos.isNotBlank()) {
+                val posStart = result.length
+                result.append(cleanPos)
+                val posEnd = result.length
+                result.setSpan(
+                    StyleSpan(Typeface.BOLD),
+                    posStart,
+                    posEnd,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                result.setSpan(
+                    ForegroundColorSpan(accent),
+                    posStart,
+                    posEnd,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                result.append(" ")
+            }
+
+            senses.forEachIndexed { index, sense ->
+                if (index > 0) result.append("\u2002\u2002")
+                val senseStart = result.length
+                result.append(sense)
+                if (index == 0) {
+                    result.setSpan(
+                        StyleSpan(Typeface.BOLD),
+                        senseStart,
+                        result.length,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+            }
+        }
+
+        return if (result.isNotEmpty()) result else source
     }
 
     private fun renderStudy(parent: LinearLayout) {
@@ -811,7 +897,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             params.width = (progressTrack.width * progress).toInt()
             progressFill.layoutParams = params
         }
-        parent.addView(vSpace(18))
+        parent.addView(vSpace(15))
 
         val word = db.getWord(queue[queueIndex])
         if (word == null) {
@@ -844,7 +930,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         head.addView(text(if (englishPrompt) "EN → 中文" else "中文 → EN", 11f, accent, true))
         questionCard.addView(head)
         questionCard.addView(vSpace(25))
-        questionCard.addView(text(if (englishPrompt) word.word else formatMeaning(word.meaning), if (englishPrompt) 34f else 21f, ink, true, Gravity.CENTER))
+        questionCard.addView(text(if (englishPrompt) word.word else formatMeaning(word.meaning, word.partOfSpeech), if (englishPrompt) 34f else 21f, ink, true, Gravity.CENTER))
         if (englishPrompt) {
             if (word.phonetic.isNotBlank()) {
                 questionCard.addView(vSpace(9))
@@ -858,7 +944,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         questionCard.addView(vSpace(14))
 
         options.forEachIndexed { index, option ->
-            val label = if (englishPrompt) formatMeaning(option.meaning) else option.word
+            val label = if (englishPrompt) formatMeaning(option.meaning, option.partOfSpeech) else option.word
             val isCorrectOption = option.id == word.id
             val isSelected = option.id == quizSelectedOptionId
             val fill = when {
@@ -911,7 +997,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             feedbackCard.addView(text(if (correct) "回答正确  ✓" else "回答错误  ×", 16f, if (correct) accent else 0xFFB04450.toInt(), true))
             feedbackCard.addView(vSpace(4))
             val correctAnswer: CharSequence = if (englishPrompt) {
-                android.text.SpannableStringBuilder().append("正确答案：").append(formatMeaning(word.meaning))
+                android.text.SpannableStringBuilder().append("正确答案：").append(formatMeaning(word.meaning, word.partOfSpeech))
             } else {
                 "正确答案：${word.word}"
             }
@@ -1059,7 +1145,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         wordCard.addView(vSpace(12))
         wordCard.addView(text("核心释义", 11f, accent, true))
         wordCard.addView(vSpace(6))
-        wordCard.addView(text(formatMeaning(word.meaning), 19f, ink))
+        wordCard.addView(text(formatMeaning(word.meaning, word.partOfSpeech), 19f, ink))
         wordCard.addView(vSpace(11))
         wordCard.addView(row().apply {
             addView(pillButton("播放单词", false) { speak(word.word) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -1190,7 +1276,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (definition.isBlank()) return
         val cached = translatedExamples[definition] ?: db.getExampleTranslation(definition)
         if (!cached.isNullOrBlank()) {
-            statusView.text = "中文释义 · 机器翻译参考\n$cached"
+            statusView.text = "中文释义\n$cached"
             statusView.setTextColor(ink)
             return
         }
@@ -1216,7 +1302,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val labels = definitionTranslationViews.remove(definition).orEmpty()
                 labels.forEach { label ->
                     if (!translated.isNullOrBlank()) {
-                        label.text = "中文释义 · 机器翻译参考\n$translated"
+                        label.text = "中文释义\n$translated"
                         label.setTextColor(ink)
                     } else {
                         label.text = "中文释义暂时获取失败。"
@@ -1279,7 +1365,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         header.addView(quietButton("有道完整词条 ↗") { openYoudaoWord(word.word) })
         section.addView(header)
         section.addView(vSpace(4))
-        section.addView(dictionaryText("中文核心释义、词组搭配、词形变化和实际用法。机器翻译会明确标注为参考。", 10f, secondary))
+        section.addView(dictionaryText("中文核心释义、词组搭配、词形变化和实际用法。在线译文仅供参考。", 10f, secondary))
         section.addView(vSpace(10))
 
         if (!prefs.getBoolean(KEY_ONLINE_DETAIL, true)) {
@@ -1379,7 +1465,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     ?: db.getExampleTranslation(definition)?.also { translatedExamples[definition] = it }
 
                 if (!cachedTranslation.isNullOrBlank()) {
-                    senseCard.addView(dictionaryText("中文释义 · 机器翻译参考", 9f, accent, true))
+                    senseCard.addView(dictionaryText("中文释义", 9f, accent, true))
                     senseCard.addView(vSpace(3))
                     senseCard.addView(dictionaryText(cachedTranslation, 14f, ink, true))
                 } else {

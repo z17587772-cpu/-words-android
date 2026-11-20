@@ -173,11 +173,11 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.6
+          tag_name: v1.6.7
           target_commitish: main
-          name: words 1.6.6
+          name: words 1.6.7
           body: |
-            words 1.6.6 — slightly enlarges Quick Browse card typography and refines spacing below the action buttons.
+            words 1.6.7 — refines global top inset, study-plan spacing and POS-aware Chinese meaning formatting.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
@@ -200,7 +200,10 @@ jobs:
 
             Dictionary meaning groups remain inline with a subtle gap between major senses; the first/main sense stays bold. Dictionary expansion typography increases by only 1sp. Online dictionary data refreshes the existing dictionary card in place, avoiding a full explanation-page rebuild.
 
-            Quick Browse typography is subtly enlarged: English and Chinese card text, pronunciation, part of speech, corpus frequency, face labels, gesture guidance and flip hint. The wordbook/browse-count line sits 4 dp lower than before; its 7 dp gap below the three actions remains smaller than the 12 dp gap between the main card and actions.
+            All page content now starts 18 dp below the system status-bar inset across Browse, Study, Books, Stats, Settings and Favorites.
+            The Study plan is 15 dp below the return row, and the question card is 15 dp below the progress bar.
+            Meaning formatting recognizes n./v./vt./vi./adj./adv. and related POS tags throughout the raw definition. Chinese semicolons separate major senses with a subtle gap; Chinese commas keep related glosses together. Repeated bracket notes such as [病毒] 病毒 are deduplicated, only POS tokens receive blue styling, and the wordbook POS field fills a missing inline POS marker.
+            Dictionary translation labels now read only 中文释义; the machine-translation wording is removed from those labels.
 
             This is a debug-signed APK for direct testing.
           files: dist/words.apk
