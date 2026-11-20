@@ -187,11 +187,15 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.7.0
+          tag_name: v1.7.1
           target_commitish: main
-          name: words 1.7.0
+          name: words 1.7.1
           body: |
-            words 1.7.0 — guarantees the Study screen starts with the daily plan, separates major meanings more clearly, and fills missing POS metadata.
+            words 1.7.1 — refines Quick Browse swipe continuity while preserving the 1.7.0 study and dictionary improvements.
+
+            - The incoming card keeps its final “点击翻面” cue throughout the transition, avoiding a text swap at rest.
+            - Card motion tracks the finger directly; a single coordinated exit/entry animation preserves the drag position.
+            - Browse index and history are committed once after the outgoing card finishes; short flings and interrupted drags settle cleanly.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.

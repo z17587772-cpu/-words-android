@@ -44,7 +44,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var quizAnswerCorrect: Boolean? = null
     private var quizShowExplanation = false
     private var browseCardFlipped = false
-    private var browseFlipAnimating = false
+    private enum class BrowseMotionState { IDLE, DRAGGING, SETTLING, FLIPPING, TRANSITIONING }
+    private var browseMotionState = BrowseMotionState.IDLE
     private val onlineDetails = mutableMapOf<String, DictionaryDetails>()
     private val onlineLoading = mutableSetOf<String>()
     private val onlineFailed = mutableSetOf<String>()
@@ -178,7 +179,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
-        if (selectedTab == TAB_BROWSE && !showingFavorites && !browseFlipAnimating) {
+        if (selectedTab == TAB_BROWSE && !showingFavorites && browseMotionState == BrowseMotionState.IDLE) {
             when (keyCode) {
                 android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { swipeBrowse(-1); return true }
                 android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { swipeBrowse(1); return true }
@@ -506,10 +507,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         // layer is revealed, so left and right swipes never reuse the wrong card.
         val previousLayer = browseQueue.getOrNull(browseIndex - 1)
             ?.let { db.getWord(it) }
-            ?.let { createUnderCard(it, "上一张") }
+            ?.let { createUnderCard(it, "点击翻面") }
         val nextLayer = browseQueue.getOrNull(browseIndex + 1)
             ?.let { db.getWord(it) }
-            ?.let { createUnderCard(it, "下一张") }
+            ?.let { createUnderCard(it, "点击翻面") }
 
         previousLayer?.let {
             stage.addView(it, android.widget.FrameLayout.LayoutParams(-1, dp(cardHeightDp)))
@@ -551,13 +552,45 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         fun restoreStack() {
+            if (browseMotionState != BrowseMotionState.DRAGGING) return
+            browseMotionState = BrowseMotionState.SETTLING
             topBody.animate().cancel()
-            topBody.animate()
-                .translationX(0f).translationY(0f).rotation(0f).alpha(1f)
-                .setDuration(160)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-            resetIncomingLayers()
+
+            val incoming = listOfNotNull(previousLayer, nextLayer)
+                .firstOrNull { it.visibility == View.VISIBLE }
+            val animations = mutableListOf<android.animation.Animator>(
+                android.animation.ObjectAnimator.ofFloat(topBody, View.TRANSLATION_X, 0f),
+                android.animation.ObjectAnimator.ofFloat(topBody, View.TRANSLATION_Y, 0f),
+                android.animation.ObjectAnimator.ofFloat(topBody, View.ROTATION, 0f),
+                android.animation.ObjectAnimator.ofFloat(topBody, View.ALPHA, 1f)
+            )
+            if (incoming != null) {
+                val incomingDirection = if (incoming === nextLayer) -1 else 1
+                animations += android.animation.ObjectAnimator.ofFloat(
+                    incoming, View.TRANSLATION_X, dp(18 * -incomingDirection).toFloat()
+                )
+                animations += android.animation.ObjectAnimator.ofFloat(incoming, View.TRANSLATION_Y, dp(5).toFloat())
+                animations += android.animation.ObjectAnimator.ofFloat(incoming, View.ALPHA, 0.82f)
+            }
+
+            var settled = false
+            android.animation.AnimatorSet().apply {
+                playTogether(animations)
+                duration = 190L
+                interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    private fun finishOnce() {
+                        if (settled) return
+                        settled = true
+                        resetIncomingLayers()
+                        browseMotionState = BrowseMotionState.IDLE
+                    }
+
+                    override fun onAnimationEnd(animation: android.animation.Animator) = finishOnce()
+                    override fun onAnimationCancel(animation: android.animation.Animator) = finishOnce()
+                })
+                start()
+            }
         }
 
         fun showIncomingDuringDrag(direction: Int, progress: Float) {
@@ -573,52 +606,61 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         fun animateCardChange(direction: Int) {
-            if (browseFlipAnimating) return
+            if (browseMotionState != BrowseMotionState.DRAGGING) return
 
-            // Physical direction and queue direction are intentionally separate:
-            // swipe left = next queue item; swipe right = previous queue item.
+            // Swipe left advances the queue; swipe right reveals the previous item.
+            // At the first item, settle the same drag back to rest without changing data.
             if (direction > 0 && browseIndex <= 0) {
-                resetIncomingLayers()
-                topBody.animate().cancel()
-                topBody.animate().translationX(dp(15).toFloat()).rotation(1.4f)
-                    .setDuration(85).withEndAction {
-                        topBody.animate().translationX(0f).rotation(0f)
-                            .setDuration(170).setInterpolator(DecelerateInterpolator()).start()
-                    }.start()
+                restoreStack()
                 Toast.makeText(this, "已经是本轮第一张", Toast.LENGTH_SHORT).show()
                 return
             }
 
-            browseFlipAnimating = true
-            browseCardFlipped = false
-            if (direction < 0) advanceBrowseWord() else showPreviousBrowseWord()
+            browseMotionState = BrowseMotionState.TRANSITIONING
             provideFeedback(isSwipe = true)
 
             val selected = incomingLayer(direction)
             val other = if (direction < 0) previousLayer else nextLayer
             other?.visibility = View.GONE
-            selected?.apply {
-                visibility = View.VISIBLE
-                translationX = dp(18 * -direction).toFloat()
-                translationY = dp(5).toFloat()
-                alpha = 0.82f
-            }
+            // Keep the exact position and opacity reached by the finger. Resetting this
+            // layer here made it visibly jump backwards just before its entrance motion.
+            selected?.visibility = View.VISIBLE
 
             topBody.animate().cancel()
-            topBody.animate()
-                .translationX(direction * (stage.width.coerceAtLeast(dp(280))).toFloat() * 1.12f)
-                .translationY(-dp(9).toFloat())
-                .rotation(direction * 13f)
-                .alpha(0f)
-                .setDuration(230)
-                .setInterpolator(DecelerateInterpolator())
-                .withEndAction {
-                    browseFlipAnimating = false
-                    renderPage()
-                }.start()
+            val exitDistance = stage.width.coerceAtLeast(dp(280)).toFloat() * 1.12f
+            val animations = mutableListOf<android.animation.Animator>(
+                android.animation.ObjectAnimator.ofFloat(topBody, View.TRANSLATION_X, direction * exitDistance),
+                android.animation.ObjectAnimator.ofFloat(topBody, View.TRANSLATION_Y, -dp(9).toFloat()),
+                android.animation.ObjectAnimator.ofFloat(topBody, View.ROTATION, direction * 9f),
+                android.animation.ObjectAnimator.ofFloat(topBody, View.ALPHA, 0f)
+            )
+            if (selected != null) {
+                animations += android.animation.ObjectAnimator.ofFloat(selected, View.TRANSLATION_X, 0f)
+                animations += android.animation.ObjectAnimator.ofFloat(selected, View.TRANSLATION_Y, 0f)
+                animations += android.animation.ObjectAnimator.ofFloat(selected, View.ALPHA, 1f)
+            }
 
-            selected?.animate()?.translationX(0f)?.translationY(0f)?.alpha(1f)
-                ?.setDuration(230)?.setInterpolator(DecelerateInterpolator())?.start()
+            var committed = false
+            fun finishTransition() {
+                if (committed) return
+                committed = true
+                // Persist the new word only after the outgoing card has completed its exit.
+                if (direction < 0) advanceBrowseWord() else showPreviousBrowseWord()
+                browseMotionState = BrowseMotionState.IDLE
+                resetIncomingLayers()
+                if (selectedTab == TAB_BROWSE && !showingFavorites) renderPage()
+            }
+
+            android.animation.AnimatorSet().apply {
+                playTogether(animations)
+                duration = 260L
+                interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) = finishTransition()
+                    override fun onAnimationCancel(animation: android.animation.Animator) = finishTransition()
+                })
+                start()
+            }
         }
 
         var downX = 0f
@@ -626,11 +668,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         var horizontalDrag = false
         var verticalDrag = false
         var moved = false
+        var velocityTracker: android.view.VelocityTracker? = null
         val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
         stage.setOnTouchListener { view, event ->
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    if (browseFlipAnimating) return@setOnTouchListener true
+                    if (browseMotionState != BrowseMotionState.IDLE) return@setOnTouchListener true
+                    velocityTracker?.recycle()
+                    velocityTracker = android.view.VelocityTracker.obtain().apply { addMovement(event) }
                     downX = event.rawX
                     downY = event.rawY
                     horizontalDrag = false
@@ -641,7 +686,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
-                    if (browseFlipAnimating) return@setOnTouchListener true
+                    if (browseMotionState != BrowseMotionState.IDLE &&
+                        browseMotionState != BrowseMotionState.DRAGGING
+                    ) return@setOnTouchListener true
+                    velocityTracker?.addMovement(event)
                     val dx = event.rawX - downX
                     val dy = event.rawY - downY
                     if (!horizontalDrag && !verticalDrag &&
@@ -649,6 +697,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     ) {
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.15f) {
                             horizontalDrag = true
+                            browseMotionState = BrowseMotionState.DRAGGING
                             view.parent?.requestDisallowInterceptTouchEvent(true)
                         } else {
                             verticalDrag = true
@@ -661,18 +710,36 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         val direction = if (dx < 0f) -1 else 1
                         val progress = (kotlin.math.abs(dx) / dp(220).toFloat()).coerceIn(0f, 1f)
                         showIncomingDuringDrag(direction, progress)
-                        topBody.translationX = dx * 0.82f
+                        // One-to-one movement keeps the card attached to the finger.
+                        topBody.translationX = dx
                         topBody.translationY = -dp(7).toFloat() * progress
-                        topBody.rotation = (dx / stage.width.coerceAtLeast(1).toFloat() * 13f).coerceIn(-13f, 13f)
-                        topBody.alpha = (1f - progress * 0.12f).coerceIn(0.84f, 1f)
+                        topBody.rotation = (dx / stage.width.coerceAtLeast(1).toFloat() * 9f).coerceIn(-9f, 9f)
+                        topBody.alpha = 1f
                     }
                     true
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    if (browseFlipAnimating) return@setOnTouchListener true
+                    if (browseMotionState != BrowseMotionState.IDLE &&
+                        browseMotionState != BrowseMotionState.DRAGGING
+                    ) return@setOnTouchListener true
+
+                    velocityTracker?.addMovement(event)
+                    val velocityX = velocityTracker?.let {
+                        it.computeCurrentVelocity(1000)
+                        it.xVelocity
+                    } ?: 0f
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+
                     val dx = event.rawX - downX
                     val dy = event.rawY - downY
-                    if (horizontalDrag && kotlin.math.abs(dx) >= dp(68) &&
+                    val distanceThreshold = maxOf(dp(68).toFloat(), stage.width * 0.22f)
+                    val flingDistance = maxOf(slop * 2f, stage.width * 0.08f)
+                    val isQuickFling =
+                        kotlin.math.abs(dx) >= flingDistance && kotlin.math.abs(velocityX) >= dp(850).toFloat()
+
+                    if (horizontalDrag &&
+                        (kotlin.math.abs(dx) >= distanceThreshold || isQuickFling) &&
                         kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.15f
                     ) {
                         animateCardChange(if (dx < 0f) -1 else 1)
@@ -680,7 +747,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         kotlin.math.abs(dx) < slop && kotlin.math.abs(dy) < slop
                     ) {
                         resetIncomingLayers()
-                        browseFlipAnimating = true
+                        browseMotionState = BrowseMotionState.FLIPPING
                         val from = if (browseCardFlipped) 180f else 0f
                         val to = if (browseCardFlipped) 0f else 180f
                         browseCardFlipped = !browseCardFlipped
@@ -696,22 +763,27 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                             }
                             addListener(object : android.animation.AnimatorListenerAdapter() {
                                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                                    browseFlipAnimating = false
+                                    browseMotionState = BrowseMotionState.IDLE
                                 }
                                 override fun onAnimationCancel(animation: android.animation.Animator) {
-                                    browseFlipAnimating = false
+                                    browseMotionState = BrowseMotionState.IDLE
                                 }
                             })
                             start()
                         }
-                    } else {
+                    } else if (horizontalDrag) {
                         restoreStack()
+                    } else {
+                        resetIncomingLayers()
                     }
                     view.parent?.requestDisallowInterceptTouchEvent(false)
                     true
                 }
                 android.view.MotionEvent.ACTION_CANCEL -> {
-                    restoreStack()
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    if (browseMotionState == BrowseMotionState.DRAGGING) restoreStack()
+                    else if (browseMotionState == BrowseMotionState.IDLE) resetIncomingLayers()
                     view.parent?.requestDisallowInterceptTouchEvent(false)
                     true
                 }
@@ -1674,7 +1746,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun swipeBrowse(direction: Int) {
-        if (browseFlipAnimating) return
+        if (browseMotionState != BrowseMotionState.IDLE) return
         browseCardFlipped = false
         if (direction < 0) advanceBrowseWord() else showPreviousBrowseWord()
         provideFeedback(isSwipe = true)
