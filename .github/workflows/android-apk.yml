@@ -78,9 +78,11 @@ jobs:
           PY
 
           mkdir -p "$PROJECT_DIR/app/src/main/assets/books" "$PROJECT_DIR/app/src/main/assets/licenses"
+          python tools/enrich_wordbook_pos.py wordbooks
           python tools/enrich_wordbooks.py "$PROJECT_DIR" wordbooks
           cp wordbooks/*.json "$PROJECT_DIR/app/src/main/assets/books/"
           cp wordbooks/KyleBing-LICENSE.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
+          cp wordbooks/ECDICT-LICENSE-MIT.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
           cp wordbooks/SOURCES.md "$PROJECT_DIR/app/src/main/assets/licenses/"
 
           # Persist enriched source wordbooks (not only the copies inside the APK).
@@ -140,7 +142,19 @@ jobs:
               data = json.loads(p.read_text(encoding="utf-8"))
               assert data.get("words"), p
               assert all(w.get("meaning") for w in data["words"]), p
-          print("Wordbook schema checks passed.")
+          source = (project / "app/src/main/java/com/words/app/MainActivity.kt").read_text(encoding="utf-8")
+          import re
+          def function_body(name):
+              start = source.index(f"private fun {name}")
+              following = re.search(r"\n    private fun ", source[start + 1:])
+              end = start + 1 + following.start() if following else len(source)
+              return source[start:end]
+          study_body = function_body("renderStudy")
+          answer_body = function_body("renderQuizAnswer")
+          assert 'text("今日背词计划"' in study_body, "Study must begin with the daily plan"
+          assert "返回" not in study_body, "Study screen must not contain a back-navigation row"
+          assert "返回选项" not in answer_body and "ANSWER REVIEW" not in answer_body, "Answer review must not contain a back row"
+          print("Wordbook schema and Study no-back-row checks passed.")
           PY
 
       - name: Build Android debug APK
@@ -173,11 +187,11 @@ jobs:
       - name: Publish downloadable GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.6.9
+          tag_name: v1.7.0
           target_commitish: main
-          name: words 1.6.9
+          name: words 1.7.0
           body: |
-            words 1.6.9 — removes the Study screen return row and improves POS coverage and meaning spacing.
+            words 1.7.0 — guarantees the Study screen starts with the daily plan, separates major meanings more clearly, and fills missing POS metadata.
 
             - After answering, the original question remains visible; the selected and correct options are highlighted immediately.
             - Tap any option to open the structured answer explanation.
@@ -207,7 +221,8 @@ jobs:
             Quick Browse's Chinese side now uses the same POS-aware meaning formatter as Study. Repeated n./v. source entries merge into one POS group; duplicate glosses are removed, related glosses use the enumeration comma 、, and major senses use a smaller single-en-space gap.
             The actual Study question screen no longer shows the top ‹ 返回 / DAILY QUIZ row; 今日背词计划 is now the first content at the top.
             Combined POS metadata such as v./n. is parsed into separate blue labels when legacy source definitions have no inline markers. vt./vi. are normalized to v. so declared verb POS is not lost.
-            Enumeration punctuation is reduced to 68% size; different major senses retain a visibly wider two-en-space gap. Duplicate source senses merge only when one gloss set is fully contained in the other, avoiding accidental collapse of unrelated meanings.
+            Enumeration punctuation is reduced to 48% size; different major senses use a full em-space gap, making the boundary clearer without splitting each gloss onto a new line. The question and answer screens both start with the daily plan/progress area and contain no visible back row.
+            Missing POS labels are filled from ECDICT's pinned corpus POS field and local school-wordbook TSV records. The built-in packs are upgraded to version 3 so existing installations refresh the metadata in place while keeping separate review history.
             Study progress-to-question/result-card and result-card-to-word-card gaps remain consistently 15 dp.
 
             This is a debug-signed APK for direct testing.

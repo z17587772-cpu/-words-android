@@ -12,3 +12,6 @@ The extended wordbook is derived from KyleBing/english-vocabulary, file `2 é«˜ä¸
 - Curriculum tiers are course-level markers, not measured Gaokao past-paper frequencies.
 - English pronunciation is provided by the device's Android text-to-speech engine; this release does not bundle third-party audio recordings.
 - Some curriculum headwords are grouped with spelling variants or abbreviations as printed in the source list.
+
+## Part-of-speech metadata enrichment
+Missing part-of-speech fields are supplemented from the `pos` field in ECDICT (https://github.com/skywind3000/ECDICT), pinned to commit `39cfb9672c0906b63569e0453c2e6abfb9ab182a`. Its POS field records corpus-derived word classes; the app retains class labels and omits proportions. Existing inline POS markers take precedence, and the local school-wordbook TSV data is used as a fallback. The ECDICT MIT license is included as `wordbooks/ECDICT-LICENSE-MIT.txt`.

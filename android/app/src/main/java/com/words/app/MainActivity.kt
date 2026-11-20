@@ -760,7 +760,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val source = raw.replace("\r\n", "\n").replace('　', ' ').trim()
         if (source.isBlank()) return source
 
-        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:prep&adv|prep&pron|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|neg|n|v))\.(?=\s|[/&,]|$)\s*""")
+        val posPattern = Regex("""(?i)(?<![A-Za-z])((?:prep&adv|prep&pron|determiner|infinitive|infm|vt|vi|adj|adv|prep|conj|pron|num|art|aux|int|abbr|pl|verb|article|det|neg|not|n|v))\.(?=\s|[/&,]|$)\s*""")
 
         fun canonicalPos(value: String): String = when (value.trim().lowercase().removeSuffix(".")) {
             "n", "noun", "名词" -> "n."
@@ -778,7 +778,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             "pl", "plural", "复数" -> "pl."
             "prep&adv" -> "prep.&adv."
             "prep&pron" -> "prep.&pron."
-            "neg" -> "neg."
+            "det", "determiner" -> "det."
+            "infm", "infinitive" -> "infm."
+            "neg", "not" -> "neg."
             else -> value.trim().let { if (it.endsWith(".")) it else "$it." }
         }
 
@@ -856,7 +858,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
 
             if (senseGroups.isEmpty()) return@posGroupLoop
-            if (result.isNotEmpty()) result.append("\u2002\u2002")
+            if (result.isNotEmpty()) result.append("\u2003")
 
             val posTokens = posLabel.split(Regex("""\s+""")).filter { it.isNotBlank() }
             posTokens.forEachIndexed { index, token ->
@@ -871,14 +873,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
             senseGroups.forEachIndexed { senseIndex, glossGroup ->
                 // Major-sense boundary is wider than the reduced-size enumeration comma.
-                if (senseIndex > 0) result.append("\u2002\u2002")
+                if (senseIndex > 0) result.append("\u2003")
                 val senseStart = result.length
                 glossGroup.forEachIndexed { glossIndex, gloss ->
                     if (glossIndex > 0) {
                         val punctuationStart = result.length
                         result.append("、")
                         result.setSpan(
-                            RelativeSizeSpan(0.68f),
+                            RelativeSizeSpan(0.48f),
                             punctuationStart,
                             result.length,
                             android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -896,6 +898,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderStudy(parent: LinearLayout) {
+        // The daily plan is intentionally the first row; this quiz page has no back-navigation row.
         if (queue.isEmpty()) ensureQueue(forceNew = true)
         val book = activeBook()
         if (queue.isEmpty() || queueIndex >= queue.size) {
