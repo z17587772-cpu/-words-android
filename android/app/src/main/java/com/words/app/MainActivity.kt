@@ -1926,7 +1926,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 return
             }
             listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
-            controller.setMediaItem(MediaItem.fromUri(audioUrl), sentence.startMs)
+            val sentenceMediaItem = MediaItem.Builder()
+                .setMediaId(episode.id)
+                .setUri(audioUrl)
+                .build()
+            controller.setMediaItem(sentenceMediaItem, sentence.startMs)
             controller.prepare()
             controller.play()
             val segmentEnd = sentence.endMs
