@@ -7,12 +7,11 @@ data class ListeningAssignmentHistory(
     val category: String,
     val level: String,
     val accent: String,
-    val assignmentCount: Int = 1,
-    val lastAssignedDate: String? = null
+    val assignmentCount: Int = 1
 )
 
 /**
- * Deterministic rotation across the complete eligible catalog.
+ * Deterministic selection of never-before-assigned daily lessons.
  *
  * An episode can enter the new-lesson queue only once. Previously assigned
  * episodes are never recycled as new lessons; review is a separate workflow.
