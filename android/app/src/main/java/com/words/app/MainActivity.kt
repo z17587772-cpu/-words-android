@@ -143,6 +143,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         prefs.edit().putString(KEY_BOOK, currentBookId).apply()
         loadQueueFromPreferences()
         loadBrowseState()
+        restoreListeningAttemptState()
         tts = TextToSpeech(this, this)
         connectListeningPlayback()
 
@@ -1972,6 +1973,96 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun persistListeningAttemptUiState() {
+        if (listeningAttemptId <= 0L) return
+        prefs.edit()
+            .putLong(KEY_LISTENING_ATTEMPT_ID, listeningAttemptId)
+            .putInt(KEY_LISTENING_QUESTION_INDEX, listeningQuestionIndex)
+            .putLong(KEY_LISTENING_SELECTED_CHOICE_ID, listeningSelectedChoiceId ?: -1L)
+            .apply()
+    }
+
+    private fun clearActiveListeningAttempt() {
+        prefs.edit()
+            .remove(KEY_LISTENING_ATTEMPT_ID)
+            .remove(KEY_LISTENING_QUESTION_INDEX)
+            .remove(KEY_LISTENING_SELECTED_CHOICE_ID)
+            .apply()
+        listeningAttemptId = -1L
+        listeningQuestionIndex = 0
+        listeningSelectedChoiceId = null
+        listeningSubmitted = false
+        listeningCurrentCorrect = null
+        listeningCorrectChoiceId = null
+        listeningCorrectCount = 0
+    }
+
+    /**
+     * Reconstructs an interrupted session from SQLite answers plus a small
+     * SharedPreferences pointer. Submitted answers are never replayed or lost;
+     * an unsubmitted selection is restored only if it still belongs to the
+     * first unanswered question.
+     */
+    private fun restoreListeningAttemptState() {
+        val savedAttemptId = prefs.getLong(KEY_LISTENING_ATTEMPT_ID, -1L)
+        if (savedAttemptId <= 0L) return
+        val progress = listeningRepository.getAttemptProgress(savedAttemptId)
+        if (progress == null) {
+            clearActiveListeningAttempt()
+            return
+        }
+
+        listeningAttemptId = progress.id
+        listeningEpisodeId = progress.episodeId
+        listeningCorrectCount = listeningRepository.getAttemptCorrectCount(progress.id)
+        listeningSelectedChoiceId = null
+        listeningSubmitted = false
+        listeningCurrentCorrect = null
+        listeningCorrectChoiceId = null
+
+        if (progress.isCompleted) {
+            listeningStage = "review"
+            listeningQuestionIndex = 0
+            return
+        }
+        if (progress.stage != "blind" && progress.stage != "quiz") {
+            clearActiveListeningAttempt()
+            return
+        }
+
+        listeningStage = progress.stage
+        if (progress.stage == "blind") {
+            listeningQuestionIndex = 0
+            return
+        }
+
+        val questions = listeningRepository.getQuestionsForAttempt(progress.id)
+        val nextQuestionIndex = questions.indexOfFirst { question ->
+            listeningRepository.getAttemptAnswer(progress.id, question.id) == null
+        }
+        if (nextQuestionIndex < 0) {
+            listeningRepository.finishAttempt(progress.id)
+            listeningStage = "review"
+            listeningQuestionIndex = 0
+            return
+        }
+
+        listeningQuestionIndex = nextQuestionIndex
+        val savedIndex = prefs.getInt(KEY_LISTENING_QUESTION_INDEX, -1)
+        val savedChoiceId = prefs.getLong(KEY_LISTENING_SELECTED_CHOICE_ID, -1L)
+        if (savedIndex == nextQuestionIndex &&
+            questions[nextQuestionIndex].options.any { it.id == savedChoiceId }
+        ) {
+            listeningSelectedChoiceId = savedChoiceId
+        }
+    }
+
+    private fun resumeListeningAttempt(attemptId: Long) {
+        prefs.edit().putLong(KEY_LISTENING_ATTEMPT_ID, attemptId).apply()
+        restoreListeningAttemptState()
+        renderPage()
+    }
+
     private fun renderListening(parent: LinearLayout) {
         when (listeningStage) {
             "intro" -> renderListeningIntro(parent)
@@ -2894,5 +2985,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         private const val KEY_QUIZ_SHOW_EXPLANATION = "quiz_show_explanation"
         private const val KEY_FEEDBACK_SOUND = "feedback_sound"
         private const val KEY_FEEDBACK_HAPTICS = "feedback_haptics"
+        private const val KEY_LISTENING_ATTEMPT_ID = "listening_active_attempt_id"
+        private const val KEY_LISTENING_QUESTION_INDEX = "listening_question_index"
+        private const val KEY_LISTENING_SELECTED_CHOICE_ID = "listening_selected_choice_id"
     }
 }
