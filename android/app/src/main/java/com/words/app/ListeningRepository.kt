@@ -172,12 +172,15 @@ class ListeningRepository(private val helper: WordsDatabase) {
             arrayOf(episodeId)
         ).use { cursor -> require(cursor.moveToFirst()); cursor.getLong(0) }
         val revisionId = "legacy:$episodeId:$updatedAt"
-        db.insertWithOnConflict("listening_episode_revisions", null, ContentValues().apply {
-            put("revision_id", revisionId)
-            put("episode_id", episodeId)
-            put("revision_hash", "legacy-runtime")
-            put("created_at", updatedAt)
-        }, SQLiteDatabase.CONFLICT_IGNORE)
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_episode_revisions(
+                revision_id,episode_id,revision_hash,title,description,category,level,duration_ms,
+                accent,speech_rate,audio_url,is_demo,updated_at,created_at
+            )
+            SELECT ?,id,'legacy-runtime',title,description,category,level,duration_ms,
+                   accent,speech_rate,audio_url,is_demo,updated_at,updated_at
+            FROM listening_episodes WHERE id=?
+        """.trimIndent(), arrayOf(revisionId, episodeId))
         db.execSQL("""
             INSERT OR IGNORE INTO listening_revision_sentences(
                 revision_id,sentence_id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
@@ -310,6 +313,26 @@ class ListeningRepository(private val helper: WordsDatabase) {
             updatedAt = cursor.getLong(10)
         )
     }
+
+    fun getEpisodeForAttempt(attemptId: Long): ListeningEpisode? =
+        helper.readableDatabase.rawQuery(
+            """SELECT revision.episode_id,revision.title,revision.description,revision.category,
+                      revision.level,revision.duration_ms,revision.accent,revision.speech_rate,
+                      revision.audio_url,revision.is_demo,revision.updated_at
+               FROM listening_attempts attempt
+               JOIN listening_episode_revisions revision
+                 ON revision.revision_id=attempt.content_revision_id
+               WHERE attempt.id=? LIMIT 1""",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else ListeningEpisode(
+                id = cursor.getString(0), title = cursor.getString(1), description = cursor.getString(2),
+                category = cursor.getString(3), level = cursor.getString(4), durationMs = cursor.getLong(5),
+                accent = cursor.getString(6), speechRate = cursor.getFloat(7),
+                audioUrl = if (cursor.isNull(8)) null else cursor.getString(8),
+                isDemo = cursor.getInt(9) == 1, updatedAt = cursor.getLong(10)
+            )
+        }
 
     fun getEpisodes(): List<ListeningEpisode> = helper.readableDatabase.rawQuery(
         """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo,updated_at
