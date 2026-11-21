@@ -339,6 +339,13 @@ Static source assertions and an independent SQLite schema/foreign-key simulation
 ## 17. Low-storage protection
 
 ### Follow-up hardening — staging and extraction headroom
+### CI validation efficiency and emulator runner repair
+
+- Inspected the latest available failed PR validation run. Static checks completed successfully; the Android emulator never booted, so instrumentation did not start. The runner lacked accessible `/dev/kvm`; the action launched the newer emulator with `-accel off`, which that emulator version rejects unless TCG is explicitly enabled. This was an infrastructure startup failure, not a Kotlin compile error or failed test assertion.
+- Added the upstream-recommended KVM udev permission setup and a `GITHUB_ENV` TCG fallback when KVM is unavailable.
+- Added explicit `compileDebugKotlin` and `compileDebugAndroidTestKotlin` tasks before emulator startup. This gives a compile result without assembling or uploading an APK, even if emulator startup later fails.
+- The latest available workflow run still targets an earlier branch commit. The new workflow changes and latest source must be validated by a fresh run before marking either compile or instrumentation green.
+
 ### Follow-up hardening — exact installed snapshot verification
 
 - Same-version/same-digest imports no longer trust the package registry, row counts and audio file alone.
