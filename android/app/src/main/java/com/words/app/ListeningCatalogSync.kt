@@ -315,16 +315,28 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
         if (downloadId <= 0L) return Result.failure()
         val record = ListeningCatalogSync.getDownloadRecord(applicationContext, downloadId) ?: return Result.success()
         val manager = applicationContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val cursor = manager.query(DownloadManager.Query().setFilterById(downloadId)) ?: return Result.retry()
+        val cursor = manager.query(DownloadManager.Query().setFilterById(downloadId))
+            ?: run {
+                ListeningCatalogSync.deleteDownloadArchive(applicationContext, downloadId)
+                ListeningCatalogSync.removeDownloadRecord(applicationContext, downloadId)
+                return Result.failure()
+            }
         val status = cursor.use {
-            if (!it.moveToFirst()) return Result.retry()
-            it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            if (!it.moveToFirst()) -1
+            else it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+        }
+        if (status == -1) {
+            ListeningCatalogSync.deleteDownloadArchive(applicationContext, downloadId)
+            ListeningCatalogSync.removeDownloadRecord(applicationContext, downloadId)
+            return Result.failure()
         }
         if (status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING ||
             status == DownloadManager.STATUS_PAUSED
         ) return Result.retry()
         if (status != DownloadManager.STATUS_SUCCESSFUL) {
+            ListeningCatalogSync.deleteDownloadArchive(applicationContext, downloadId)
             ListeningCatalogSync.removeDownloadRecord(applicationContext, downloadId)
+            manager.remove(downloadId)
             return Result.failure()
         }
 
