@@ -70,3 +70,12 @@ data class ListeningPlaybackState(
     val positionMs: Long,
     val speed: Float
 )
+
+data class ListeningAnswerReview(
+    val questionId: String,
+    val selectedChoiceId: Long?,
+    val selectedContent: String?,
+    val correctChoiceId: Long,
+    val correctContent: String,
+    val isCorrect: Boolean
+)
