@@ -107,7 +107,11 @@ class WordsDatabaseMigrationTest {
         } catch (_: IllegalArgumentException) {
             // Expected question/attempt ownership validation.
         }
-        repository.finishAttempt(attemptId, 0f)
+        repository.getQuestions(episodeId).drop(1).forEach { unanswered ->
+            val correctChoice = repository.getCorrectChoiceId(unanswered.id)!!
+            assertTrue(repository.recordAnswer(attemptId, unanswered.id, correctChoice))
+        }
+        assertEquals(0.8f, repository.finishAttempt(attemptId), 0.001f)
 
         val review = repository.getAttemptAnswerReviews(attemptId).first { it.questionId == question.id }
         assertEquals(wrongOption.id, review.selectedChoiceId)
