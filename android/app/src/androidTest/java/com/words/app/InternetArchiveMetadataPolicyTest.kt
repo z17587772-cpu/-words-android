@@ -20,6 +20,14 @@ class InternetArchiveMetadataPolicyTest {
             java.io.File(root, "orphan.mp3").writeBytes(ByteArray(35))
             java.io.File(root, "interrupted.part").writeBytes(ByteArray(15))
             val outside = java.io.File(parent, "outside.mp3").apply { writeBytes(ByteArray(500)) }
+            // If the platform supports symbolic links, a link into the library
+            // must not make an external file count as app-private library bytes.
+            runCatching {
+                java.nio.file.Files.createSymbolicLink(
+                    java.io.File(root, "external-link.mp3").toPath(),
+                    outside.toPath()
+                )
+            }
 
             assertEquals(170L, ListeningStorageAccounting.diskUsage(root))
             assertFalse(ListeningStorageAccounting.diskUsage(java.io.File(parent, "missing")) > 0L)
