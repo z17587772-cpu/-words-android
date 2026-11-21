@@ -91,6 +91,7 @@ object ListeningAudioIntegrity {
         require(parent.exists() || parent.mkdirs()) { "Cannot create audio directory" }
 
         val temporary = File.createTempFile(".revision-audio-", ".part", parent)
+        var installedByThisCall = false
         try {
             val digest = MessageDigest.getInstance("SHA-256")
             var copied = 0L
@@ -120,10 +121,11 @@ object ListeningAudioIntegrity {
                 // No REPLACE_EXISTING: a race or pre-existing destination must fail closed.
                 Files.move(temporary.toPath(), destination.toPath())
             }
+            installedByThisCall = true
             require(verify(destination, expected)) { "Installed audio failed post-move verification" }
             return destination
         } catch (error: Exception) {
-            runCatching { if (destination.exists()) destination.delete() }
+            if (installedByThisCall) runCatching { destination.delete() }
             throw error
         } finally {
             if (temporary.exists()) temporary.delete()
