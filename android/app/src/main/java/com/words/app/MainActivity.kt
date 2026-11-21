@@ -2046,6 +2046,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun clearActiveListeningAttempt() {
+        listeningArchiveAssignmentDate = null
         prefs.edit()
             .remove(KEY_LISTENING_ATTEMPT_ID)
             .remove(KEY_LISTENING_QUESTION_INDEX)
@@ -2804,6 +2805,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         c.addView(vSpace(5))
         c.addView(quietButton("返回听力首页") {
+            listeningArchiveAssignmentDate = null
             transitionListeningStage("home")
         })
         parent.addView(c)

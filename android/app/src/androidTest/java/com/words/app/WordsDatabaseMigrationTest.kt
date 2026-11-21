@@ -824,7 +824,7 @@ class WordsDatabaseMigrationTest {
         db.execSQL("UPDATE listening_episodes SET title='Changed title' WHERE id=?", arrayOf(episodeId))
 
         assertEquals(episodeId, repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.id)
-        assertEquals(episodeId, repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.let { it.id })
+        assertEquals("archive-revision-test", repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.title)
         val historicalAttempt = repository.startAttempt(episodeId, assignmentDate)
         val pinnedRevision = db.rawQuery(
             "SELECT content_revision_id FROM listening_attempts WHERE id=?",
