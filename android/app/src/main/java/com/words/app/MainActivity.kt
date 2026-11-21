@@ -27,6 +27,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
@@ -45,6 +46,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningMediaController: MediaController? = null
     private var listeningControllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
     private var listeningStage = "home"
+    private var listeningStageTransitioning = false
     private var listeningDailyEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningAttemptId = -1L
@@ -305,7 +307,47 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * A short two-phase transition for listening-stage changes only. The
+     * persistent navigation chrome stays still; ordinary answer selection
+     * rerenders remain immediate to avoid unnecessary motion and flicker.
+     */
+    private fun transitionListeningStage(
+        nextStage: String,
+        beforeRender: () -> Unit = {}
+    ) {
+        if (listeningStageTransitioning || !::pageHost.isInitialized) return
+        listeningStageTransitioning = true
+        pageHost.animate().cancel()
+        pageHost.animate()
+            .alpha(0f)
+            .translationY(-dp(4).toFloat())
+            .setDuration(115L)
+            .setInterpolator(AccelerateInterpolator())
+            .withEndAction {
+                if (isFinishing || isDestroyed) {
+                    listeningStageTransitioning = false
+                    return@withEndAction
+                }
+                beforeRender()
+                listeningStage = nextStage
+                renderPage()
+                pageHost.alpha = 0f
+                pageHost.translationY = dp(7).toFloat()
+                listeningStageTransitioning = true
+                pageHost.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(DecelerateInterpolator())
+                    .withEndAction { listeningStageTransitioning = false }
+                    .start()
+            }
+            .start()
+    }
+
     private fun renderPage() {
+        listeningStageTransitioning = false
         val preserveStudyPosition = selectedTab == TAB_STUDY && quizShowExplanation
         val previousStudyScrollY = if (preserveStudyPosition) (pageHost.getChildAt(0) as? ScrollView)?.scrollY ?: 0 else 0
         // Rebuild the page without fading the entire screen. The old global fade
