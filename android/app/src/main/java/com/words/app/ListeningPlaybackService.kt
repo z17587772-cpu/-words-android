@@ -69,11 +69,8 @@ class ListeningPlaybackService : MediaSessionService() {
                     val helper = database ?: WordsDatabase(this).also { database = it }
                     ListeningRepository(helper).also { repository = it }
                 }
-                val episode = store.getEpisode(episodeId) ?: return@execute
-                if (episode.isDemo || episode.audioUrl != audioUri) return@execute
-                if (episode.playbackRevision(audioUri) != itemRevision) return@execute
-                if (episode.durationMs > 0L && position >= episode.durationMs) return@execute
-                store.savePlayback(episodeId, position, speed, episode.playbackRevision(audioUri))
+                if (!store.isKnownPlaybackRevision(episodeId, audioUri, itemRevision, position)) return@execute
+                store.savePlayback(episodeId, position, speed, itemRevision)
             } catch (error: Exception) {
                 Log.w(TAG, "Unable to persist listening playback checkpoint", error)
             }
