@@ -362,6 +362,30 @@ class InternetArchiveDiscoveryWorker(
     }
 }
 
+internal object ListeningStorageAccounting {
+    /**
+     * Count bytes that physically occupy the app-private library, including orphaned
+     * and partial files. Database-only accounting undercounts after interrupted cleanup.
+     * Canonical-path checks exclude symlinks that point outside the library root.
+     */
+    fun diskUsage(root: File): Long {
+        val canonicalRoot = runCatching { root.canonicalFile }.getOrNull() ?: return 0L
+        if (!canonicalRoot.isDirectory) return 0L
+        val prefix = canonicalRoot.path.trimEnd(File.separatorChar) + File.separator
+        return canonicalRoot.walkTopDown()
+            .filter { it.isFile }
+            .fold(0L) { total, file ->
+                val canonical = runCatching { file.canonicalFile }.getOrNull()
+                if (canonical == null || !canonical.path.startsWith(prefix) || !canonical.isFile) {
+                    total
+                } else {
+                    val bytes = canonical.length()
+                    if (Long.MAX_VALUE - total < bytes) Long.MAX_VALUE else total + bytes
+                }
+            }
+    }
+}
+
 internal object InternetArchiveMetadataPolicy {
     fun asText(value: Any?): String {
         val raw = when (value) {
@@ -543,7 +567,7 @@ class ListeningResourceDownloadWorker(
         incomingBytes: Long
     ): Boolean {
         val quota = MAX_LIBRARY_BYTES
-        var used = repository.downloadedStorageBytes()
+        var used = ListeningStorageAccounting.diskUsage(root)
         if (used + incomingBytes <= quota) return true
         val rootPath = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
         for (candidate in repository.getEvictionCandidates()) {
@@ -556,7 +580,7 @@ class ListeningResourceDownloadWorker(
                 repository.markLocalFileEvicted(candidate.id, candidate.localFilePath)
                 continue
             }
-            val bytes = file?.takeIf { it.isFile }?.length() ?: candidate.expectedSizeBytes
+            val bytes = file?.takeIf { it.isFile }?.length() ?: 0L
             // First atomically detach the eligible metadata row. This prevents a
             // concurrent play/pin update from leaving a DB row pointing at bytes
             // that have already been deleted.
