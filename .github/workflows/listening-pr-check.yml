@@ -8,13 +8,6 @@ on:
       - '.github/workflows/listening-pr-check.yml'
       - 'wordbooks/**'
       - 'tools/**'
-  push:
-    branches: [feature/listening-mvp]
-    paths:
-      - 'android/**'
-      - '.github/workflows/listening-pr-check.yml'
-      - 'wordbooks/**'
-      - 'tools/**'
   workflow_dispatch:
 
 permissions:
