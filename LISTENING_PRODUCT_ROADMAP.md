@@ -272,3 +272,28 @@ Next safe implementation slice:
 4. Add importer idempotency, downgrade/conflict, rollback and process-interruption tests.
 5. Run the Android CI workflow, fix all compile/instrumentation failures, then validate Media3 audio and offline playback on devices.
 6. Only after those gates pass should course packages, WorkManager sync and release packaging be enabled.
+
+
+## 12. Package importer implementation checkpoint — schema v11
+
+Implemented on `feature/listening-mvp`:
+
+- Database schema v11 adds a persisted package registry (package ID, monotonic package version, archive SHA-256, content revision, import time) and package-to-episode ownership/active-catalog records.
+- Added `ListeningContentPackageImporter`: extracts to a private staging directory, validates the manifest, requires the archive's audio entries to exactly match declared audio paths, verifies every audio file's declared byte count and SHA-256, and stores audio under an immutable revision-specific destination.
+- Import rejects package downgrades, same-version/different-digest conflicts, duplicate audio paths, ownership collisions, expired licenses, and attempts to promote an existing demo or legacy lesson into formal package content.
+- Source and license identifiers are checked for metadata conflicts instead of silently overwriting provenance.
+- A single SQLite transaction creates the package registry update, revision metadata, revision-owned transcript/questions/choices, compatibility parent rows, package ownership mappings, and finally publishes each episode's current revision pointer.
+- Parent question and sentence IDs are namespaced per content revision. Old parent rows remain present so existing answer foreign keys remain valid; old assignments and attempts retain their pinned revision and old audio file.
+- Package updates deactivate removed package episodes instead of deleting them. The active daily planner now validates and selects from immutable revision snapshots rather than accumulated mutable parent rows.
+- Added orphan-audio scanning that only removes importer-owned revision files not referenced by any revision row.
+- ZIP extraction now caps the decompressed manifest at 1 MiB. Added an immutable audio installer that refuses to replace an existing revision file.
+
+### Tests added, runtime status pending
+
+- Package import/idempotency and historical attempt/assignment revision retention.
+- Newer package revision publication, same-version digest conflict rejection, and downgrade rejection.
+- Protection against promoting the system-TTS demo into approved formal content.
+- Immutable audio destinations cannot be overwritten.
+- Fresh-install and v5/v6/v7 migration expectations updated to schema v11.
+
+The new Android instrumentation tests have been authored but **have not yet run**. Android compilation, emulator instrumentation, playback verification, physical-device checks, and GitHub Actions status remain pending. No APK was built, and PR #1 remains a draft without merge or rebase.
