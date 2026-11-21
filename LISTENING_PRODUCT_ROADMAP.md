@@ -574,3 +574,10 @@ The earlier "complete catalog pass, then repeat the oldest lesson" rule has been
 - [ ] Implement candidate ingestion, source cursors, rights quarantine, editorial review, signed publisher, and Android remote sync.
 
 This section supersedes the older full-catalog repeat policy and any earlier roadmap wording that implies an episode is eventually recycled as a daily new lesson.
+
+
+## 23. Long-run no-repeat regression coverage (2026-11-21)
+
+Added an instrumentation regression simulation that introduces seven distinct lesson IDs every week, assigns one unseen lesson per day for 371 days, asserts every assigned ID is unique, and verifies the planner returns `null` once all 371 lessons have been assigned. The PR CI source guard now requires this test to remain present.
+
+This test is authored but has not yet run on an Android emulator. It must pass in CI before the strict no-repeat implementation is considered runtime-verified.
