@@ -2086,6 +2086,29 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             return
         }
 
+        val savedAttemptId = prefs.getLong(KEY_LISTENING_ATTEMPT_ID, -1L)
+        val activeAttempt = if (savedAttemptId > 0L) {
+            listeningRepository.getAttemptProgress(savedAttemptId)
+        } else null
+        val canResumeDaily = activeAttempt != null &&
+            !activeAttempt.isCompleted && activeAttempt.episodeId == episode.id
+
+        if (activeAttempt != null && !activeAttempt.isCompleted && activeAttempt.episodeId != episode.id) {
+            val activeEpisode = listeningRepository.getEpisodeForAttempt(activeAttempt.id)
+            if (activeEpisode != null) {
+                val resumeCard = card(16)
+                resumeCard.addView(text("未完成的训练", 11f, accent, true))
+                resumeCard.addView(vSpace(5))
+                resumeCard.addView(text(activeEpisode.title, 15f, ink, true))
+                resumeCard.addView(vSpace(8))
+                resumeCard.addView(pillButton("继续上次训练  →", false) {
+                    resumeListeningAttempt(activeAttempt.id)
+                })
+                parent.addView(resumeCard)
+                parent.addView(vSpace(10))
+            }
+        }
+
         val daily = card(19)
         daily.addView(text(if (episode.isDemo) "DEMO LESSON" else "TODAY'S LISTENING", 10f, accent, true))
         daily.addView(vSpace(8))
@@ -2097,13 +2120,21 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         daily.addView(vSpace(12))
         daily.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  ${episode.durationLabel}", 11f, secondary))
         daily.addView(vSpace(13))
-        daily.addView(pillButton(if (episode.isDemo) "开始体验课  →" else "开始今日训练  →", true) {
-            listeningEpisodeId = episode.id
-            listeningStage = "intro"
-            listeningQuestionIndex = 0
-            listeningSelectedChoiceId = null
-            listeningSubmitted = false
-            renderPage()
+        daily.addView(pillButton(
+            if (canResumeDaily) "继续上次训练  →"
+            else if (episode.isDemo) "开始体验课  →" else "开始今日训练  →",
+            true
+        ) {
+            if (canResumeDaily) {
+                resumeListeningAttempt(activeAttempt!!.id)
+            } else {
+                listeningEpisodeId = episode.id
+                listeningStage = "intro"
+                listeningQuestionIndex = 0
+                listeningSelectedChoiceId = null
+                listeningSubmitted = false
+                renderPage()
+            }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         parent.addView(daily)
         parent.addView(vSpace(10))
@@ -2189,6 +2220,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(pillButton("开始第一遍盲听", true) {
             listeningAttemptId = listeningRepository.startAttempt(episode.id)
             listeningQuestionIndex = 0
+            persistListeningAttemptUiState()
             listeningCorrectCount = 0
             listeningSelectedChoiceId = null
             listeningSubmitted = false
@@ -2231,10 +2263,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(pillButton("我已完成初听，开始答题", true) {
             tts.stop()
             pauseListeningAudio()
+            listeningRepository.updateAttemptStage(listeningAttemptId, "quiz")
             listeningStage = "quiz"
             listeningQuestionIndex = 0
             listeningSelectedChoiceId = null
             listeningSubmitted = false
+            persistListeningAttemptUiState()
             renderPage()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         c.addView(vSpace(5))
@@ -2278,6 +2312,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 isClickable = !listeningSubmitted
                 setOnClickListener {
                     listeningSelectedChoiceId = option.id
+                    persistListeningAttemptUiState()
                     renderPage()
                 }
             }
@@ -2299,6 +2334,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         if (listeningCurrentCorrect == true) listeningCorrectCount += 1
                         listeningCorrectChoiceId = listeningRepository.getCorrectChoiceId(listeningAttemptId, question.id)
                         listeningSubmitted = true
+                        persistListeningAttemptUiState()
                         renderPage()
                     }
                 }
@@ -2329,7 +2365,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     listeningSelectedChoiceId = null
                     listeningSubmitted = false
                     listeningCurrentCorrect = null
-            listeningCorrectChoiceId = null
+                    listeningCorrectChoiceId = null
+                    persistListeningAttemptUiState()
                 }
                 renderPage()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -2455,6 +2492,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(pillButton("返回听力首页", false) {
             tts.stop()
             pauseListeningAudio()
+            clearActiveListeningAttempt()
             listeningStage = "home"
             renderPage()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
