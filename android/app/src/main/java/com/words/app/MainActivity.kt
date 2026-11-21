@@ -2023,23 +2023,43 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
         addSectionTitle(parent, "听力库", "按主题与难度持续扩充")
         parent.addView(vSpace(9))
-        val libraryCard = card(16)
-        val head = row()
-        head.addView(text(episode.title, 15f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val saved = listeningRepository.isBookmarked(episode.id)
-        head.addView(quietButton(if (saved) "已收藏" else "收藏") {
-            listeningRepository.setBookmarked(episode.id, !saved)
-            renderPage()
-        })
-        libraryCard.addView(head)
-        libraryCard.addView(vSpace(5))
-        libraryCard.addView(text("学习与习惯  ·  ${episode.level}  ·  演示课程", 11f, secondary))
-        libraryCard.addView(vSpace(9))
-        libraryCard.addView(pillButton("查看课程", false) {
-            listeningStage = "intro"
-            renderPage()
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        parent.addView(libraryCard)
+        val libraryEpisodes = listeningRepository.getEpisodes()
+        if (libraryEpisodes.isEmpty()) {
+            val emptyLibrary = card(16)
+            emptyLibrary.addView(text("课程库正在准备中", 13f, secondary))
+            parent.addView(emptyLibrary)
+        } else {
+            libraryEpisodes.forEach { libraryEpisode ->
+                val libraryCard = card(16)
+                val head = row()
+                head.addView(
+                    text(libraryEpisode.title, 15f, ink, true),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+                val saved = listeningRepository.isBookmarked(libraryEpisode.id)
+                head.addView(quietButton(if (saved) "已收藏" else "收藏") {
+                    listeningRepository.setBookmarked(libraryEpisode.id, !saved)
+                    renderPage()
+                })
+                libraryCard.addView(head)
+                libraryCard.addView(vSpace(5))
+                libraryCard.addView(
+                    text(
+                        "${if (libraryEpisode.isDemo) "演示课程" else "正式课程"}  ·  ${libraryEpisode.categoryLabel}  ·  ${libraryEpisode.level}  ·  ${libraryEpisode.durationLabel}",
+                        11f,
+                        secondary
+                    )
+                )
+                libraryCard.addView(vSpace(9))
+                libraryCard.addView(pillButton("查看课程", false) {
+                    listeningEpisodeId = libraryEpisode.id
+                    listeningStage = "intro"
+                    renderPage()
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                parent.addView(libraryCard)
+                parent.addView(vSpace(8))
+            }
+        }
         parent.addView(vSpace(10))
 
         val stats = card(15)
