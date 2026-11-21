@@ -20,6 +20,7 @@ jobs:
       - name: Check out default branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -28,8 +29,7 @@ jobs:
           python-version: '3.12'
 
       - name: Test discovery adapter
-        working-directory: tools/content_pipeline
-        run: python -m unittest -v
+        run: python -m unittest discover -s tools/content_pipeline -p 'test_*.py' -v
 
       - name: Restore persistent content inbox branch
         shell: bash
