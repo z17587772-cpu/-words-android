@@ -2149,6 +2149,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             empty.addView(vSpace(7))
             empty.addView(text("课程数据尚未安装。后续内容包通过审核后会显示在这里。", 12f, secondary))
             parent.addView(empty)
+            renderDiscoveredResourceLibrary(parent)
             return
         }
 
