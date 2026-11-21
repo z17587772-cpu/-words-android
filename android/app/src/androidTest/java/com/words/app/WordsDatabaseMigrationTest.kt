@@ -76,6 +76,31 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun completedReviewRecoversSelectedAndCorrectChoicesWithoutLeakingKeysToOptions() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        repository.ensureDemoSeeded()
+        val episodeId = ListeningRepository.DEMO_EPISODE_ID
+        val question = repository.getQuestions(episodeId).first()
+        val correctId = repository.getCorrectChoiceId(question.id)!!
+        val wrongOption = question.options.first { it.id != correctId }
+        val attemptId = repository.startAttempt(episodeId)
+
+        assertFalse(question.options.any { it.id == correctId && it.content.isBlank() })
+        assertFalse(repository.recordAnswer(attemptId, question.id, wrongOption.id))
+        repository.finishAttempt(attemptId, 0f)
+
+        val review = repository.getAttemptAnswerReviews(attemptId).first { it.questionId == question.id }
+        assertEquals(wrongOption.id, review.selectedChoiceId)
+        assertEquals(wrongOption.content, review.selectedContent)
+        assertEquals(correctId, review.correctChoiceId)
+        assertTrue(review.correctContent.isNotBlank())
+        assertFalse(review.isCorrect)
+        helper.close()
+    }
+
+    @Test
     fun contentPackageValidatorAcceptsCompleteManifestAndRejectsUnsafeReferences() {
         val valid = ListeningContentPackageValidator.validate(validPackageManifest(), 22)
         assertEquals("words-listening-core", valid.packageId)
