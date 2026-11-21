@@ -6,9 +6,12 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import android.util.Log
+import java.util.concurrent.Executors
 
 class ListeningPlaybackService : MediaSessionService() {
     private val checkpointHandler = Handler(Looper.getMainLooper())
+    private val persistenceExecutor = Executors.newSingleThreadExecutor()
     private var database: WordsDatabase? = null
     private var repository: ListeningRepository? = null
     private var player: ExoPlayer? = null
@@ -56,15 +59,23 @@ class ListeningPlaybackService : MediaSessionService() {
         val item = activePlayer.currentMediaItem ?: return
         val episodeId = item.mediaId.takeIf { it.isNotBlank() } ?: return
         val audioUri = item.localConfiguration?.uri?.toString() ?: return
-        val store = repository ?: run {
-            val helper = database ?: WordsDatabase(this).also { database = it }
-            ListeningRepository(helper).also { repository = it }
-        }
-        val episode = store.getEpisode(episodeId) ?: return
-        if (episode.isDemo || episode.audioUrl != audioUri) return
         val position = activePlayer.currentPosition.coerceAtLeast(0L)
-        if (episode.durationMs > 0L && position >= episode.durationMs) return
-        store.savePlayback(episodeId, position, activePlayer.playbackParameters.speed)
+        val speed = activePlayer.playbackParameters.speed
+
+        persistenceExecutor.execute {
+            try {
+                val store = repository ?: run {
+                    val helper = database ?: WordsDatabase(this).also { database = it }
+                    ListeningRepository(helper).also { repository = it }
+                }
+                val episode = store.getEpisode(episodeId) ?: return@execute
+                if (episode.isDemo || episode.audioUrl != audioUri) return@execute
+                if (episode.durationMs > 0L && position >= episode.durationMs) return@execute
+                store.savePlayback(episodeId, position, speed)
+            } catch (error: Exception) {
+                Log.w(TAG, "Unable to persist listening playback checkpoint", error)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -75,13 +86,17 @@ class ListeningPlaybackService : MediaSessionService() {
         mediaSession = null
         player?.release()
         player = null
-        repository = null
-        database?.close()
-        database = null
+        persistenceExecutor.execute {
+            database?.close()
+            database = null
+            repository = null
+        }
+        persistenceExecutor.shutdown()
         super.onDestroy()
     }
 
     companion object {
+        private const val TAG = "ListeningPlayback"
         private const val CHECKPOINT_INTERVAL_MS = 5_000L
     }
 }
