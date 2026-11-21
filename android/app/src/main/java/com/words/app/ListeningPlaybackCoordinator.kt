@@ -3,6 +3,7 @@ package com.words.app
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 
 /**
@@ -31,7 +32,16 @@ class ListeningPlaybackCoordinator(
                 savedPosition >= episode.durationMs - COMPLETION_GUARD_MS
             ) 0L else savedPosition.coerceAtLeast(0L)
 
-            controller.setMediaItem(MediaItem.fromUri(uri), restorePosition)
+            val mediaItem = MediaItem.Builder()
+                .setUri(uri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(episode.title)
+                        .setArtist("Words · 听力训练")
+                        .build()
+                )
+                .build()
+            controller.setMediaItem(mediaItem, restorePosition)
             controller.prepare()
             controller.setPlaybackSpeed(saved?.speed ?: DEFAULT_SPEED)
         }
