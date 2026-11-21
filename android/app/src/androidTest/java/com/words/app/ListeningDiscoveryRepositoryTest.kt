@@ -109,10 +109,14 @@ class ListeningDiscoveryRepositoryTest {
         repository.setPinned(id, false)
         helper.writableDatabase.update(
             "listening_discovered_resources",
-            ContentValues().apply { putNull("last_played_at") },
+            ContentValues().apply {
+                put("last_played_at", System.currentTimeMillis() - 31L * 24L * 60L * 60L * 1000L)
+            },
             "id=?",
             arrayOf(id)
         )
+        // Recently-played protection expires after 30 days; old history must
+        // remain eligible for eviction instead of being permanently protected.
         assertTrue(repository.markLocalFileEvicted(id, "/private/example.mp3"))
         assertTrue(repository.requeueExpiredDownload(id))
         helper.close()
