@@ -68,6 +68,11 @@ class ListeningContentPackageImporter(
             require(manifest.episodes.all { it.audio.path.isNotBlank() }) {
                 "Every episode must declare an audio asset"
             }
+            val requiredAudioBytes = manifest.episodes.sumOf { it.audio.sizeBytes }
+            val storageProbe = if (contentRoot.exists()) contentRoot else contentRoot.parentFile ?: stagingRoot
+            require(storageProbe.usableSpace >= requiredAudioBytes + STORAGE_RESERVE_BYTES) {
+                "Not enough free storage to install this package safely"
+            }
             val audioPaths = manifest.episodes.map { it.audio.path }
             require(audioPaths.toSet().size == audioPaths.size) {
                 "Each episode must use a unique audio path"
@@ -651,6 +656,7 @@ class ListeningContentPackageImporter(
         private val CONTENT_LOCK = Any()
         private const val MAX_MANIFEST_BYTES = 1L * 1024L * 1024L
         private const val MAX_ARCHIVE_BYTES = 1_100_000_000L
+        private const val STORAGE_RESERVE_BYTES = 64L * 1024L * 1024L
         private const val MAX_FUTURE_RIGHTS_CHECK_SKEW_MS = 24L * 60L * 60L * 1000L
         private val REVISION_AUDIO_NAME = Regex("rev_[a-f0-9]{40}\\.(mp3|m4a|aac|ogg|opus|wav|flac)")
     }
