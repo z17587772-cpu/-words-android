@@ -2353,9 +2353,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
         if (resources.isEmpty()) {
             val empty = card(15)
-            empty.addView(text("正在建立资源索引", 13f, ink, true))
-            empty.addView(vSpace(5))
-            empty.addView(text("首次搜索需要联网。找到符合开放许可的英语录音后，会自动排队下载并保存在本机。", 11f, secondary))
+            if (allResources.isEmpty()) {
+                empty.addView(text("正在建立资源索引", 13f, ink, true))
+                empty.addView(vSpace(5))
+                empty.addView(text("首次搜索需要联网。找到符合开放许可的英语录音后，会自动排队下载并保存在本机。", 11f, secondary))
+            } else {
+                empty.addView(text("没有符合当前筛选条件的资源", 13f, ink, true))
+                empty.addView(vSpace(5))
+                empty.addView(text("可以切换到全部资源，或等待下一轮自动发现。", 11f, secondary))
+            }
             parent.addView(empty)
             return
         }
@@ -2374,6 +2380,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resource.canonicalUrl)))
                 }.onFailure {
                     Toast.makeText(this, "无法打开来源页面", Toast.LENGTH_SHORT).show()
+                }
+            })
+            titleRow.addView(quietButton("许可") {
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resource.licenseUrl)))
+                }.onFailure {
+                    Toast.makeText(this, "无法打开许可页面", Toast.LENGTH_SHORT).show()
                 }
             })
             titleRow.addView(quietButton(if (resource.pinned) "已收藏" else "收藏") {
@@ -2440,6 +2453,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
             return
         }
+        listeningPlaybackCoordinator.checkpoint(controller)
         tts.stop()
         val progress = ListeningDiscoveryRepository(db).getResourcePlayback(resource.id)
         val item = MediaItem.Builder()
