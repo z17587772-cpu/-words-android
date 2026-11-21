@@ -57,8 +57,8 @@ class ListeningContentPackageImporter(
                 extracted.manifestFile.readText(Charsets.UTF_8),
                 appVersionCode
             )
-            require(manifest.episodes.flatMap { it.audio.path }.isNotEmpty()) {
-                "Package must contain audio assets"
+            require(manifest.episodes.all { it.audio.path.isNotBlank() }) {
+                "Every episode must declare an audio asset"
             }
             val audioPaths = manifest.episodes.map { it.audio.path }
             require(audioPaths.toSet().size == audioPaths.size) {
