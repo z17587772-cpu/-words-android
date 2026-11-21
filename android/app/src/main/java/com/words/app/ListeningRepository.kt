@@ -355,8 +355,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
                         category = cursor.getString(1),
                         level = cursor.getString(2),
                         accent = cursor.getString(3),
-                        assignmentCount = cursor.getInt(4),
-                        lastAssignedDate = cursor.getString(5)
+                        assignmentCount = cursor.getInt(4)
                     )
                 )
             }
