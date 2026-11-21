@@ -29,7 +29,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(9, upgraded.version)
+        assertEquals(10, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
@@ -47,6 +47,8 @@ class WordsDatabaseMigrationTest {
         assertTrue(tableExists(upgraded, "listening_revision_choices"))
         assertTrue(columnExists(upgraded, "listening_episodes", "current_revision_id"))
         assertTrue(columnExists(upgraded, "listening_attempts", "content_revision_id"))
+        assertTrue(columnExists(upgraded, "listening_episode_revisions", "title"))
+        assertTrue(columnExists(upgraded, "listening_episode_revisions", "audio_url"))
         assertTrue(columnExists(upgraded, "listening_daily_assignments", "content_revision_id"))
         upgraded.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
             assertEquals("No foreign-key violations after migration", false, cursor.moveToFirst())
@@ -324,6 +326,7 @@ class WordsDatabaseMigrationTest {
         val episodeId = ListeningRepository.DEMO_EPISODE_ID
         val originalQuestions = repository.getQuestions(episodeId)
         val originalFirst = originalQuestions.first()
+        val originalEpisode = repository.getEpisode(episodeId)!!
         val originalCorrectId = repository.getCorrectChoiceId(originalFirst.id)!!
         val attemptId = repository.startAttempt(episodeId)
         assertTrue(helper.readableDatabase.rawQuery(
@@ -340,9 +343,15 @@ class WordsDatabaseMigrationTest {
         val db = helper.writableDatabase
         db.execSQL("UPDATE listening_questions SET prompt='mutated live prompt', explanation='mutated live explanation' WHERE id=?",
             arrayOf(originalFirst.id))
+        db.execSQL("UPDATE listening_episodes SET title='mutated live title', audio_url='https://example.invalid/new-audio.mp3' WHERE id=?",
+            arrayOf(episodeId))
         db.execSQL("UPDATE listening_choices SET content='mutated live option', is_correct=1-is_correct WHERE question_id=?",
             arrayOf(originalFirst.id))
 
+        val pinnedEpisode = repository.getEpisodeForAttempt(attemptId)!!
+        assertEquals(originalEpisode.title, pinnedEpisode.title)
+        assertEquals(originalEpisode.audioUrl, pinnedEpisode.audioUrl)
+        assertEquals("mutated live title", repository.getEpisode(episodeId)?.title)
         val pinnedQuestion = repository.getQuestionsForAttempt(attemptId).first()
         assertEquals(originalFirst.prompt, pinnedQuestion.prompt)
         assertEquals(originalFirst.explanation, pinnedQuestion.explanation)
@@ -364,13 +373,15 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(9, database.version)
+        assertEquals(10, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
         assertTrue(tableExists(database, "listening_episode_revisions"))
         assertTrue(tableExists(database, "listening_revision_questions"))
         assertTrue(columnExists(database, "listening_attempts", "content_revision_id"))
+        assertTrue(columnExists(database, "listening_episode_revisions", "title"))
+        assertTrue(columnExists(database, "listening_episode_revisions", "audio_url"))
         assertTrue(columnExists(database, "listening_daily_assignments", "content_revision_id"))
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
 
