@@ -40,6 +40,7 @@ class ListeningContentPackageImporter(
 
     private fun importArchiveLocked(archive: File, nowMs: Long): ListeningPackageImportResult {
         require(archive.isFile && archive.canRead()) { "Package archive is not readable" }
+        require(archive.length() in 1L..MAX_ARCHIVE_BYTES) { "Package archive exceeds the supported size" }
         require(appVersionCode > 0) { "appVersionCode must be positive" }
         require(nowMs > 0L) { "nowMs must be positive" }
 
@@ -603,6 +604,7 @@ class ListeningContentPackageImporter(
     companion object {
         private val CONTENT_LOCK = Any()
         private const val MAX_MANIFEST_BYTES = 1L * 1024L * 1024L
+        private const val MAX_ARCHIVE_BYTES = 1_100_000_000L
         private const val MAX_FUTURE_RIGHTS_CHECK_SKEW_MS = 24L * 60L * 60L * 1000L
         private val REVISION_AUDIO_NAME = Regex("rev_[a-f0-9]{40}\\.(mp3|m4a|aac|ogg|opus|wav|flac)")
     }
