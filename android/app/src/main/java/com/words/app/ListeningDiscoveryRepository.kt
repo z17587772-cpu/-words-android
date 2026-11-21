@@ -252,11 +252,13 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
             arrayOf(sha256.lowercase())
         ).use { c -> if (c.moveToFirst()) c.getString(0) else null }
 
-    fun isLocalPathShared(resourceId: String, path: String): Boolean =
-        helper.readableDatabase.rawQuery(
+    fun isLocalPathShared(resourceId: String, path: String): Boolean {
+        if (path.isBlank()) return false
+        return helper.readableDatabase.rawQuery(
             "SELECT 1 FROM listening_discovered_resources WHERE local_file_path=? AND status='downloaded' AND id<>? LIMIT 1",
             arrayOf(path, resourceId)
         ).use { it.moveToFirst() }
+    }
 
     fun getEvictionCandidates(
         limit: Int = 200,
