@@ -54,7 +54,8 @@ jobs:
             python tools/content_pipeline/sign_catalog.py \
               content-inbox/catalog/unsigned_catalog.json \
               content-inbox/catalog/catalog.json \
-              --asset-root content-inbox
+              --asset-root content-inbox \
+              --previous-envelope content-inbox/catalog/catalog.json
       - name: Publish signed catalog to content-inbox
         shell: bash
         run: |
