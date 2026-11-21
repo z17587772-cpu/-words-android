@@ -108,7 +108,8 @@ Exit: schema migration tests prove existing vocabulary/listening history is unch
 - [x] Add Internet Archive Advanced Search + item Metadata API adapter with explicit license allowlist.
 - [x] LibriVox pagination, request pacing, timeout, retry/backoff and persisted cursor.
 - [x] Normalize English metadata and persist candidates idempotently.
-- [ ] Add provider cancellation, ETag/conditional requests and full network-fixture tests.
+- [x] Honor WorkManager cancellation during provider discovery.
+- [ ] Add ETag/conditional requests and full network-fixture tests.
 
 Exit: instrumented/fake-server tests prove pagination, restart recovery, duplicate handling, malformed response handling and provider rate limiting.
 
@@ -118,7 +119,7 @@ Exit: instrumented/fake-server tests prove pagination, restart recovery, duplica
 - [x] SHA-256, exact provider byte-size, MP3 container/duration validation.
 - [x] Immutable hash-versioned file publication and database pointer update after verification.
 - [x] 512 MiB storage quota; evict only unpinned downloads not played in the last 30 days; serialize transfers to prevent quota races.
-- [x] Reconcile missing local files, clean stale partial downloads and remove aged orphan MP3 files.
+- [x] Reconcile missing local files, verify stored SHA-256 hashes, clean stale partial downloads and remove aged orphan MP3 files.
 - [ ] Dedicated storage-management screen and user-directed deletion controls.
 
 Exit: network interruption, process death, duplicate broadcasts, bad checksum and insufficient storage tests leave no corrupt library rows and preserve prior valid files. **Pending runtime verification.**
@@ -126,7 +127,7 @@ Exit: network interruption, process death, duplicate broadcasts, bad checksum an
 ### D3 — Discovered-library UI/player
 - [x] Add separate “自动发现资源库” list with source, attribution, duration and download state.
 - [x] Add downloaded-only and favorites filters.
-- [ ] Add title/source text search.
+- [ ] Add title/source text search and dedicated storage-management controls.
 - [x] Play downloaded resources offline and resume saved position/speed.
 - [x] Display source and license attribution.
 - [x] Clearly distinguish raw recordings from formal courses.
