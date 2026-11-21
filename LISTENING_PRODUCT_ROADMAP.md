@@ -484,3 +484,62 @@ Run a separate content-publisher service on a schedule (daily metadata discovery
 8. Only then enable unattended scheduled publishing. Keep APK packaging paused until the rest of the product is ready.
 
 This section supersedes any interpretation of the earlier "whole-catalog rotation" as a way to provide fresh daily content. Rotation is a fallback for review/offline continuity; continuous new lessons require the independent publisher pipeline above.
+
+
+## 21. Continuous content supply — consolidated decision and current audit (2026-11-21)
+
+This section supersedes earlier roadmap statements where implementation status has since changed. The detailed publisher, source-adapter, rights, deduplication, signed-catalog, Android-sync, and acceptance-test contract is maintained in `LISTENING_CONTINUOUS_CONTENT_SUPPLY_SPEC.md`.
+
+### Product decisions locked
+
+- New lessons and review work are separate queues. A started episode is never eligible as a new lesson again, even if its package revision changes.
+- An updated revision keeps the same stable episode identity and does not reset first-start state, attempts, bookmarks, or playback history.
+- New published episodes enter the unseen pool immediately; they must be offered before an already-assigned episode is repeated.
+- If no unseen published episode exists, the app must say so and offer review work. It must never disguise an old lesson as a new one.
+- Raw discovery is not publication. Rights, audio, transcript, translation, question evidence, and educational quality must pass review before signed catalog publication.
+- The publisher is independent from the APK. A new course must be installable without rebuilding the app.
+- Local verified courses remain usable offline if the publisher, network, or download fails.
+
+### Source strategy
+
+1. LibriVox incremental metadata discovery is the first provider adapter candidate. Every recording/work still requires item-level rights and territorial review.
+2. Common Voice is the natural-speech batch source candidate. Pin exact dataset releases and licenses; do not promise a daily source cadence.
+3. LibriSpeech is a useful finite read-speech seed/backfill, not the only or primary continuously refreshed conversational source.
+4. Add other sources only after the audio, transcript, metadata, and redistribution rights are independently verified.
+
+### Implementation status — do not overstate
+
+- [x] Complete-catalog assignment history aggregation and new-episode-before-repeat selection are implemented in the Android repository/planner.
+- [x] Regression instrumentation tests cover a new episode arriving during a catalog pass and verify that a repeat waits until the eligible pass is exhausted.
+- [x] A content-supply engineering specification now defines source adapters, candidate states, deduplication, QA, editorial review, signed publication, app sync, reserve monitoring, failure recovery, and acceptance tests.
+- [x] The planner's unresolved `recentHistory` reference was found during source audit and fixed; topic/accent/level tie-break counts now all derive from the supplied complete assignment history.
+- [ ] Kotlin compilation and Android instrumentation must pass on the current head before this rotation slice is considered runtime-verified.
+- [ ] A persistent candidate inbox/provider cursor store and the first source adapter are not implemented yet.
+- [ ] Audio/transcript processing and editorial review workflow are not implemented yet.
+- [ ] Production catalog signing/publishing and Android remote catalog/download orchestration are not implemented yet.
+- [ ] No production human-recorded course reserve is claimed by this roadmap.
+
+### Validation snapshot
+
+- Current planner/repository/test/workflow static audit: 12/12 targeted assertions passed after the planner fix.
+- The rotation instrumentation test exists and covers the intended sequence (two existing lessons, a newly inserted third lesson, then the oldest lesson repeating).
+- The test's epoch timestamps were checked against the intended dates: 2026-11-21 through 2026-11-24 UTC.
+- This static audit is not a Kotlin compile and is not an Android emulator run.
+- The current commit has no associated PR workflow run/check result yet. Earlier emulator CI failed during emulator startup; it is not a code-test pass.
+- PR validation workflow runs Kotlin compile tasks and Android instrumentation tests, and does not package or upload an APK.
+- The APK workflow remains manual-dispatch-only; no APK was built in this work session.
+
+### Immediate next execution order
+
+1. Re-run PR compile/instrumentation validation for the latest code; diagnose workflow trigger/infrastructure if no run appears.
+2. Add a first-start/new-lesson eligibility invariant and tests that cover completion, abandonment, revision update, and newly published course insertion. The current daily-assignment count is not by itself a substitute for the user's actual first-start state.
+3. Design and migrate the candidate/provenance/cursor persistence model only after the source adapter fields and withdrawal policy are fixed.
+4. Implement LibriVox incremental discovery as a dry-run importer first; persist candidates and rights evidence, but do not publish audio automatically.
+5. Implement Common Voice versioned batch import after pinning the exact dataset release and item-level terms.
+6. Add editorial processing/review and only then implement signed catalog publication.
+7. Integrate Android download/install orchestration with the existing revision-safe package importer.
+8. Run failure-injection, migration, offline, and 365-day catalog-growth tests before declaring the system durable.
+
+### PR and build policy
+
+PR #1 remains Draft and unmerged. Keep the feature branch isolated. Do not build a distributable APK during this implementation phase. Compile-only Kotlin tasks and test APK installation inside CI are validation steps, not a user-facing release APK; report them separately. A final distributable APK is deferred until all feature work, audit, and release checks are complete.
