@@ -247,6 +247,23 @@ class WordsDatabaseMigrationTest {
             assertTrue(ListeningAudioIntegrity.verify(destination, descriptor))
             assertEquals("hello world", destination.readText())
 
+            val immutableDestination = java.io.File(root, "revision-audio.mp3")
+            ListeningAudioIntegrity.copyAndVerifyNew(
+                java.io.ByteArrayInputStream(bytes),
+                immutableDestination,
+                descriptor
+            )
+            try {
+                ListeningAudioIntegrity.copyAndVerifyNew(
+                    java.io.ByteArrayInputStream("jello world".toByteArray()),
+                    immutableDestination,
+                    descriptor
+                )
+                throw AssertionError("An immutable revision audio file was overwritten")
+            } catch (_: IllegalArgumentException) {
+                assertEquals("hello world", immutableDestination.readText())
+            }
+
             try {
                 ListeningAudioIntegrity.resolveUnderRoot(root, "../escape.mp3")
                 throw AssertionError("Path traversal was accepted")
@@ -524,6 +541,8 @@ class WordsDatabaseMigrationTest {
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
         assertTrue(tableExists(database, "listening_episode_revisions"))
         assertTrue(tableExists(database, "listening_revision_questions"))
+        assertTrue(tableExists(database, "listening_content_packages"))
+        assertTrue(tableExists(database, "listening_package_episodes"))
         assertTrue(columnExists(database, "listening_attempts", "content_revision_id"))
         assertTrue(columnExists(database, "listening_episode_revisions", "title"))
         assertTrue(columnExists(database, "listening_episode_revisions", "audio_url"))
