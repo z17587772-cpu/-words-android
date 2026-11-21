@@ -64,3 +64,9 @@ data class ListeningQuestion(
             else -> "综合理解"
         }
 }
+
+data class ListeningPlaybackState(
+    val episodeId: String,
+    val positionMs: Long,
+    val speed: Float
+)
