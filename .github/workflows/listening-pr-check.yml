@@ -103,6 +103,14 @@ jobs:
           assert "CHECKPOINT_INTERVAL_MS = 5_000L" in service
           assert "checkpointNow()" in service and "setMediaId(episode.id)" in coordinator
           assert "audio_revision" in database
+          assert "content_revision_id" in database
+          assert "listening_episode_revisions" in database
+          assert "listening_revision_questions" in repository
+          assert "attempt.content_revision_id" in repository
+          assert "fun getQuestionsForAttempt" in repository
+          assert "fun getSentencesForAttempt" in repository
+          assert "fun getEpisodeForAttempt" in repository
+          assert "attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows" in migration_test
           assert "episode.playbackRevision(audioUri) != itemRevision" in service
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6AddsAudioRevisionWithoutLosingSavedPlayback" in migration_test
