@@ -216,6 +216,7 @@ jobs:
           assert "saveResourcePlayback" in service
           assert "renderDiscoveredResourceLibrary" in activity
           assert "discoveredDownloadedOnly" in activity and "discoveredFavoritesOnly" in activity
+          assert "discoveredSearchQuery" in activity and "搜索听力资源" in activity
           assert "Source:" in activity
           assert "playDiscoveredResource" in activity
           assert "allowsOnlyExplicitApprovedCreativeCommonsLicenses" in resource_policy_test
