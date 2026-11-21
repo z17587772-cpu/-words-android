@@ -48,6 +48,29 @@ class ListeningPlaybackCoordinator(
         controller.play()
     }
 
+    fun currentSpeed(controller: MediaController?, episode: ListeningEpisode): Float {
+        val expectedUri = episode.audioUrl
+        val currentUri = controller?.currentMediaItem?.localConfiguration?.uri?.toString()
+        return if (!expectedUri.isNullOrBlank() && currentUri == expectedUri) {
+            controller.playbackParameters.speed
+        } else {
+            repository.getPlayback(episode.id)?.speed ?: DEFAULT_SPEED
+        }
+    }
+
+    fun setSpeed(controller: MediaController?, episode: ListeningEpisode, speed: Float) {
+        val safeSpeed = speed.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: DEFAULT_SPEED
+        val expectedUri = episode.audioUrl
+        val currentUri = controller?.currentMediaItem?.localConfiguration?.uri?.toString()
+        if (!expectedUri.isNullOrBlank() && currentUri == expectedUri) {
+            controller.setPlaybackSpeed(safeSpeed)
+            checkpoint(controller)
+        } else {
+            val saved = repository.getPlayback(episode.id)
+            repository.savePlayback(episode.id, saved?.positionMs ?: 0L, safeSpeed)
+        }
+    }
+
     fun checkpoint(controller: MediaController) {
         val id = episodeId ?: return
         val expectedUri = mediaUri ?: return
