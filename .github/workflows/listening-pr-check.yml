@@ -185,6 +185,17 @@ jobs:
           assert "unseenCandidates = candidates.filterNot" in planner
           assert "if (unseenCandidates.isEmpty()) return null" in planner
           assert "recentHistory" not in planner
+          review_planner = (root / "ListeningReviewPlanner.kt").read_text(encoding="utf-8")
+          assert "fun getDueReviewItems" in repository
+          assert "ListeningReviewPlanner.due(candidates, nowMs)" in repository
+          assert "latest.completed_at DESC,latest.id DESC" in repository
+          assert "offline_download" in repository and "in_app_playback" in repository
+          assert "score < 0.40f -> 1" in review_planner
+          assert "score < 0.60f -> 3" in review_planner
+          assert "score < 0.80f -> 7" in review_planner
+          assert "else -> 14" in review_planner
+          assert "SPACED REVIEW" in activity and "开始复习" in activity
+          assert "reviewPlannerSchedulesWeakScoresSoonerThanStrongScores" in migration_test
           assert "WHERE d.assignment_date<>?" in repository
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
