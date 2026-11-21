@@ -10,7 +10,8 @@ data class ListeningEpisode(
     val accent: String,
     val speechRate: Float,
     val audioUrl: String?,
-    val isDemo: Boolean
+    val isDemo: Boolean,
+    val updatedAt: Long = 0L
 ) {
     val categoryLabel: String
         get() = when (category) {
