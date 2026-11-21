@@ -110,12 +110,127 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     }
 
-    fun getTodayEpisodeId(): String = helper.readableDatabase.rawQuery(
-        "SELECT episode_id FROM listening_daily_assignments WHERE assignment_date=? LIMIT 1",
-        arrayOf(LocalDate.now().toString())
-    ).use { cursor ->
-        if (cursor.moveToFirst()) cursor.getString(0) else DEMO_EPISODE_ID
+    fun getTodayEpisodeId(): String =
+        assignDailyEpisode(LocalDate.now().toString()) ?: DEMO_EPISODE_ID
+
+    fun assignDailyEpisode(assignmentDate: String, nowMs: Long = System.currentTimeMillis()): String? {
+        val date = try {
+            LocalDate.parse(assignmentDate)
+        } catch (_: Exception) {
+            throw IllegalArgumentException("assignmentDate must use ISO-8601 yyyy-MM-dd")
+        }
+        val db = database
+        db.beginTransaction()
+        try {
+            val existing = getAssignedEpisodeId(assignmentDate)
+            if (existing != null) {
+                db.setTransactionSuccessful()
+                return existing
+            }
+
+            val candidates = getEligibleEpisodes(nowMs)
+            val history = getRecentAssignmentHistory(date.minusDays(7).toString(), assignmentDate)
+            val selected = ListeningDailyPlanner.choose(candidates, history, assignmentDate)
+            if (selected != null) {
+                db.insertWithOnConflict(
+                    "listening_daily_assignments", null,
+                    ContentValues().apply {
+                        put("assignment_date", assignmentDate)
+                        put("episode_id", selected.id)
+                        put("created_at", nowMs)
+                    },
+                    SQLiteDatabase.CONFLICT_IGNORE
+                )
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return getAssignedEpisodeId(assignmentDate)
     }
+
+    private fun getAssignedEpisodeId(assignmentDate: String): String? =
+        helper.readableDatabase.rawQuery(
+            "SELECT episode_id FROM listening_daily_assignments WHERE assignment_date=? LIMIT 1",
+            arrayOf(assignmentDate)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+
+    private fun getEligibleEpisodes(nowMs: Long): List<ListeningEpisode> =
+        helper.readableDatabase.rawQuery(
+            """SELECT e.id,e.title,e.description,e.category,e.level,e.duration_ms,
+                      e.accent,e.speech_rate,e.audio_url,e.is_demo
+               FROM listening_episodes e
+               JOIN listening_sources s ON s.id=e.source_id
+               JOIN listening_licenses l ON l.id=e.license_id
+               WHERE e.status='approved' AND e.is_demo=0
+                 AND e.audio_url IS NOT NULL AND TRIM(e.audio_url)<>''
+                 AND e.duration_ms>0 AND TRIM(e.category)<>''
+                 AND TRIM(e.accent)<>''
+                 AND TRIM(s.rights_holder)<>'' AND TRIM(s.attribution)<>''
+                 AND s.checked_at>0
+                 AND TRIM(l.license_name)<>'' AND TRIM(l.territory)<>''
+                 AND l.allowed_actions LIKE '%in_app_playback%'
+                 AND (l.expires_at IS NULL OR l.expires_at>?)
+                 AND EXISTS (
+                     SELECT 1 FROM listening_sentences ss
+                     WHERE ss.episode_id=e.id
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM listening_sentences ss
+                     WHERE ss.episode_id=e.id
+                       AND (ss.start_ms<0 OR ss.end_ms<=ss.start_ms OR ss.end_ms>e.duration_ms
+                            OR TRIM(ss.english)='' OR TRIM(ss.chinese)='')
+                 )
+                 AND (SELECT COUNT(*) FROM listening_questions q WHERE q.episode_id=e.id) BETWEEN 3 AND 8
+                 AND NOT EXISTS (
+                     SELECT 1 FROM listening_questions q
+                     WHERE q.episode_id=e.id
+                       AND (TRIM(q.prompt)='' OR TRIM(q.explanation)=''
+                            OR q.evidence_sentence_id IS NULL
+                            OR NOT EXISTS (
+                                SELECT 1 FROM listening_sentences ev
+                                WHERE ev.id=q.evidence_sentence_id AND ev.episode_id=e.id
+                            )
+                            OR (SELECT COUNT(*) FROM listening_choices ch WHERE ch.question_id=q.id) NOT BETWEEN 2 AND 6
+                            OR (SELECT SUM(ch.is_correct) FROM listening_choices ch WHERE ch.question_id=q.id)<>1)
+                 )
+               ORDER BY e.id""",
+            arrayOf(nowMs.toString())
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(
+                    ListeningEpisode(
+                        cursor.getString(0), cursor.getString(1), cursor.getString(2),
+                        cursor.getString(3), cursor.getString(4), cursor.getLong(5),
+                        cursor.getString(6), cursor.getFloat(7),
+                        if (cursor.isNull(8)) null else cursor.getString(8),
+                        cursor.getInt(9) == 1
+                    )
+                )
+            }
+        }
+
+    private fun getRecentAssignmentHistory(
+        sinceDate: String,
+        beforeDate: String
+    ): List<ListeningAssignmentHistory> =
+        helper.readableDatabase.rawQuery(
+            """SELECT e.id,e.category,e.level,e.accent
+               FROM listening_daily_assignments d
+               JOIN listening_episodes e ON e.id=d.episode_id
+               WHERE d.assignment_date>=? AND d.assignment_date<?
+               ORDER BY d.assignment_date DESC LIMIT 7""",
+            arrayOf(sinceDate, beforeDate)
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(
+                    ListeningAssignmentHistory(
+                        cursor.getString(0), cursor.getString(1),
+                        cursor.getString(2), cursor.getString(3)
+                    )
+                )
+            }
+        }
 
     fun getEpisode(id: String): ListeningEpisode? = helper.readableDatabase.rawQuery(
         """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo
