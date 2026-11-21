@@ -282,63 +282,182 @@ class ListeningContentPackageImporter(
         manifest: ListeningContentPackage,
         packageDigest: String
     ): Boolean {
-        data class InstalledRevision(
-            val revisionId: String,
+        data class InstalledMapping(val revisionId: String)
+        data class InstalledMetadata(
+            val revisionHash: String,
+            val title: String,
+            val description: String,
+            val category: String,
+            val level: String,
+            val durationMs: Long,
+            val accent: String,
             val audioUri: String?,
             val currentRevisionId: String?,
-            val sentenceCount: Int,
-            val questionCount: Int,
-            val choiceCount: Int
+            val isDemo: Boolean,
+            val status: String
+        )
+        data class ExpectedChoice(
+            val questionId: String,
+            val ordinal: Int,
+            val content: String,
+            val isCorrect: Boolean
         )
 
-        val installed = database.readableDatabase.rawQuery(
-            """SELECT pe.episode_id,pe.revision_id,r.audio_url,e.current_revision_id,
-                      (SELECT COUNT(*) FROM listening_revision_sentences s
-                       WHERE s.revision_id=pe.revision_id),
-                      (SELECT COUNT(*) FROM listening_revision_questions q
-                       WHERE q.revision_id=pe.revision_id),
-                      (SELECT COUNT(*) FROM listening_revision_choices c
-                       WHERE c.revision_id=pe.revision_id)
-               FROM listening_package_episodes pe
-               JOIN listening_episode_revisions r
-                 ON r.revision_id=pe.revision_id AND r.episode_id=pe.episode_id
-               JOIN listening_episodes e ON e.id=pe.episode_id
-               WHERE pe.package_id=? AND pe.is_active=1""",
+        val db = database.readableDatabase
+        val mappings = db.rawQuery(
+            "SELECT episode_id,revision_id FROM listening_package_episodes WHERE package_id=? AND is_active=1",
             arrayOf(manifest.packageId)
         ).use { cursor ->
             buildMap {
                 while (cursor.moveToNext()) {
-                    put(
-                        cursor.getString(0),
-                        InstalledRevision(
-                            revisionId = cursor.getString(1),
-                            audioUri = if (cursor.isNull(2)) null else cursor.getString(2),
-                            currentRevisionId = if (cursor.isNull(3)) null else cursor.getString(3),
-                            sentenceCount = cursor.getInt(4),
-                            questionCount = cursor.getInt(5),
-                            choiceCount = cursor.getInt(6)
-                        )
-                    )
+                    put(cursor.getString(0), InstalledMapping(cursor.getString(1)))
                 }
             }
         }
-        if (installed.keys != manifest.episodes.map { it.id }.toSet()) return false
+        if (mappings.keys != manifest.episodes.map { it.id }.toSet()) return false
+
         return manifest.episodes.all { episode ->
-            val row = installed[episode.id] ?: return@all false
             val expectedRevision = revisionId(manifest, episode.id, packageDigest)
-            if (row.revisionId != expectedRevision ||
-                row.currentRevisionId != expectedRevision ||
-                row.audioUri == null ||
-                row.sentenceCount != episode.sentences.size ||
-                row.questionCount != episode.questions.size ||
-                row.choiceCount != episode.questions.sumOf { it.choices.size }
+            val mapping = mappings[episode.id] ?: return@all false
+            if (mapping.revisionId != expectedRevision) return@all false
+
+            val metadata = db.rawQuery(
+                """SELECT r.revision_hash,r.title,r.description,r.category,r.level,r.duration_ms,
+                          r.accent,r.audio_url,e.current_revision_id,e.is_demo,e.status
+                   FROM listening_episode_revisions r
+                   JOIN listening_episodes e ON e.id=r.episode_id
+                   WHERE r.revision_id=? AND r.episode_id=?""",
+                arrayOf(expectedRevision, episode.id)
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) null else InstalledMetadata(
+                    revisionHash = cursor.getString(0),
+                    title = cursor.getString(1),
+                    description = cursor.getString(2),
+                    category = cursor.getString(3),
+                    level = cursor.getString(4),
+                    durationMs = cursor.getLong(5),
+                    accent = cursor.getString(6),
+                    audioUri = if (cursor.isNull(7)) null else cursor.getString(7),
+                    currentRevisionId = if (cursor.isNull(8)) null else cursor.getString(8),
+                    isDemo = cursor.getInt(9) == 1,
+                    status = cursor.getString(10)
+                )
+            } ?: return@all false
+
+            if (metadata.revisionHash != packageDigest ||
+                metadata.title != episode.title ||
+                metadata.description != episode.description ||
+                metadata.category != episode.category ||
+                metadata.level != episode.level ||
+                metadata.durationMs != episode.durationMs ||
+                metadata.accent != episode.accent ||
+                metadata.currentRevisionId != expectedRevision ||
+                metadata.isDemo ||
+                metadata.status != "approved" ||
+                metadata.audioUri == null
             ) return@all false
-            val audioFile = runCatching { File(java.net.URI(row.audioUri)) }.getOrNull()
+
+            val audioFile = runCatching { File(java.net.URI(metadata.audioUri)) }.getOrNull()
                 ?: return@all false
-            ListeningAudioIntegrity.verify(audioFile, episode.audio)
+            val canonicalContentRoot = contentRoot.canonicalFile.path.trimEnd(File.separatorChar) + File.separator
+            if (!audioFile.canonicalPath.startsWith(canonicalContentRoot) ||
+                !ListeningAudioIntegrity.verify(audioFile, episode.audio)
+            ) return@all false
+
+            val revisionToken = expectedRevision.removePrefix("rev_").take(20)
+            val expectedSentenceIds = episode.sentences.associate { it.id to "s_${revisionToken}_${it.id}" }
+            val sentencesMatch = db.rawQuery(
+                """SELECT sentence_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
+                   FROM listening_revision_sentences
+                   WHERE revision_id=? AND episode_id=? ORDER BY ordinal""",
+                arrayOf(expectedRevision, episode.id)
+            ).use { cursor ->
+                var index = 0
+                var matches = true
+                while (cursor.moveToNext()) {
+                    val expected = episode.sentences.getOrNull(index)
+                    if (expected == null ||
+                        cursor.getString(0) != expectedSentenceIds[expected.id] ||
+                        cursor.getInt(1) != expected.ordinal ||
+                        cursor.getLong(2) != expected.startMs ||
+                        cursor.getLong(3) != expected.endMs ||
+                        cursor.getString(4) != expected.english ||
+                        cursor.getString(5) != expected.chinese ||
+                        cursor.getString(6) != expected.pronunciationNote
+                    ) {
+                        matches = false
+                        break
+                    }
+                    index += 1
+                }
+                matches && index == episode.sentences.size
+            }
+            if (!sentencesMatch) return@all false
+
+            val expectedQuestionIds = episode.questions.associate { it.id to "q_${revisionToken}_${it.id}" }
+            val expectedQuestionRows = episode.questions
+            val questionsMatch = db.rawQuery(
+                """SELECT question_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
+                   FROM listening_revision_questions
+                   WHERE revision_id=? AND episode_id=? ORDER BY ordinal""",
+                arrayOf(expectedRevision, episode.id)
+            ).use { cursor ->
+                var index = 0
+                var matches = true
+                while (cursor.moveToNext()) {
+                    val expected = expectedQuestionRows.getOrNull(index)
+                    if (expected == null ||
+                        cursor.getString(0) != expectedQuestionIds[expected.id] ||
+                        cursor.getInt(1) != expected.ordinal ||
+                        cursor.getString(2) != expected.type ||
+                        cursor.getString(3) != expected.prompt ||
+                        cursor.getString(4) != expected.explanation ||
+                        cursor.getString(5) != expectedSentenceIds[expected.evidenceSentenceId]
+                    ) {
+                        matches = false
+                        break
+                    }
+                    index += 1
+                }
+                matches && index == expectedQuestionRows.size
+            }
+            if (!questionsMatch) return@all false
+
+            val expectedChoices = episode.questions.flatMap { question ->
+                val stableQuestionId = expectedQuestionIds.getValue(question.id)
+                question.choices.mapIndexed { index, choice ->
+                    ExpectedChoice(stableQuestionId, index + 1, choice.content, choice.isCorrect)
+                }
+            }
+            val choicesMatch = db.rawQuery(
+                """SELECT c.question_id,c.ordinal,c.content,c.is_correct
+                   FROM listening_revision_choices c
+                   JOIN listening_revision_questions q
+                     ON q.revision_id=c.revision_id AND q.question_id=c.question_id
+                   WHERE c.revision_id=? AND q.episode_id=?
+                   ORDER BY q.ordinal,c.ordinal""",
+                arrayOf(expectedRevision, episode.id)
+            ).use { cursor ->
+                var index = 0
+                var matches = true
+                while (cursor.moveToNext()) {
+                    val expected = expectedChoices.getOrNull(index)
+                    if (expected == null ||
+                        cursor.getString(0) != expected.questionId ||
+                        cursor.getInt(1) != expected.ordinal ||
+                        cursor.getString(2) != expected.content ||
+                        (cursor.getInt(3) == 1) != expected.isCorrect
+                    ) {
+                        matches = false
+                        break
+                    }
+                    index += 1
+                }
+                matches && index == expectedChoices.size
+            }
+            choicesMatch
         }
     }
-
 
     private fun installRightsMetadata(
         db: SQLiteDatabase,
