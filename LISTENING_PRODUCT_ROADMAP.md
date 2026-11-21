@@ -47,7 +47,7 @@ Confirmed product contract:
 - [x] Add a schema-v5 fixture with representative books, words, favorites, review rows, history and cache rows.
 - [x] Upgrade fixture through the actual SQLiteOpenHelper migration to v6; assert IDs, values and foreign-key integrity.
 - [ ] Wait for the API 35 emulator instrumentation job to pass before calling the migration verified.
-- Test fresh install separately from upgrade.
+- [x] Test fresh install separately from upgrade.
 - Add a rollback test for a failed migration/import.
 - Keep demo transcript and answers hidden during blind listening; add a UI-flow regression test.
 
@@ -57,8 +57,8 @@ Confirmed product contract:
 - Keep one ExoPlayer + MediaSession owned by ListeningPlaybackService.
 - Expose playback state, current item, duration, position, speed and errors through MediaController callbacks.
 - Add a repository model for saved playback state and implement both save and restore.
-- Persist at safe checkpoints: pause, stop, item transition, task removal, and periodic throttled checkpoint while playing.
-- Restore speed and position only when the same stable episode/audio revision is available.
+- [x] Persist on Activity pause/destruction and every five seconds while the same Media3 item is playing; [ ] add service-owned checkpointing for playback that outlives the Activity.
+- [x] Restore speed and position for the same episode and URI; [ ] add an audio-revision fingerprint before package updates.
 - Avoid writing every progress tick to SQLite; throttle writes to reduce storage churn.
 - Implement sentence replay only when verified timestamps exist.
 - Implement A–B and current-sentence repeat as cancellable playback-controller state, not stale Activity Handler callbacks.
@@ -124,7 +124,7 @@ Validation/import:
 
 ## 4. CI and branch safety
 
-- PR workflows: `contents: read`, build/test/artifact only, no release publishing and no push to main.
+- PR workflows: `contents: read`, validation/instrumentation tests only; APK packaging is paused and available only through manual workflow dispatch after release-candidate approval. No release publishing and no push to main.
 - Release workflow: tag-only, protected environment, private signing secrets, explicit approval.
 - Keep CI validation separate from production publishing.
 - Before synchronizing the divergent feature branch, compare all mainline-only commits and resolve toolchain changes in a dedicated integration commit or branch.
@@ -134,7 +134,7 @@ Validation/import:
 
 1. [x] Add v5→v6 migration fixture and preservation assertions; [ ] pass emulator CI.
 2. [x] Remove demo assignment writes and add a CI regression guard.
-3. Implement playback state model + restore/save + MediaController listener.
+3. [x] Implement playback state model + repository restore/save + Activity lifecycle checkpoints; [ ] add service-owned checkpointing and runtime interruption tests.
 4. Add sentence timestamp validation and loop controller.
 5. Implement package manifest parser/validator and transactional importer.
 6. Implement audio download/checksum/atomic install and offline playback.
@@ -156,3 +156,14 @@ A release candidate is not “done” merely because Gradle produces an APK. It 
 - a signed APK and its checksum are attached to a tagged release.
 
 Until these gates pass, label the APK as a preview build and keep the PR unmerged.
+
+
+## 7. Work log — 2026-11-21
+
+- Fixed a compile regression: LocalDate remained used by the daily-assignment lookup after its import had been removed.
+- Added ListeningPlaybackState and a repository read path; invalid negative positions and non-finite speeds are normalized before persistence.
+- Wired MediaController playback to restore saved position/speed for the same episode URI, with throttled five-second checkpoints and lifecycle saves on pause/destruction.
+- Added instrumentation coverage for playback-state round trips, invalid-value normalization and the invariant that demo seeding never creates a formal daily assignment.
+- Changed PR validation to run checks and emulator instrumentation only; removed APK packaging/artifact upload from the listening PR workflow.
+- Disabled automatic APK builds on PRs and main pushes. The APK workflow remains manual-only until the feature is ready for final packaging.
+- The earlier PR workflow attempt was cancelled while newer commits were being pushed; it is not evidence of a passing emulator test. A fresh instrumentation run is still required.
