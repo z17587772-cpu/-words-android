@@ -591,3 +591,8 @@ This test is authored but has not yet run on an Android emulator. It must pass i
 - A repository-wide scan of the 16 Kotlin files under `android/app/src` found no remaining `lastAssignedDate` references after simplifying the history model and cursor mapping.
 - PR CI guards were updated to reject stale history fields and require the long-run regression test.
 - Full Android Gradle compilation, instrumentation tests, and physical-device tests remain unverified because there is no Actions run for the current head. Do not treat the isolated planner compile or SQLite fixture as a full app build.
+
+
+## 25. Honest exhausted-pool UI state (2026-11-21)
+
+When no unseen formal lesson is available, the daily card now displays `NO NEW COURSE / 暂无正式新课` rather than implying that the fallback demo is today's new lesson. The original short TTS preview remains separately labelled as an optional experience lesson and its explanatory copy says it is not part of the formal course library. The PR CI source guard now checks these labels.
