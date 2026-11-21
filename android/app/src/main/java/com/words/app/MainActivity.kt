@@ -2616,6 +2616,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 }
             }
             require(copied > 0L) { "音频文件为空" }
+            val retriever = android.media.MediaMetadataRetriever()
+            val durationMs = try {
+                retriever.setDataSource(destination.absolutePath)
+                retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull() ?: 0L
+            } finally {
+                retriever.release()
+            }
+            require(durationMs > 0L) { "无法识别音频格式或音频时长" }
             val guessedName = uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':')
                 ?.takeIf { it.isNotBlank() } ?: "我的听力音频"
             val titleInput = EditText(this).apply {
