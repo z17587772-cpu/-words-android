@@ -367,6 +367,55 @@ class WordsDatabaseMigrationTest {
         helper.close()
     }
 
+
+    @Test
+    fun upgradingV7BackfillsSnapshotsAndPinsExistingAttempts() {
+        context.deleteDatabase(DATABASE_NAME)
+        val originalHelper = WordsDatabase(context)
+        val originalRepository = ListeningRepository(originalHelper)
+        originalRepository.ensureDemoSeeded()
+        val episodeId = ListeningRepository.DEMO_EPISODE_ID
+        val originalQuestions = originalRepository.getQuestions(episodeId)
+        val attemptId = originalRepository.startAttempt(episodeId)
+        originalQuestions.forEach { question ->
+            assertTrue(originalRepository.recordAnswer(
+                attemptId, question.id, originalRepository.getCorrectChoiceId(question.id)!!
+            ))
+        }
+        val originalScore = originalRepository.finishAttempt(attemptId)
+        val originalAnswerCount = scalar(
+            originalHelper.readableDatabase,
+            "SELECT COUNT(*) FROM listening_answers WHERE attempt_id=$attemptId"
+        )
+
+        val legacy = originalHelper.writableDatabase
+        legacy.delete("listening_episode_revisions", "episode_id=?", arrayOf(episodeId))
+        legacy.execSQL("UPDATE listening_episodes SET current_revision_id=NULL WHERE id=?", arrayOf(episodeId))
+        legacy.execSQL("UPDATE listening_attempts SET content_revision_id=NULL WHERE id=?", arrayOf(attemptId))
+        legacy.version = 7
+        originalHelper.close()
+
+        val upgradedHelper = WordsDatabase(context)
+        val upgraded = upgradedHelper.writableDatabase
+        assertEquals(10, upgraded.version)
+        assertTrue(upgraded.rawQuery(
+            "SELECT content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(attemptId.toString())
+        ).use { it.moveToFirst() && !it.isNull(0) })
+        assertTrue(scalar(upgraded,
+            "SELECT COUNT(*) FROM listening_revision_questions WHERE revision_id=(SELECT content_revision_id FROM listening_attempts WHERE id=$attemptId)"
+        ) > 0)
+        assertEquals(originalAnswerCount, scalar(
+            upgraded, "SELECT COUNT(*) FROM listening_answers WHERE attempt_id=$attemptId"
+        ))
+
+        val upgradedRepository = ListeningRepository(upgradedHelper)
+        assertEquals(originalQuestions.map { it.prompt }, upgradedRepository.getQuestionsForAttempt(attemptId).map { it.prompt })
+        assertEquals(originalScore, upgradedRepository.finishAttempt(attemptId), 0.001f)
+        upgraded.rawQuery("PRAGMA foreign_key_check", null).use { assertFalse(it.moveToFirst()) }
+        upgradedHelper.close()
+    }
+
     @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
