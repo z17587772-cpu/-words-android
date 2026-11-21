@@ -2213,6 +2213,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         parent.addView(daily)
         parent.addView(vSpace(10))
+        renderDailyListeningArchive(parent)
 
         // Reviews are a separate queue: they never create or consume daily new-lesson assignments.
         // Never start a review while another attempt is unfinished; startAttempt
@@ -2316,6 +2317,58 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         stats.addView(vSpace(3))
         stats.addView(text("保留每次答题记录，后续可用于分析主旨、细节、推断和语音辨识能力。", 11f, secondary))
         parent.addView(stats)
+    }
+
+    private fun renderDailyListeningArchive(parent: LinearLayout) {
+        val today = java.time.LocalDate.now().toString()
+        val entries = db.readableDatabase.rawQuery(
+            """SELECT d.assignment_date,e.id,e.title,e.level,e.category
+               FROM listening_daily_assignments d
+               JOIN listening_episodes e ON e.id=d.episode_id
+               WHERE d.assignment_date < ?
+               ORDER BY d.assignment_date DESC LIMIT 30""",
+            arrayOf(today)
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(
+                    arrayOf(
+                        cursor.getString(0), cursor.getString(1), cursor.getString(2),
+                        cursor.getString(3), cursor.getString(4)
+                    )
+                )
+            }
+        }
+        val archive = card(15)
+        archive.addView(text("每日听力归档", 14f, ink, true))
+        archive.addView(vSpace(4))
+        archive.addView(text("按日期保存已分配的新课；历史课程不会重新占用每日新课名额。", 11f, secondary))
+        if (entries.isEmpty()) {
+            archive.addView(vSpace(6))
+            archive.addView(text("完成每日训练后，历史课程会自动出现在这里。", 11f, secondary))
+        } else {
+            entries.forEach { entry ->
+                val date = entry[0]
+                val episodeId = entry[1]
+                archive.addView(vSpace(8))
+                val line = row()
+                line.addView(
+                    text("$date  ·  ${entry[2]}", 12f, ink, true),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+                line.addView(quietButton("重听") {
+                    transitionListeningStage("intro") {
+                        listeningEpisodeId = episodeId
+                        listeningQuestionIndex = 0
+                        listeningSelectedChoiceId = null
+                        listeningSubmitted = false
+                    }
+                })
+                archive.addView(line)
+                archive.addView(text("${entry[3]}  ·  ${entry[4]}", 10f, secondary))
+            }
+        }
+        parent.addView(archive)
+        parent.addView(vSpace(10))
     }
 
     private fun renderDiscoveredResourceLibrary(parent: LinearLayout) {
