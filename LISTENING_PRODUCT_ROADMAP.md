@@ -76,10 +76,10 @@ Use a versioned manifest containing:
 - source, rights holder, attribution, license, permitted actions, territory and term/expiry.
 
 Validation/import:
-- Reject unknown schema versions, duplicate IDs, malformed timestamps, missing evidence references, invalid question cardinality, missing audio, checksum mismatch or insufficient rights metadata.
+- [x] Reject unsupported schema versions, duplicate IDs, malformed timestamps, missing evidence references, invalid question cardinality, unsafe paths, malformed audio metadata and insufficient rights metadata. [ ] Verify archive entries and audio bytes as part of a complete import transaction.
 - Validate the complete package before mutating the database.
 - Import metadata in a single transaction.
-- Download audio to a temporary file, verify SHA-256, then atomically move into managed storage.
+- [x] Add a reusable audio integrity primitive that stages to a temporary file, verifies exact size/SHA-256, and atomically moves only verified audio. [ ] Integrate it with package extraction and managed storage.
 - Keep the last valid package until the new package is fully verified.
 - Preserve attempts, bookmarks, playback state and historical content revisions.
 - Use WorkManager for retryable, network-constrained weekly sync; the local database and verified local audio remain the source of truth.
@@ -136,7 +136,7 @@ Validation/import:
 2. [x] Remove demo assignment writes and add a CI regression guard.
 3. [x] Implement playback state model + repository restore/save + Activity lifecycle checkpoints; [ ] add service-owned checkpointing and runtime interruption tests.
 4. Add sentence timestamp validation and loop controller.
-5. Implement package manifest parser/validator and transactional importer.
+5. [x] Implement package manifest parser/validator and audio integrity primitives; [ ] implement revision-safe transactional importer.
 6. Implement audio download/checksum/atomic install and offline playback.
 7. Implement deterministic daily planner and library browsing.
 8. Add targeted review and vocabulary linking.
@@ -167,3 +167,7 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Changed PR validation to run checks and emulator instrumentation only; removed APK packaging/artifact upload from the listening PR workflow.
 - Disabled automatic APK builds on PRs and main pushes. The APK workflow remains manual-only until the feature is ready for final packaging.
 - The earlier PR workflow attempt was cancelled while newer commits were being pushed; it is not evidence of a passing emulator test. A fresh instrumentation run is still required.
+
+- Extracted Media3 resume/checkpoint policy from MainActivity into ListeningPlaybackCoordinator; added episode metadata for system media controls.
+- Added schema-v1 manifest validation, provenance requirements, path traversal checks, audio size/hash checks, and tests for invalid references and atomic replacement safety.
+- Wrote LISTENING_CONTENT_PACKAGE_SPEC.md. Import is deliberately not implemented yet because the database needs a revision-safe policy that preserves existing attempts and answers; SQLite REPLACE must not be used on parent content rows.
