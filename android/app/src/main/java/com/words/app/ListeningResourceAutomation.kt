@@ -298,7 +298,7 @@ class InternetArchiveDiscoveryWorker(
         private const val MAX_SEARCH_PAGES = 3
         private const val MAX_BACKFILL_PAGE = 50
         private const val MAX_CANDIDATES_PER_RUN = 5
-        private const val MAX_METADATA_LOOKUPS_PER_RUN = 20
+        private const val MAX_METADATA_LOOKUPS_PER_RUN = 8
         private const val MAX_CHECKED_ITEMS = 1_000
         private const val CHECKED_ITEM_TTL_MS = 30L * 24L * 60L * 60L * 1000L
         private const val MAX_TRACKS_PER_ITEM = 5
@@ -306,8 +306,8 @@ class InternetArchiveDiscoveryWorker(
         private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
         private const val MAX_LIBRARY_BYTES = 512L * 1024L * 1024L
         private const val MAX_JSON_BYTES = 6 * 1024 * 1024
-        private const val CONNECT_TIMEOUT_MS = 15_000
-        private const val READ_TIMEOUT_MS = 45_000
+        private const val CONNECT_TIMEOUT_MS = 10_000
+        private const val READ_TIMEOUT_MS = 20_000
         private const val SEARCH_DELAY_MS = 2_000L
         private const val DETAIL_DELAY_MS = 1_000L
         private const val ERROR_BACKOFF_MS = 30L * 60L * 1000L
