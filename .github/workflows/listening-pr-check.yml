@@ -209,7 +209,7 @@ jobs:
           assert "MAX_LIBRARY_BYTES = 512L * 1024L * 1024L" in resource_automation
           assert "ExistingWorkPolicy.APPEND_OR_REPLACE" in resource_automation
           assert "getEvictionCandidates" in discovery_repository
-          assert "pinned=0 AND last_played_at IS NULL" in discovery_repository
+          assert "pinned=0 AND (last_played_at IS NULL OR last_played_at<?)" in discovery_repository
           assert "markLocalFileEvicted" in discovery_repository
           assert "requeueExpiredDownload" in discovery_repository
           assert "本地音频因空间管理已清理" in activity
