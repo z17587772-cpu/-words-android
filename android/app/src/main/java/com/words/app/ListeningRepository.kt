@@ -763,6 +763,22 @@ class ListeningRepository(private val helper: WordsDatabase) {
             )
         }
 
+    fun isKnownPlaybackRevision(
+        episodeId: String,
+        audioUri: String,
+        audioRevision: String,
+        positionMs: Long
+    ): Boolean = helper.readableDatabase.rawQuery(
+        """SELECT duration_ms FROM listening_episode_revisions
+           WHERE episode_id=? AND audio_url=? AND is_demo=0
+             AND (CAST(updated_at AS TEXT) || ':' || audio_url)=?
+           LIMIT 1""",
+        arrayOf(episodeId, audioUri, audioRevision)
+    ).use { cursor ->
+        if (!cursor.moveToFirst()) false
+        else cursor.getLong(0) <= 0L || positionMs < cursor.getLong(0)
+    }
+
     fun savePlayback(episodeId: String, positionMs: Long, speed: Float, audioRevision: String = "") {
         val safeSpeed = speed.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f
         database.insertWithOnConflict(
