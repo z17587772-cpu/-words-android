@@ -665,8 +665,8 @@ class WordsDatabaseMigrationTest {
 
             val date = java.time.LocalDate.of(2026, 1, 1).plusDays(day.toLong()).toString()
             val selected = ListeningDailyPlanner.choose(catalog, history, date)
-            assertTrue("Expected a new lesson on day $day", selected != null)
-            assertTrue("Repeated new lesson on day $day: ${selected!!.id}", assignedIds.add(selected.id))
+                ?: throw AssertionError("Expected a new lesson on day $day")
+            assertTrue("Repeated new lesson on day $day: ${selected.id}", assignedIds.add(selected.id))
             history += ListeningAssignmentHistory(
                 episodeId = selected.id,
                 category = selected.category,
