@@ -1869,6 +1869,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val future = MediaController.Builder(this, token).buildAsync()
         listeningControllerFuture = future
         future.addListener({
+            if (isFinishing || isDestroyed) return@addListener
             try {
                 listeningMediaController = future.get()
             } catch (_: Exception) {
