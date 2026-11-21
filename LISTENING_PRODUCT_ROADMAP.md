@@ -1,7 +1,7 @@
 # Words Listening — Product & Delivery Roadmap
 
 Updated: 2026-11-21
-Target: `feature/listening-mvp` / preview build 1.8.1
+Target: `feature/listening-mvp` / preview code line; APK packaging intentionally paused
 Release status: **not production-ready; keep PR #1 draft**
 
 ## 1. Product direction
@@ -21,7 +21,7 @@ Confirmed product contract:
 
 ### Improvements already present
 - Listening data lives in namespaced tables inside the existing database, preserving same-database foreign keys to `words.id`.
-- The v5→v6 migration adds listening tables rather than replacing vocabulary tables.
+- The v5→v7 migration adds listening tables and revision-aware playback metadata rather than replacing vocabulary tables.
 - The UI-facing `ListeningOption` no longer contains answer correctness; answer evaluation is handled by the repository and correctness is shown after submission.
 - Demo course is explicitly labelled as an experience lesson.
 - CI checks the answer-key boundary and packages a PR Debug APK using read-only permissions.
@@ -34,7 +34,7 @@ Confirmed product contract:
 4. **TTS demo is not Media3 audio.** The demo uses Android TextToSpeech directly. It is acceptable as a clearly labelled preview, but cannot validate real recording, precise timestamps, lock-screen playback or sentence seeking.
 5. **Demo timestamps are placeholders.** Every demo sentence has start/end time zero. Do not enable timestamp-based seek for those rows.
 6. **The formal daily planner is implemented, but production content import is not.** It assigns only approved, non-demo episodes with complete rights, audio, timestamps, evidence and answer-choice validation. With demo-only content it returns no formal assignment and the UI continues to label the demo explicitly.
-7. **Content package import is not implemented.** There is no complete manifest validator, checksum verification, transactional package import, atomic audio install or rollback flow.
+7. **Content package import is still incomplete.** Manifest validation, safe ZIP staging and audio checksum/atomic-file primitives exist; transactional database import, revision snapshots, rollback and offline download orchestration are not implemented.
 8. **Course catalog is not production content.** There is one short system-TTS demo, not the agreed Advanced-first course library.
 9. **Test coverage is still incomplete.** A v5→v6 Android instrumentation migration test has now been added and wired to an API 35 emulator CI step. Repository, content-import, playback lifecycle and UI-flow tests are still missing.
 10. **PR branch is divergent.** At this review the feature branch is 34 commits ahead and 8 behind main. Do not merge/rebase blindly; inspect the eight mainline commits, especially Gradle and CI toolchain changes, and integrate deliberately.
@@ -187,3 +187,13 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Hardened answer submission: a choice must belong to the question and the question must belong to the active attempt; duplicate submissions are idempotent and cannot overwrite the first recorded choice. Added instrumentation cases for duplicate and cross-question submissions.
 - Made attempt completion derive its score from persisted answers rather than trusting a UI-supplied number; incomplete attempts cannot be marked complete, and repeat completion calls cannot overwrite the original score. Instrumentation coverage now completes every question and verifies the immutable derived score.
 - Tightened the question contract to 3-8 MCQ items per imported lesson, matching the daily planner's eligibility gate. The manifest validator no longer accepts dictation/shadowing as MCQs; those need dedicated free-response practice structures rather than fake multiple-choice records. Attempt completion also rejects incomplete answer sets.
+
+
+## 8. Work log — additional reliability pass
+
+- Upgraded the existing Words database from schema v6 to v7 with an audio_revision field on listening playback checkpoints. Existing playback rows migrate with an empty revision; they retain saved speed but their position is not restored against a different audio revision.
+- Playback restore and checkpoints now bind to episode ID, media URI and episode update revision. This prevents a stale position from being applied when an episode's audio/catalog revision changes, while retaining the learner's speed preference.
+- Hardened MediaController speed reads/writes and checkpointing to verify both media ID and URI, avoiding cross-episode state reads when media items share a URI.
+- Hardened package manifests: audio paths must live under audio/, MIME types must be from a supported allowlist, and packages are limited to 500 episodes. Added negative tests for non-audio paths and unsupported MIME values.
+- Important migration safeguard: v5→v7 upgrades first create the listening tables with the latest schema; the v7 migration checks whether audio_revision already exists before attempting ALTER TABLE, preventing a duplicate-column crash on a fresh v5 upgrade.
+- Updated the migration and fresh-install instrumentation assertions for schema v7. CI and emulator execution are still pending; these changes are code-complete but not yet verified by a successful run.
