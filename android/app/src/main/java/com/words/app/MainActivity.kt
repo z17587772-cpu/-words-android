@@ -2332,7 +2332,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val downloaded = allResources.count { it.status == "downloaded" && it.localFilePath.isNotBlank() && java.io.File(it.localFilePath).isFile }
         val queued = allResources.count { it.status == "queued" || it.status == "downloading" }
         val failed = allResources.count { it.status == "failed" }
-        val storageMb = discovery.downloadedStorageBytes() / (1024L * 1024L)
+        val storageMb = ListeningStorageAccounting.diskUsage(java.io.File(filesDir, "listening-library")) / (1024L * 1024L)
         addSectionTitle(parent, "自动发现资源库", "应用联网寻找新英语听力 · Wi-Fi 下自动下载")
         parent.addView(vSpace(8))
         val summary = card(16)
