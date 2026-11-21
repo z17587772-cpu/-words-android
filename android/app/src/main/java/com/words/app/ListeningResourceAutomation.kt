@@ -88,9 +88,14 @@ class InternetArchiveDiscoveryWorker(
             return Result.retry()
         }
         return try {
-            var discovered = 0
+            var queuedCount = 0
+            var detailLookups = 0
             // Always revisit newest results, plus a bounded rotating backfill.
+            // Keep a 30-day item cursor so stable first-page results cannot starve
+            // newer material or consume the entire request budget every day.
             val cursor = runCatching { JSONObject(previous?.cursorJson ?: "{}") }.getOrDefault(JSONObject())
+            val checkedAt = runCatching { JSONObject(cursor.optJSONObject("checked_at")?.toString() ?: "{}") }.getOrDefault(JSONObject())
+            val checkedCutoff = now - CHECKED_ITEM_TTL_MS
             val backfillPage = cursor.optInt("next_page", 1).coerceAtLeast(1)
             val pages = linkedSetOf(1, backfillPage.coerceIn(1, MAX_BACKFILL_PAGE), (backfillPage + 1).coerceAtMost(MAX_BACKFILL_PAGE)).take(MAX_SEARCH_PAGES)
             for (page in pages) {
@@ -98,8 +103,12 @@ class InternetArchiveDiscoveryWorker(
                 for (doc in docs) {
                     val identifier = doc.optString("identifier").trim()
                     if (!identifier.matches(Regex("[A-Za-z0-9._-]{1,120}"))) continue
+                    if (checkedAt.optLong(identifier, 0L) > checkedCutoff) continue
+                    checkedAt.put(identifier, now)
                     val license = InternetArchiveMetadataPolicy.normalizeLicense(doc.opt("licenseurl"))
                     if (license == null) continue
+                    if (detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
+                    detailLookups++
                     val detail = fetchMetadata(identifier)
                     val metadata = detail.optJSONObject("metadata") ?: continue
                     val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.opt("licenseurl"))
@@ -140,19 +149,22 @@ class InternetArchiveDiscoveryWorker(
                         val id = repository.upsertCandidate(candidate, now)
                         if (repository.queueDownload(id)) {
                             ListeningResourceAutomation.enqueueDownload(applicationContext, id)
+                            queuedCount++
                         }
-                        discovered++
                     }
-                    if (discovered >= MAX_CANDIDATES_PER_RUN) break
                     Thread.sleep(DETAIL_DELAY_MS)
+                    if (queuedCount >= MAX_CANDIDATES_PER_RUN || detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
                 }
-                if (docs.size < PAGE_SIZE || discovered >= MAX_CANDIDATES_PER_RUN) break
+                if (docs.size < PAGE_SIZE || queuedCount >= MAX_CANDIDATES_PER_RUN || detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
                 Thread.sleep(SEARCH_DELAY_MS)
             }
             repository.saveProviderState(
                 ListeningProviderState(
                     provider = PROVIDER,
-                    cursorJson = JSONObject().put("next_page", if (backfillPage + 2 > MAX_BACKFILL_PAGE) 1 else backfillPage + 2).toString(),
+                    cursorJson = JSONObject()
+                        .put("next_page", if (backfillPage + 2 > MAX_BACKFILL_PAGE) 1 else backfillPage + 2)
+                        .put("checked_at", trimCheckedItems(checkedAt, checkedCutoff))
+                        .toString(),
                     lastSuccessAt = now,
                     lastAttemptAt = now
                 )
@@ -176,6 +188,21 @@ class InternetArchiveDiscoveryWorker(
         } finally {
             helper.close()
         }
+    }
+
+    private fun trimCheckedItems(source: JSONObject, cutoff: Long): JSONObject {
+        val retained = mutableListOf<Pair<String, Long>>()
+        val iterator = source.keys()
+        while (iterator.hasNext()) {
+            val key = iterator.next()
+            val timestamp = source.optLong(key, 0L)
+            if (timestamp >= cutoff) retained += key to timestamp
+        }
+        val trimmed = JSONObject()
+        retained.sortedByDescending { it.second }.take(MAX_CHECKED_ITEMS).forEach { (key, timestamp) ->
+            trimmed.put(key, timestamp)
+        }
+        return trimmed
     }
 
     private fun searchPage(page: Int): List<JSONObject> {
@@ -268,6 +295,9 @@ class InternetArchiveDiscoveryWorker(
         private const val MAX_SEARCH_PAGES = 3
         private const val MAX_BACKFILL_PAGE = 50
         private const val MAX_CANDIDATES_PER_RUN = 5
+        private const val MAX_METADATA_LOOKUPS_PER_RUN = 20
+        private const val MAX_CHECKED_ITEMS = 1_000
+        private const val CHECKED_ITEM_TTL_MS = 30L * 24L * 60L * 60L * 1000L
         private const val MAX_TRACKS_PER_ITEM = 5
         private const val MIN_FILE_BYTES = 64 * 1024L
         private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
