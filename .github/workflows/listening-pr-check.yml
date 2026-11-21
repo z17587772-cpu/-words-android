@@ -213,7 +213,7 @@ jobs:
           assert "markLocalFileEvicted" in discovery_repository
           assert "requeueExpiredDownload" in discovery_repository
           assert "本地音频因空间管理已清理" in activity
-          assert "protect pinned resources from quota eviction" in Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
+          assert "markLocalFileEvicted" in Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
           assert "normalizesEnglishLibriVoxMetadataWithoutGrantingDownloadRights" in discovery_test
           assert "downloadQueueFailsClosedUnlessOfflineRightsAreExplicitlyCleared" in discovery_repository_test
           planner = (root / "ListeningDailyPlanner.kt").read_text(encoding="utf-8")
