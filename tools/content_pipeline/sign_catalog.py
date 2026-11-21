@@ -100,6 +100,14 @@ def previous_catalog_version(envelope_path: Path) -> int | None:
     return version
 
 
+def validate_version_progression(catalog: dict, previous_version: int | None) -> None:
+    version = catalog.get("catalog_version")
+    if type(version) is not int or version <= 0:
+        raise ValueError("catalog_version must be a positive integer")
+    if previous_version is not None and version <= previous_version:
+        raise ValueError("catalog_version must increase beyond the previously published catalog")
+
+
 def sign_payload(payload: bytes, private_key: Ed25519PrivateKey) -> dict[str, str]:
     return {
         "payload": base64.b64encode(payload).decode("ascii"),
@@ -128,11 +136,10 @@ def main() -> int:
     catalog = json.loads(args.input.read_text(encoding="utf-8"))
     if args.asset_root:
         validate_assets(catalog, args.asset_root)
+    payload = canonical_payload(catalog)
     if args.previous_envelope:
         previous_version = previous_catalog_version(args.previous_envelope)
-        if previous_version is not None and catalog.get("catalog_version", 0) <= previous_version:
-            raise ValueError("catalog_version must increase beyond the previously published catalog")
-    payload = canonical_payload(catalog)
+        validate_version_progression(catalog, previous_version)
     envelope = sign_payload(payload, load_private_key())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
