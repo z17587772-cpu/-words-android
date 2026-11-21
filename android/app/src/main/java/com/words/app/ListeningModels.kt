@@ -62,10 +62,8 @@ data class ListeningQuestion(
             "inference" -> "推断判断"
             "attitude" -> "态度与意图"
             "pronunciation" -> "语音辨识"
-            "dictation" -> "听写辨音"
             "connected_speech" -> "连读弱读"
             "note_taking" -> "信息笔记"
-            "shadowing" -> "跟读训练"
             else -> "综合理解"
         }
 }
