@@ -88,6 +88,52 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun audioInstallVerifiesChecksumAndKeepsPreviousFileOnFailure() {
+        val root = java.io.File(context.cacheDir, "listening-integrity-${System.nanoTime()}")
+        assertTrue(root.mkdirs())
+        val destination = java.io.File(root, "lesson.mp3")
+        destination.writeText("previous-good-audio")
+        val bytes = "hello world".toByteArray()
+        val descriptor = ListeningPackageAudio(
+            path = "audio/lesson.mp3",
+            sizeBytes = bytes.size.toLong(),
+            sha256 = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+            mimeType = "audio/mpeg",
+            language = "en-US"
+        )
+
+        try {
+            try {
+                ListeningAudioIntegrity.copyAndVerify(
+                    java.io.ByteArrayInputStream("corrupt".toByteArray()),
+                    destination,
+                    descriptor
+                )
+                throw AssertionError("Corrupt audio was installed")
+            } catch (_: IllegalArgumentException) {
+                assertEquals("previous-good-audio", destination.readText())
+            }
+
+            ListeningAudioIntegrity.copyAndVerify(
+                java.io.ByteArrayInputStream(bytes),
+                destination,
+                descriptor
+            )
+            assertTrue(ListeningAudioIntegrity.verify(destination, descriptor))
+            assertEquals("hello world", destination.readText())
+
+            try {
+                ListeningAudioIntegrity.resolveUnderRoot(root, "../escape.mp3")
+                throw AssertionError("Path traversal was accepted")
+            } catch (_: IllegalArgumentException) {
+                // Expected path validation failure.
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
