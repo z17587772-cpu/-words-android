@@ -88,6 +88,7 @@ jobs:
           root = Path("android/app/src/main/java/com/words/app")
           validator = (root / "ListeningContentPackageValidator.kt").read_text(encoding="utf-8")
           integrity = (root / "ListeningAudioIntegrity.kt").read_text(encoding="utf-8")
+          archive = (root / "ListeningPackageArchive.kt").read_text(encoding="utf-8")
           service = (root / "ListeningPlaybackService.kt").read_text(encoding="utf-8")
           coordinator = (root / "ListeningPlaybackCoordinator.kt").read_text(encoding="utf-8")
           assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
@@ -95,6 +96,8 @@ jobs:
           assert "MAX_AUDIO_SIZE_BYTES" in validator
           assert "MessageDigest.getInstance(\"SHA-256\")" in integrity
           assert "ATOMIC_MOVE" in integrity and "resolveUnderRoot" in integrity
+          assert "MAX_ENTRIES" in archive and "MAX_TOTAL_UNCOMPRESSED_BYTES" in archive
+          assert "Duplicate archive entry" in archive and "deleteRecursively()" in archive
           assert "CHECKPOINT_INTERVAL_MS = 5_000L" in service
           assert "checkpointNow()" in service and "setMediaId(episode.id)" in coordinator
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
