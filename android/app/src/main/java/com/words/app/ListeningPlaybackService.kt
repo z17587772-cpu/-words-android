@@ -31,12 +31,10 @@ class ListeningPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        mediaSession?.run {
-            player.release()
-            release()
-        }
-        mediaSession = null
+        player?.release()
         player = null
+        mediaSession?.release()
+        mediaSession = null
         super.onDestroy()
     }
 }
