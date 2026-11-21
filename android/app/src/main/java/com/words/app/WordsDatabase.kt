@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 11) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 12) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -81,6 +81,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         createListeningTables(db)
         createListeningRevisionTables(db)
         createListeningPackageTables(db)
+        createListeningDiscoveryTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -136,6 +137,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             backfillRevisionMetadata(db)
         }
         if (oldVersion < 11) createListeningPackageTables(db)
+        if (oldVersion < 12) createListeningDiscoveryTables(db)
     }
 
     private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
@@ -412,6 +414,58 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             )
         """.trimIndent())
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_package_active ON listening_package_episodes(package_id,is_active)")
+    }
+
+    private fun createListeningDiscoveryTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_discovered_resources (
+                id TEXT PRIMARY KEY,
+                provider TEXT NOT NULL,
+                provider_item_id TEXT NOT NULL,
+                canonical_url TEXT NOT NULL DEFAULT '',
+                media_url TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                language TEXT NOT NULL DEFAULT '',
+                duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(duration_ms >= 0),
+                creator TEXT NOT NULL DEFAULT '',
+                license_name TEXT NOT NULL DEFAULT '',
+                license_url TEXT NOT NULL DEFAULT '',
+                rights_status TEXT NOT NULL DEFAULT 'unknown'
+                    CHECK(rights_status IN ('unknown','review_required','cleared','rejected','withdrawn')),
+                allowed_actions TEXT NOT NULL DEFAULT '',
+                attribution TEXT NOT NULL DEFAULT '',
+                territory TEXT NOT NULL DEFAULT '',
+                mime_type TEXT NOT NULL DEFAULT '',
+                expected_size_bytes INTEGER NOT NULL DEFAULT 0 CHECK(expected_size_bytes >= 0),
+                expected_sha256 TEXT NOT NULL DEFAULT '',
+                local_file_path TEXT NOT NULL DEFAULT '',
+                content_sha256 TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'discovered'
+                    CHECK(status IN ('discovered','eligible','queued','downloading','downloaded','rejected','expired','failed')),
+                discovered_at INTEGER NOT NULL,
+                downloaded_at INTEGER,
+                last_checked_at INTEGER NOT NULL DEFAULT 0,
+                etag TEXT NOT NULL DEFAULT '',
+                pinned INTEGER NOT NULL DEFAULT 0 CHECK(pinned IN (0,1)),
+                last_played_at INTEGER,
+                UNIQUE(provider, provider_item_id)
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_provider_state (
+                provider TEXT PRIMARY KEY,
+                cursor_json TEXT NOT NULL DEFAULT '{}',
+                last_success_at INTEGER NOT NULL DEFAULT 0,
+                last_attempt_at INTEGER NOT NULL DEFAULT 0,
+                backoff_until INTEGER NOT NULL DEFAULT 0,
+                etag TEXT NOT NULL DEFAULT '',
+                last_error TEXT NOT NULL DEFAULT ''
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_discovered_status ON listening_discovered_resources(status, discovered_at)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_discovered_rights ON listening_discovered_resources(rights_status, status)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_discovered_last_played ON listening_discovered_resources(last_played_at)")
     }
 
     private fun ensureRevisionMetadataColumns(db: SQLiteDatabase) {
