@@ -41,8 +41,7 @@ data class ListeningSentence(
 
 data class ListeningOption(
     val id: Long,
-    val content: String,
-    val isCorrect: Boolean
+    val content: String
 )
 
 data class ListeningQuestion(
