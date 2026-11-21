@@ -235,5 +235,6 @@ Regression coverage now verifies:
 - exhaustion returns no new lesson;
 - another newly inserted episode replenishes the queue;
 - changing title/audio/revision metadata for the same episode ID does not make it new again.
+- a 371-day simulation with seven new episodes added weekly produces 371 unique assignments, then returns an empty new-lesson pool.
 
 This is an assignment-level invariant. A separate UI/product pass must still ensure the empty state is presented honestly and that pending skipped assignments remain accessible without being re-labelled as new.
