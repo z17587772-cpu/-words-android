@@ -22,7 +22,7 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV5ToV10PreservesVocabularyAndLearningHistory() {
+    fun upgradingV5ToV11PreservesVocabularyAndLearningHistory() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
 
@@ -60,7 +60,7 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV6ToV10PreservesAudioRevisionAndSavedPlayback() {
+    fun upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
         val legacy = context.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null)
@@ -482,7 +482,7 @@ class WordsDatabaseMigrationTest {
 
 
     @Test
-    fun upgradingV7BackfillsSnapshotsAndPinsExistingAttempts() {
+    fun upgradingV7ToV11BackfillsSnapshotsAndPinsExistingAttempts() {
         context.deleteDatabase(DATABASE_NAME)
         val originalHelper = WordsDatabase(context)
         val originalRepository = ListeningRepository(originalHelper)
