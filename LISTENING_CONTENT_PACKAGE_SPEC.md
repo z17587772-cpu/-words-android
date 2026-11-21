@@ -148,3 +148,18 @@ Publisher support:
 - No production signing key, publisher endpoint, approved human-recorded course package, or automated editorial pipeline has been deployed.
 - Configure `LISTENING_CATALOG_URL` and the single-line Base64-encoded Ed25519 X.509 SubjectPublicKeyInfo public key as Gradle properties for release builds; configure the matching PEM private key only in the protected publisher environment.
 - Do not claim live auto-updates until a signed test catalog and a real course package have installed successfully on an Android device, including process-restart and offline tests.
+
+
+## Current static-host publisher activation
+
+A manual GitHub Actions workflow, `.github/workflows/publish-listening-catalog.yml`, now signs and publishes the approved catalog to the existing `content-inbox` branch.
+
+Deployment contract:
+- Catalog URL default: `https://raw.githubusercontent.com/z17587772-cpu/-words-android/content-inbox/catalog/catalog.json`.
+- Course ZIP assets must be committed under `content-inbox` and referenced by raw URLs on the same `raw.githubusercontent.com` host.
+- The publisher validates each local ZIP's exact size and SHA-256 before signing. The current raw-GitHub publishing adapter caps ZIPs at 90 MiB; the Android importer itself supports larger archives but this static host adapter intentionally does not.
+- The workflow expects the PEM private key in the repository Actions secret `LISTENING_CATALOG_PRIVATE_KEY_PEM`. It writes the secret to a temporary file with restricted permissions, signs, deletes the temporary key file, and commits only the signed public catalog.
+- The Android release build must pin the matching single-line Base64 X.509 SubjectPublicKeyInfo public key through Gradle property `LISTENING_CATALOG_PUBLIC_KEY`. The private key must never be placed in Gradle properties, the source tree, or the APK.
+- The first production course still requires an approved manifest and ZIP under `content-inbox`; the workflow intentionally fails closed if the unsigned catalog or private-key secret is absent.
+
+This gives the app a stable catalog endpoint. After the one-time app build containing the pinned public key is installed, later approved course additions can be published to the branch without rebuilding the APK.
