@@ -134,17 +134,21 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                     remove("id")
                     remove("provider")
                     remove("provider_item_id")
-                    remove("rights_status")
-                    remove("allowed_actions")
                     remove("discovered_at")
                 }
                 val existingRights = database.rawQuery(
                     "SELECT rights_status FROM listening_discovered_resources WHERE id=?",
                     arrayOf(id)
                 ).use { if (it.moveToFirst()) it.getString(0) else "unknown" }
-                if (existingRights == "unknown" || existingRights == "review_required") {
-                    update.put("rights_status", resource.rightsStatus)
-                    update.put("allowed_actions", resource.allowedActions.sorted().joinToString(","))
+                val newActions = resource.allowedActions
+                if (existingRights == "cleared" &&
+                    (resource.rightsStatus != "cleared" || !newActions.contains("offline_download"))
+                ) {
+                    // A source license withdrawal/reclassification immediately
+                    // removes the playable local pointer and prevents future use.
+                    update.put("status", "expired")
+                    update.put("local_file_path", "")
+                    update.put("content_sha256", "")
                 }
                 database.update("listening_discovered_resources", update, "id=?", arrayOf(id))
             }
@@ -154,6 +158,20 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         }
         return id
     }
+
+    fun revokeProviderItem(provider: String, providerItemPrefix: String): Int =
+        db.update(
+            "listening_discovered_resources",
+            ContentValues().apply {
+                put("rights_status", "review_required")
+                put("allowed_actions", "")
+                put("status", "expired")
+                put("local_file_path", "")
+                put("content_sha256", "")
+            },
+            "provider=? AND provider_item_id LIKE ?",
+            arrayOf(provider, providerItemPrefix + "%")
+        )
 
     fun queueDownload(resourceId: String): Boolean {
         val candidate = db.rawQuery(
