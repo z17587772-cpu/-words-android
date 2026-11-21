@@ -160,6 +160,12 @@ class ListeningDiscoveryRepositoryTest {
         assertEquals("", row[1])
         assertEquals("expired", row[2])
         assertEquals("", row[3])
+        // A download worker finishing after revocation must not resurrect the row.
+        repository.updateDownloadStatus(id, "failed")
+        assertEquals("expired", helper.readableDatabase.rawQuery(
+            "SELECT status FROM listening_discovered_resources WHERE id=?",
+            arrayOf(id)
+        ).use { c -> if (c.moveToFirst()) c.getString(0) else "" })
         assertFalse(repository.queueDownload(id))
         helper.close()
     }
