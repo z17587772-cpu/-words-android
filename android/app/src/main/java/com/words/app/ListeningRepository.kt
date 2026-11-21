@@ -373,7 +373,8 @@ class ListeningRepository(private val helper: WordsDatabase) {
                FROM listening_choices choice
                JOIN listening_questions question ON question.id=choice.question_id
                JOIN listening_attempts attempt ON attempt.episode_id=question.episode_id
-               WHERE attempt.id=? AND question.id=? AND choice.id=?
+               WHERE attempt.id=? AND attempt.completed_at IS NULL
+                 AND question.id=? AND choice.id=?
                LIMIT 1""",
             arrayOf(attemptId.toString(), questionId, choiceId.toString())
         ).use { cursor ->
