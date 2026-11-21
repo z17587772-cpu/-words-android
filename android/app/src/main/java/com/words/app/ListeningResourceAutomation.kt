@@ -99,8 +99,12 @@ class InternetArchiveDiscoveryWorker(
                     val metadata = detail.optJSONObject("metadata") ?: continue
                     val detailLicense = normalizeLicense(metadata.optString("licenseurl"))
                     if (detailLicense != license) continue
-                    val language = metadata.optString("language").ifBlank { doc.optString("language") }
-                    if (!language.equals("eng", true) && !language.equals("english", true)) continue
+                    val languageValue = metadata.opt("language") ?: doc.opt("language")
+                    val language = when (languageValue) {
+                        is JSONArray -> (0 until languageValue.length()).joinToString(" ") { languageValue.optString(it) }
+                        else -> languageValue?.toString().orEmpty()
+                    }
+                    if (!Regex("(^|[^a-z])(eng|english|en)([^a-z]|$)", RegexOption.IGNORE_CASE).containsMatchIn(language)) continue
                     val title = metadata.optString("title").ifBlank { doc.optString("title") }.trim()
                     if (title.isBlank()) continue
                     val files = detail.optJSONArray("files") ?: continue
@@ -294,9 +298,10 @@ class ListeningResourceDownloadWorker(
         val helper = WordsDatabase(applicationContext)
         val repository = ListeningDiscoveryRepository(helper)
         val candidate = repository.getDownloadCandidate(id) ?: return Result.failure()
+        if (candidate.status == "downloaded") return Result.success()
         if (candidate.rightsStatus != "cleared" ||
             !candidate.allowedActions.contains("offline_download") ||
-            candidate.status !in setOf("queued", "downloading") ||
+            candidate.status !in setOf("queued", "downloading", "failed") ||
             candidate.expectedSizeBytes !in 1L..MAX_FILE_BYTES ||
             candidate.mimeType != "audio/mpeg"
         ) return Result.failure()
