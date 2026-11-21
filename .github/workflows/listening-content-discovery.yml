@@ -34,7 +34,7 @@ jobs:
       - name: Restore persistent content inbox branch
         shell: bash
         run: |
-          git fetch origin content-inbox || true
+          git fetch origin +refs/heads/content-inbox:refs/remotes/origin/content-inbox || true
           if git show-ref --verify --quiet refs/remotes/origin/content-inbox; then
             git switch -C content-inbox origin/content-inbox
           else
