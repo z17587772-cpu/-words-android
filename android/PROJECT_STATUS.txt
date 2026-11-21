@@ -1,41 +1,62 @@
-words Android v1.8.0 — implementation status
+words Android v1.8.3 — implementation and validation status
 
 Version source of truth:
 - android/app/build.gradle.kts
-- versionName: 1.8.0
-- versionCode: 21
+- versionName: 1.8.3
+- versionCode: 24
 - applicationId: com.words.app
-- GitHub Release: https://github.com/z17587772-cpu/-words-android/releases/tag/v1.8.0
-- Release asset: words.apk (debug-signed test build)
+- compileSdk: 36
+- targetSdk: 35
+- PR: https://github.com/z17587772-cpu/-words-android/pull/1 (Draft; not merged)
 
-Implemented in source (based on current main and v1.8.0 release notes):
-- Quick Browse supports left/right horizontal card swipes with coordinated directional animation.
-- Browse settings support none / hide English / hide Chinese masking.
-- Daily Quiz retains the source question after choosing; correct and incorrect selections receive separate visual feedback.
-- Tapping an option after answering opens the detail explanation; answers are persisted once.
-- Explanation includes headword, core meaning, examples, optional translations, online definitions/forms/examples/synonyms/antonyms and source attribution.
-- Local example translations are preferred; MyMemory machine-translation fallback is labelled and cached in SQLite.
-- Sound and vibration feedback can be configured independently.
-- Wordbooks include the 2025 curriculum pack, high-school extension, CET-4/6, IELTS, TOEFL, GRE, postgraduate, SAT, GMAT and NGSL/NAWL resources.
-- Wordbook updates preserve matching entries' review progress and favorites; obsolete entries are deactivated rather than physically deleted.
-- POS and meaning formatting improvements are included in v1.8.0 release notes.
+Important release status:
+- v1.8.3 is the feature-branch app configuration, not proof of a validated distributable release.
+- The current PR explicitly records that a complete current-head Gradle compile + API 35 emulator instrumentation run has not been observed.
+- A previous emulator attempt failed during emulator startup and is not a passing test.
+- No validated current-head APK artifact has been retrieved or verified.
+- Do not report installation, update-in-place, or real-device validation as complete without evidence.
 
-Release validation evidence:
-- GitHub Release v1.8.0 exists and contains words.apk.
-- Published asset size: 3,575,470 bytes.
-- Published asset SHA-256: 038618a1461caa10bc855aac02f25481471d435e4360d871093cd6146514ba89
-- Release publisher: github-actions[bot].
-- Release published at 2026-11-20T13:25:15Z.
-- This confirms an uploaded APK asset exists; it does not by itself prove installation or real-device runtime testing.
+Implemented in feature-branch source (not all runtime-verified):
+- Automatic LibriVox metadata discovery and Internet Archive discovery.
+- Internet Archive automatic offline download is limited to item-level CC0 1.0, CC BY 4.0, and CC BY-SA 4.0 metadata accepted by policy.
+- LibriVox items remain rights-quarantined until item/territory permission is established.
+- Daily WorkManager discovery, resumable backfill, stable provider-ID deduplication, and incremental discovery.
+- Serial unmetered-network downloads, exact-size validation, SHA-256 verification, duration probing, and immutable local publication.
+- Local discovered-resource library with search, downloaded/favorites filters, attribution/license links, offline playback, and playback resume.
+- 512 MiB storage quota with protection for pinned and recently played resources.
+- Reconciliation for missing/corrupt files, stale partial downloads, and orphan files.
+- License-revocation protection and shared-file hash deduplication.
+- Database schema v13.
+- Formal lesson content packages, validation/import, Ed25519 signed-catalog verification, DownloadManager/WorkManager sync path, and strict new-lesson vs review separation exist in source.
+- Daily new-lesson assignment uses stable episode identity and excludes previously assigned episodes; review is a separate 1/3/7/14-day queue.
 
-Validation still required:
-- Re-run GitHub Actions after documentation/workflow changes and confirm the new run succeeds.
-- Inspect the generated APK's embedded versionName/versionCode and compare its SHA-256 with the Release asset.
-- Run real-device regression tests for Browse, Study, explanation, wordbook refresh and preservation of local progress.
-- Do not report device testing as complete unless it was actually performed.
+Validation status:
+- Instrumentation test source covers metadata/license policy, duplicate discovery, rights revocation, local playback persistence, shared-file deduplication, storage eviction, missing-file recovery, and database migrations.
+- Python content-pipeline tests are wired into the PR workflow.
+- Kotlin app and instrumentation compile tasks are wired into the PR workflow.
+- API 35 emulator instrumentation and debug APK artifact upload are wired to run after compile/tests.
+- None of the above is considered passed for the current head until a successful GitHub Actions run and its logs/artifacts are inspected.
+- Source-level assertions previously recorded as 32/32 or 33/33 are not substitutes for runtime tests.
 
-Known release limitation:
-- v1.8.0 is a debug-signed APK intended for direct testing, not a production/release-signed distribution package.
+Still outstanding before release:
+1. Successful latest-head Python unit tests, Gradle app/test compilation, API 35 instrumentation, and validated APK artifact retrieval.
+2. Inspect test failures and fix them; rerun the complete suite after each correction.
+3. Configure the persistent APK signing secrets only if stable update-in-place signing is intended; otherwise document the one-time uninstall needed when signatures differ.
+4. Configure LISTENING_CATALOG_PRIVATE_KEY_PEM as a protected Actions secret and pin the matching Base64 X.509 public key in the release build.
+5. Prepare and approve the first real human-recorded course package and matching unsigned catalog; do not publish raw metadata candidates as lessons.
+6. Complete transcript sourcing/verification, sentence alignment, Chinese translation, level tagging, question drafting, evidence mapping, and human editorial QA.
+7. Publish and verify the signed catalog and package end to end.
+8. Add injected failure tests for lost DownloadManager completion, interrupted install, digest mismatch, and storage exhaustion.
+9. Complete real-device checks for background playback, lock screen, Bluetooth/headset controls, battery restrictions, network loss, process death/restart, and offline playback.
+10. Add storage overview/bulk-management UI and evaluate conditional HTTP requests (ETag) and deeper cancellation/interruption handling.
+11. Review and reconcile feature/main divergence without blind merge or rebase. Keep main unchanged until all required gates pass.
 
-Build environment:
-- JDK 17, Android SDK Platform 35 / Build Tools 35.0.0, Gradle 8.9.
+Build environment declared by listening CI:
+- JDK 17
+- Android SDK Platform 36
+- Build Tools 35.0.0
+- Gradle 8.13
+
+Release rule:
+- Do not mark the PR ready or merge it solely because source assertions pass.
+- Release only after successful CI, APK version/signature/hash inspection, and the required device regression checks.
