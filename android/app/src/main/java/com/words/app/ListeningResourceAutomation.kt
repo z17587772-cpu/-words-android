@@ -307,6 +307,7 @@ class InternetArchiveDiscoveryWorker(
         private const val MAX_TRACKS_PER_ITEM = 5
         private const val MIN_FILE_BYTES = 64 * 1024L
         private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
+        private const val MIN_FREE_SPACE_BYTES = 50L * 1024L * 1024L
         private const val MAX_LIBRARY_BYTES = 512L * 1024L * 1024L
         private const val MAX_JSON_BYTES = 6 * 1024 * 1024
         private const val CONNECT_TIMEOUT_MS = 10_000
@@ -378,7 +379,8 @@ class ListeningResourceDownloadWorker(
             return Result.retry()
         }
         val capacityAvailable = runCatching {
-            ensureStorageCapacity(repository, root, candidate.expectedSizeBytes)
+            root.usableSpace >= candidate.expectedSizeBytes + MIN_FREE_SPACE_BYTES &&
+                ensureStorageCapacity(repository, root, candidate.expectedSizeBytes)
         }.getOrDefault(false)
         if (!capacityAvailable) {
             repository.updateDownloadStatus(id, "failed")
@@ -425,12 +427,14 @@ class ListeningResourceDownloadWorker(
                 retriever.release()
             }
             require(duration > 0L) { "Downloaded audio is not a playable media file" }
-            if (finalFile.exists()) {
-                require(finalFile.length() == total && sha256(finalFile) == hash) {
-                    "Existing immutable audio revision is corrupt"
-                }
+            if (finalFile.exists() && finalFile.length() == total && sha256(finalFile) == hash) {
                 temporary.delete()
             } else {
+                // A corrupt orphan at this immutable hash path is safe to replace:
+                // the complete new temporary file has already passed size/hash checks.
+                if (finalFile.exists() && !finalFile.delete()) {
+                    throw java.io.IOException("Cannot replace corrupt local audio revision")
+                }
                 try {
                     java.nio.file.Files.move(temporary.toPath(), finalFile.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE)
                 } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
