@@ -2213,7 +2213,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         } else {
-            val evidence = listeningRepository.getSentences(episode.id).firstOrNull { it.id == question.evidenceSentenceId }
+            val evidence = listeningRepository.getSentencesForAttempt(listeningAttemptId).firstOrNull { it.id == question.evidenceSentenceId }
             progress.addView(vSpace(4))
             progress.addView(text(
                 if (listeningCurrentCorrect == true) "回答正确" else "这题还需要加强",
