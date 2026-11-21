@@ -343,7 +343,7 @@ class ListeningContentPackageImporter(
                 put("license_url", rights.licenseUrl)
                 put("allowed_actions", allowedActions)
                 put("territory", rights.territory)
-                if (rights.expiresAt == null) putNull("expires_at") else put("expires_at", rights.expiresAt)
+                if (rights.expiresAt == null) putNull("expires_at") else put("expires_at", rights.expiresAt!!)
                 put("notes", rights.attribution)
             },
             SQLiteDatabase.CONFLICT_IGNORE
