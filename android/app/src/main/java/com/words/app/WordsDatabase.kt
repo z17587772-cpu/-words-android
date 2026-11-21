@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 12) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 13) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -82,6 +82,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         createListeningRevisionTables(db)
         createListeningPackageTables(db)
         createListeningDiscoveryTables(db)
+        createListeningResourcePlaybackTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -138,6 +139,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         }
         if (oldVersion < 11) createListeningPackageTables(db)
         if (oldVersion < 12) createListeningDiscoveryTables(db)
+        if (oldVersion < 13) createListeningResourcePlaybackTable(db)
     }
 
     private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
@@ -466,6 +468,18 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_discovered_status ON listening_discovered_resources(status, discovered_at)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_discovered_rights ON listening_discovered_resources(rights_status, status)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_discovered_last_played ON listening_discovered_resources(last_played_at)")
+    }
+
+    private fun createListeningResourcePlaybackTable(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_discovered_playback (
+                resource_id TEXT PRIMARY KEY,
+                position_ms INTEGER NOT NULL DEFAULT 0 CHECK(position_ms >= 0),
+                speed REAL NOT NULL DEFAULT 1.0 CHECK(speed >= 0.5 AND speed <= 2.0),
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY(resource_id) REFERENCES listening_discovered_resources(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
     }
 
     private fun ensureRevisionMetadataColumns(db: SQLiteDatabase) {
