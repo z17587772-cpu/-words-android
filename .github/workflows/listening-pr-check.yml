@@ -195,6 +195,8 @@ jobs:
           assert "score < 0.80f -> 7" in review_planner
           assert "else -> 14" in review_planner
           assert "SPACED REVIEW" in activity and "开始复习" in activity
+          assert "Never start a review while another attempt is unfinished" in activity
+          assert "if (activeAttempt == null || activeAttempt.isCompleted)" in activity
           assert "reviewPlannerSchedulesWeakScoresSoonerThanStrongScores" in migration_test
           assert "WHERE d.assignment_date<>?" in repository
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
