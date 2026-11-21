@@ -104,14 +104,12 @@ class ListeningCatalogSyncTest {
                 "https://cdn.example.org/course.zip",
                 minimumAppVersion = 23
             )))
-        try {
-            val (_, compatibleEntries) = ListeningCatalogSync.parseCatalog(
-                newerApp.toString().toByteArray(Charsets.UTF_8),
-                "cdn.example.org",
-                22
-            )
-            assertEquals(0, compatibleEntries.size)
-        }
+        val (_, compatibleEntries) = ListeningCatalogSync.parseCatalog(
+            newerApp.toString().toByteArray(Charsets.UTF_8),
+            "cdn.example.org",
+            22
+        )
+        assertEquals(0, compatibleEntries.size)
     }
 
     private fun packageEntry(url: String, minimumAppVersion: Int = 22): JSONObject =
