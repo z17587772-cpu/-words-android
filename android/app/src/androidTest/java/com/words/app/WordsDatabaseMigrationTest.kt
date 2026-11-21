@@ -55,6 +55,7 @@ class WordsDatabaseMigrationTest {
         repository.ensureDemoSeeded()
 
         val episodeId = ListeningRepository.DEMO_EPISODE_ID
+        assertEquals(null, repository.assignDailyEpisode("2026-11-20", 1_795_132_800_000L))
         assertEquals(null, repository.getPlayback(episodeId))
         repository.savePlayback(episodeId, -500L, Float.NaN)
         val first = repository.getPlayback(episodeId)
