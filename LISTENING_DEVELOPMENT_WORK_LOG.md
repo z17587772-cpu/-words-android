@@ -131,3 +131,11 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - The workflow now runs the existing Python checks, static policy assertions, Kotlin app/test compilation and API 35 instrumentation suite first; only after those gates pass does it assemble and upload a debug APK artifact.
 - This intentionally does not claim that an APK has been built. The workflow must complete successfully and produce its artifact before a download can be provided.
 - The APK is a debug-signed build. Because each clean hosted runner normally generates its own debug keystore, update-in-place across builds is not guaranteed; a stable private release keystore is needed for a proper signed upgrade path. No signing key was committed to the repository.
+
+
+## 2026-11-21 — Disk-accurate quota and persistent signing support
+- Storage quota enforcement and the visible library usage figure now count actual files under the canonical app-private listening-library root, including orphan MP3s and partial downloads. Symlink targets outside the root are excluded. This prevents a failed deletion or stale partial file from being invisible to quota accounting.
+- Missing files contribute zero physical bytes when eviction recalculates capacity.
+- Added instrumentation coverage for orphan/partial accounting, missing roots, and an optional external symlink.
+- Added optional persistent APK signing support through GitHub Actions secrets: WORDS_SIGNING_KEYSTORE_BASE64, WORDS_SIGNING_STORE_PASSWORD, WORDS_SIGNING_KEY_ALIAS, WORDS_SIGNING_KEY_PASSWORD. No keystore or password is stored in source control. If these are absent, the CI APK uses the runner's normal debug signing key.
+- The validation workflow assembles and uploads the APK only after compile and emulator tests succeed. A successful workflow run and artifact are still not visible in the current GitHub status data.
