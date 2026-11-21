@@ -2050,9 +2050,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
      */
     private fun restoreListeningAttemptState() {
         val savedAttemptId = prefs.getLong(KEY_LISTENING_ATTEMPT_ID, -1L)
-        val progress = if (savedAttemptId > 0L) {
+        val progress = (if (savedAttemptId > 0L) {
             listeningRepository.getAttemptProgress(savedAttemptId)
-        } else null ?: listeningRepository.getLatestIncompleteAttempt()
+        } else null) ?: listeningRepository.getLatestIncompleteAttempt()
         if (progress == null) {
             if (savedAttemptId > 0L) clearActiveListeningAttempt()
             return
