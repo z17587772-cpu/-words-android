@@ -37,10 +37,6 @@ object ListeningResourceAutomation {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
             .build()
-        val downloadConstraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.UNMETERED)
-            .setRequiresBatteryNotLow(true)
-            .build()
         val periodic = PeriodicWorkRequestBuilder<InternetArchiveDiscoveryWorker>(24, TimeUnit.HOURS)
             .setConstraints(discoveryConstraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
@@ -112,7 +108,15 @@ class InternetArchiveDiscoveryWorker(
                     if (detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
                     checkedAt.put(identifier, now)
                     detailLookups++
-                    val detail = fetchMetadata(identifier)
+                    val detail = try {
+                        fetchMetadata(identifier)
+                    } catch (_: IllegalArgumentException) {
+                        continue
+                    } catch (_: org.json.JSONException) {
+                        continue
+                    } finally {
+                        Thread.sleep(DETAIL_DELAY_MS)
+                    }
                     val metadata = detail.optJSONObject("metadata") ?: continue
                     val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.opt("licenseurl"))
                     if (detailLicense != license) continue
@@ -155,7 +159,6 @@ class InternetArchiveDiscoveryWorker(
                             queuedCount++
                         }
                     }
-                    Thread.sleep(DETAIL_DELAY_MS)
                     if (queuedCount >= MAX_CANDIDATES_PER_RUN || detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
                 }
                 if (docs.size < PAGE_SIZE || queuedCount >= MAX_CANDIDATES_PER_RUN || detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
