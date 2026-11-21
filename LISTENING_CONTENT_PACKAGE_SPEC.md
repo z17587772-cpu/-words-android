@@ -106,3 +106,6 @@ Still pending:
 - Validate playback of newly imported file URIs with Media3 on emulator and physical devices.
 - Add WorkManager downloads, retry/resume, storage management, and offline-library UI.
 - Do not expose package import in the learner UI until runtime and failure-injection gates pass.
+
+
+The importer also hashes and extracts the same private archive snapshot (rather than re-reading the external source), caps compressed archives at 1.1 GB, and serializes import with orphan recovery to avoid cleanup races.
