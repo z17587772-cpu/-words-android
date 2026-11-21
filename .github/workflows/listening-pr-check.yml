@@ -69,6 +69,58 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: Sync complete wordbook catalog into Android assets
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import shutil
+          from pathlib import Path
+
+          source = Path("wordbooks")
+          target = Path("android/app/src/main/assets/books")
+          expected = {
+              "gaokao_standard_2025.json": ("gaokao_standard_2025", 3097),
+              "highschool_extension_3743.json": ("highschool_extension_3743", 3743),
+              "cet4_core.json": ("cet4_core", 3815),
+              "cet6_core.json": ("cet6_core", 5371),
+              "ielts_core.json": ("ielts_core", 4974),
+              "toefl_core.json": ("toefl_core", 6959),
+              "gre_core.json": ("gre_core", 7485),
+              "kaoyan_core.json": ("kaoyan_core", 4787),
+              "sat_core.json": ("sat_core", 4471),
+              "gmat_core.json": ("gmat_core", 2996),
+              "ngsl_nawl_core_3000.json": ("ngsl_nawl_core_3000", 3000),
+          }
+          target.mkdir(parents=True, exist_ok=True)
+          missing = sorted(set(expected) - {p.name for p in source.glob("*.json")})
+          if missing:
+              raise SystemExit(f"Missing source wordbooks: {missing}")
+
+          for stale in target.glob("*.json"):
+              if stale.name not in expected:
+                  stale.unlink()
+
+          for filename, (expected_id, expected_count) in expected.items():
+              src = source / filename
+              payload = json.loads(src.read_text(encoding="utf-8"))
+              words = payload.get("words")
+              if payload.get("id") != expected_id:
+                  raise SystemExit(f"{filename}: unexpected pack id {payload.get('id')!r}")
+              if not isinstance(words, list) or len(words) != expected_count:
+                  raise SystemExit(f"{filename}: expected {expected_count} entries, got {len(words) if isinstance(words, list) else 'invalid'}")
+              if any(not isinstance(row, dict) or not row.get("word") or not row.get("meaning") for row in words):
+                  raise SystemExit(f"{filename}: word/meaning field is missing")
+              shutil.copy2(src, target / filename)
+              source_hash = hashlib.sha256(src.read_bytes()).hexdigest()
+              target_hash = hashlib.sha256((target / filename).read_bytes()).hexdigest()
+              if source_hash != target_hash:
+                  raise SystemExit(f"{filename}: asset copy checksum mismatch")
+              print(f"SYNCED {filename}: {len(words)} words sha256={source_hash}")
+
+          print(f"Wordbook catalog synchronized: {len(expected)} packs.")
+          PY
+
       - name: Validate bundled wordbook assets
         run: |
           python - <<'PY'
