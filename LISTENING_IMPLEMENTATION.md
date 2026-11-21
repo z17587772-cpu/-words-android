@@ -13,7 +13,7 @@
 - Native Views remain in use; the new tab is isolated behind `TAB_LISTENING`.
 - Media3 ExoPlayer and MediaSessionService provide the background playback foundation.
 - Existing `WordsDatabase` is retained. Schema v6 adds listening-only tables and does not alter vocabulary/review rows.
-- Media3 is pinned to 1.9.4 for this first integration to reduce build-toolchain churn. Re-evaluate the Media3/AGP/compileSdk upgrade as a separate, tested change rather than mixing it into the first feature slice.
+- Media3 is pinned to stable 1.11.1. It requires compileSdk 36; the branch uses AGP 8.11.1 and Gradle 8.13 to satisfy that requirement. Keep these versions pinned rather than using dynamic dependency versions.
 - `ListeningRepository` owns listening reads/writes. Vocabulary links reference existing `words.id`; dictionary records are not copied.
 - The first demo validates the guided flow only. The daily assignment generator and weekly content sync are still follow-up work.
 
