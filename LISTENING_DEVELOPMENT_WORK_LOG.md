@@ -49,3 +49,16 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - Python discovery worker has unit tests in repository, but current Android on-device discovery is not implemented.
 - Existing Android catalog sync compile/instrumentation status remains unverified from the available CI result.
 - No APK was built.
+
+### Implementation progress — on-device discovery foundation
+
+- Bumped `WordsDatabase` to schema v12 and added `listening_discovered_resources` plus `listening_provider_state`. The migration is additive; vocabulary tables and existing course/attempt rows are untouched.
+- Added `ListeningDiscoveryRepository`: stable provider identity, idempotent metadata refresh, cursor persistence, status tracking, local file metadata, and fail-closed download eligibility. A provider rediscovery cannot overwrite a prior cleared/rejected rights decision, pin, installed path, or download state.
+- Added `ListeningDiscovery.kt`: a WorkManager scheduler that starts an immediate LibriVox metadata search and repeats daily; first run backfills a bounded recent window, later runs use an overlap cursor, at most five 50-item pages per run, three-second spacing, and bounded response size/timeouts.
+- Added the on-device worker call to `MainActivity` startup.
+- Added Android instrumentation coverage for schema v5 -> v12 migration, parser normalization and host/language filtering, dedupe/state preservation, and rights-gated download queue behavior.
+- Extended PR CI static assertions to check the new worker, schema, scheduler and tests.
+- Important boundary: this implementation currently saves discovered metadata candidates into the local database. It does not yet download the LibriVox ZIP/RSS audio, unpack chapters, display a discovered-resource screen, or provide a separate raw-resource player. Those are explicit next tasks, not completed functionality.
+- The current LibriVox adapter intentionally marks rights as `review_required` and grants no download actions. This prevents treating the provider's general public-domain statement as universal item/territory permission.
+- CI verification: no workflow run was returned for the latest commit at the time of this log. Android compilation and instrumentation tests are therefore pending, not passed.
+- APK packaging remains paused.
