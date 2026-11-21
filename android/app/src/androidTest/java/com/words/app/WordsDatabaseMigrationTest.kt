@@ -166,6 +166,19 @@ class WordsDatabaseMigrationTest {
         assertEquals(correctId, review.correctChoiceId)
         assertTrue(review.correctContent.isNotBlank())
         assertFalse(review.isCorrect)
+        helper.writableDatabase.insertOrThrow(
+            "listening_questions",
+            null,
+            android.content.ContentValues().apply {
+                put("id", "post-completion-question")
+                put("episode_id", episodeId)
+                put("ordinal", 6)
+                put("question_type", "detail")
+                put("prompt", "A question added after completion")
+                put("explanation", "Historical attempts must keep their original score.")
+            }
+        )
+        assertEquals(0.8f, repository.finishAttempt(attemptId), 0.001f)
         helper.close()
     }
 
