@@ -107,6 +107,10 @@ jobs:
           repository = (root / "ListeningRepository.kt").read_text(encoding="utf-8")
           activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
           migration_test = Path("android/app/src/androidTest/java/com/words/app/WordsDatabaseMigrationTest.kt").read_text(encoding="utf-8")
+          discovery = (root / "ListeningDiscovery.kt").read_text(encoding="utf-8")
+          discovery_repository = (root / "ListeningDiscoveryRepository.kt").read_text(encoding="utf-8")
+          discovery_test = Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryTest.kt").read_text(encoding="utf-8")
+          discovery_repository_test = Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
           assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
           assert "evidence_sentence_id" in validator and "in_app_playback" in validator
           assert "offline_download" in validator
@@ -174,7 +178,21 @@ jobs:
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback" in migration_test
           assert "packageImporterCannotPromoteTheSystemTtsDemoToFormalContent" in migration_test
-          assert 'SQLiteOpenHelper(context, "words_local.db", null, 11)' in database
+          assert 'SQLiteOpenHelper(context, "words_local.db", null, 12)' in database
+          assert "createListeningDiscoveryTables(db)" in database
+          assert "listening_discovered_resources" in database and "listening_provider_state" in database
+          assert "ListeningDiscoveryScheduler.schedule(this)" in activity
+          assert "class LibriVoxDiscoveryWorker" in discovery
+          assert "MAX_PAGES_PER_RUN = 5" in discovery and "PAGE_DELAY_MS = 3_000L" in discovery
+          assert "LibriVoxMetadataParser.normalize" in discovery
+          assert "rightsStatus = \"review_required\"" in discovery
+          assert "allowedActions = emptySet()" in discovery
+          assert "fun queueDownload(resourceId: String): Boolean" in discovery_repository
+          assert "candidate.first != \"cleared\"" in discovery_repository
+          assert "offline_download" in discovery_repository
+          assert "upgradingV5ToV12PreservesVocabularyAndLearningHistory" in migration_test
+          assert "normalizesEnglishLibriVoxMetadataWithoutGrantingDownloadRights" in discovery_test
+          assert "downloadQueueFailsClosedUnlessOfflineRightsAreExplicitlyCleared" in discovery_repository_test
           planner = (root / "ListeningDailyPlanner.kt").read_text(encoding="utf-8")
           assert "assignDailyEpisode" in repository and "status='approved' AND is_demo=0" in repository and "e.status='approved' AND r.is_demo=0" in repository
           assert "fun getAttemptAnswerReviews" in repository
