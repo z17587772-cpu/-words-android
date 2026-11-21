@@ -65,9 +65,10 @@ object ListeningResourceAutomation {
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
+        // One serial chain prevents concurrent workers from racing the storage quota.
         WorkManager.getInstance(context).enqueueUniqueWork(
-            "listening-resource-download-$resourceId",
-            ExistingWorkPolicy.KEEP,
+            "listening-resource-download-queue",
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             request
         )
     }
