@@ -1906,7 +1906,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             playListeningAudio(audioUrl, episode)
             return
         }
-        val sentences = listeningRepository.getSentences(episode.id)
+        val sentences = listeningRepository.getSentencesForAttempt(listeningAttemptId)
         if (!ttsReady) {
             Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
             return
@@ -2116,7 +2116,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderListeningBlind(parent: LinearLayout) {
         val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
-        val sentences = listeningRepository.getSentences(episode.id)
+        val sentences = listeningRepository.getSentencesForAttempt(listeningAttemptId)
         addSectionTitle(parent, "第一遍 · 盲听", "先完整听，不看原文")
         parent.addView(vSpace(12))
         val c = card(19)
@@ -2158,7 +2158,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderListeningQuiz(parent: LinearLayout) {
         val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
-        val questions = listeningRepository.getQuestions(episode.id)
+        val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
         val question = questions.getOrNull(listeningQuestionIndex) ?: run {
             listeningStage = "review"
             renderListeningReview(parent)
@@ -2206,7 +2206,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                             listeningAttemptId, question.id, selected.id
                         )
                         if (listeningCurrentCorrect == true) listeningCorrectCount += 1
-                        listeningCorrectChoiceId = listeningRepository.getCorrectChoiceId(question.id)
+                        listeningCorrectChoiceId = listeningRepository.getCorrectChoiceId(listeningAttemptId, question.id)
                         listeningSubmitted = true
                         renderPage()
                     }
@@ -2273,8 +2273,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderListeningReview(parent: LinearLayout) {
         val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
-        val sentences = listeningRepository.getSentences(episode.id)
-        val questions = listeningRepository.getQuestions(episode.id)
+        val sentences = listeningRepository.getSentencesForAttempt(listeningAttemptId)
+        val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
         val answerReviews = listeningRepository.getAttemptAnswerReviews(listeningAttemptId).associateBy { it.questionId }
         val score = if (questions.isEmpty()) 0 else (listeningCorrectCount * 100 / questions.size)
         addSectionTitle(parent, "训练复盘", "把没听出来的内容真正听明白")
