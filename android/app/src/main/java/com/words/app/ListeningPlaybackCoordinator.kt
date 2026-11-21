@@ -18,7 +18,7 @@ class ListeningPlaybackCoordinator(
     fun play(controller: MediaController, episode: ListeningEpisode, uri: String) {
         val currentItem = controller.currentMediaItem
         val currentUri = currentItem?.localConfiguration?.uri?.toString()
-        val sameEpisode = currentUri == uri && currentItem.mediaId == episode.id
+        val sameEpisode = currentItem != null && currentUri == uri && currentItem.mediaId == episode.id
         if (!sameEpisode) checkpoint(controller)
 
         episodeId = episode.id
