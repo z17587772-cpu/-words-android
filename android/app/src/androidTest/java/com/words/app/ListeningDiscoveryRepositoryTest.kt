@@ -1,0 +1,123 @@
+package com.words.app
+
+import android.content.ContentValues
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class ListeningDiscoveryRepositoryTest {
+    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @After
+    fun cleanDatabase() {
+        context.deleteDatabase("words_local.db")
+    }
+
+    @Test
+    fun rediscoveryIsIdempotentAndPreservesLocalStateAndRightsDecision() {
+        context.deleteDatabase("words_local.db")
+        val helper = WordsDatabase(context)
+        val repository = ListeningDiscoveryRepository(helper)
+        val initial = DiscoveredListeningResource(
+            provider = "librivox",
+            providerItemId = "12345",
+            canonicalUrl = "https://librivox.org/example",
+            mediaUrl = "https://archive.org/download/example/audio.mp3",
+            title = "Example recording",
+            language = "English",
+            durationMs = 120_000,
+            rightsStatus = "review_required"
+        )
+
+        val id = repository.upsertCandidate(initial, 100L)
+        assertEquals(id, repository.upsertCandidate(initial.copy(title = "Updated title"), 200L))
+        assertEquals(1, helper.readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM listening_discovered_resources WHERE provider='librivox' AND provider_item_id='12345'",
+            null
+        ).use { if (it.moveToFirst()) it.getInt(0) else 0 })
+
+        helper.writableDatabase.update(
+            "listening_discovered_resources",
+            ContentValues().apply {
+                put("rights_status", "cleared")
+                put("allowed_actions", "in_app_playback,offline_download")
+                put("pinned", 1)
+                put("status", "downloaded")
+                put("local_file_path", "/private/example.mp3")
+            },
+            "id=?",
+            arrayOf(id)
+        )
+        repository.upsertCandidate(initial.copy(
+            title = "Provider title refresh",
+            rightsStatus = "unknown",
+            allowedActions = emptySet()
+        ), 300L)
+
+        val row = helper.readableDatabase.rawQuery(
+            "SELECT title,rights_status,status,pinned,local_file_path FROM listening_discovered_resources WHERE id=?",
+            arrayOf(id)
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            listOf(c.getString(0), c.getString(1), c.getString(2), c.getInt(3).toString(), c.getString(4))
+        }
+        assertEquals("Provider title refresh", row[0])
+        assertEquals("cleared", row[1])
+        assertEquals("downloaded", row[2])
+        assertEquals("1", row[3])
+        assertEquals("/private/example.mp3", row[4])
+        assertNotNull(repository.getProviderState("librivox"))
+        helper.close()
+    }
+
+    @Test
+    fun downloadQueueFailsClosedUnlessOfflineRightsAreExplicitlyCleared() {
+        context.deleteDatabase("words_local.db")
+        val helper = WordsDatabase(context)
+        val repository = ListeningDiscoveryRepository(helper)
+        val resource = DiscoveredListeningResource(
+            provider = "librivox",
+            providerItemId = "987",
+            canonicalUrl = "https://librivox.org/sample",
+            mediaUrl = "https://archive.org/download/sample/audio.mp3",
+            title = "Sample",
+            language = "English",
+            rightsStatus = "review_required"
+        )
+        val id = repository.upsertCandidate(resource)
+        assertFalse(repository.queueDownload(id))
+
+        helper.writableDatabase.update(
+            "listening_discovered_resources",
+            ContentValues().apply {
+                put("rights_status", "cleared")
+                put("allowed_actions", "in_app_playback")
+            },
+            "id=?",
+            arrayOf(id)
+        )
+        assertFalse(repository.queueDownload(id))
+
+        helper.writableDatabase.update(
+            "listening_discovered_resources",
+            ContentValues().apply { put("allowed_actions", "in_app_playback,offline_download") },
+            "id=?",
+            arrayOf(id)
+        )
+        assertTrue(repository.queueDownload(id))
+        repository.updateDownloadStatus(id, "downloading")
+        repository.saveLocalFile(id, "/private/sample.mp3", "a".repeat(64))
+        assertEquals("downloaded", helper.readableDatabase.rawQuery(
+            "SELECT status FROM listening_discovered_resources WHERE id=?",
+            arrayOf(id)
+        ).use { c -> if (c.moveToFirst()) c.getString(0) else "" })
+        helper.close()
+    }
+}
