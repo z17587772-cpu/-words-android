@@ -62,3 +62,12 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - The current LibriVox adapter intentionally marks rights as `review_required` and grants no download actions. This prevents treating the provider's general public-domain statement as universal item/territory permission.
 - CI verification: no workflow run was returned for the latest commit at the time of this log. Android compilation and instrumentation tests are therefore pending, not passed.
 - APK packaging remains paused.
+
+### Follow-up static review
+
+- Isolated LibriVox JSON normalization into a pure parser so parser tests do not need to construct WorkManager internals.
+- Made host validation explicitly null-safe.
+- Aligned detected MIME type with the actually accepted ZIP/RSS URL, rather than the mere presence of an untrusted URL field.
+- Tightened the repository invariant: generic status updates cannot mark a resource downloaded; only `saveLocalFile` after verified local publication can do so.
+- Rechecked the PR workflow assertions: schema version 12, new scheduler, parser, repository, and instrumentation test names are now included.
+- CI still reports no run for the latest feature commits in the available workflow-run lookup. Compilation and instrumentation remain unverified; do not treat static inspection as a passing build.
