@@ -127,3 +127,17 @@ The implementation should prefer the ordering: verified immutable files first, t
 - No production audio download or redistribution without verified rights.
 - No automatic deletion of old revision audio.
 - No rewrite of the existing vocabulary database or study flows.
+
+
+## 9. Implementation status — schema v10 baseline
+
+The first revision-safe persistence slice is now implemented on `feature/listening-mvp`:
+
+- Schema v8 introduced immutable revision headers and revision-owned sentence/question/choice snapshots, with legacy attempts backfilled to the pre-upgrade content.
+- Schema v9 added a revision pin to daily assignments and backfilled existing assignments.
+- Schema v10 added immutable episode metadata and audio URI fields to each revision and backfilled legacy revision metadata.
+- New attempts pin a revision transactionally. Today's daily assignment revision is preferred when the attempt starts from that assigned episode.
+- Repository and Activity reads for the blind-listening, quiz and review stages now use attempt-scoped revision data. Answer validation, scoring and review are revision-scoped.
+- Regression tests were added for post-attempt mutation of the live catalog.
+
+This is a persistence and read-path foundation, **not a completed importer**. The next implementation must create new revision rows and snapshots from validated package content, stage each audio file at a unique revision-scoped path, and publish the episode pointer only after durable file verification. It must also solve removed-question lifecycle without deleting parent rows referenced by historical answers. No production course package should be considered installable until those importer and recovery tests exist.
