@@ -118,10 +118,10 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             migrateLegacyListeningRevisions(db)
         }
         if (oldVersion < 9) {
-            if (!hasColumn(db, "listening_daily_assignments", "content_revision_id")) {
+            if (hasTable(db, "listening_daily_assignments") && !hasColumn(db, "listening_daily_assignments", "content_revision_id")) {
                 db.execSQL("ALTER TABLE listening_daily_assignments ADD COLUMN content_revision_id TEXT")
             }
-            db.execSQL("""
+            if (hasTable(db, "listening_daily_assignments")) db.execSQL("""
                 UPDATE listening_daily_assignments
                 SET content_revision_id=(
                     SELECT current_revision_id FROM listening_episodes
@@ -359,10 +359,10 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (!hasColumn(db, "listening_episodes", "current_revision_id")) {
             db.execSQL("ALTER TABLE listening_episodes ADD COLUMN current_revision_id TEXT")
         }
-        if (!hasColumn(db, "listening_attempts", "content_revision_id")) {
+        if (hasTable(db, "listening_attempts") && !hasColumn(db, "listening_attempts", "content_revision_id")) {
             db.execSQL("ALTER TABLE listening_attempts ADD COLUMN content_revision_id TEXT")
         }
-        if (!hasColumn(db, "listening_daily_assignments", "content_revision_id")) {
+        if (hasTable(db, "listening_daily_assignments") && !hasColumn(db, "listening_daily_assignments", "content_revision_id")) {
             db.execSQL("ALTER TABLE listening_daily_assignments ADD COLUMN content_revision_id TEXT")
         }
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_sentences ON listening_revision_sentences(revision_id, ordinal)")
