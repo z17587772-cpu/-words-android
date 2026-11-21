@@ -493,7 +493,7 @@ class WordsDatabaseMigrationTest {
 
         val upgradedHelper = WordsDatabase(context)
         val upgraded = upgradedHelper.writableDatabase
-        assertEquals(10, upgraded.version)
+        assertEquals(11, upgraded.version)
         assertTrue(upgraded.rawQuery(
             "SELECT content_revision_id FROM listening_attempts WHERE id=?",
             arrayOf(attemptId.toString())
