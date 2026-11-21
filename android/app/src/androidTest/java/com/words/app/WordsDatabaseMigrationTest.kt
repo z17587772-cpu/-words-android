@@ -22,14 +22,14 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV5ToV12PreservesVocabularyAndLearningHistory() {
+    fun upgradingV5ToV13PreservesVocabularyAndLearningHistory() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(12, upgraded.version)
+        assertEquals(13, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
@@ -49,6 +49,7 @@ class WordsDatabaseMigrationTest {
         assertTrue(tableExists(upgraded, "listening_package_episodes"))
         assertTrue(tableExists(upgraded, "listening_discovered_resources"))
         assertTrue(tableExists(upgraded, "listening_provider_state"))
+        assertTrue(tableExists(upgraded, "listening_discovered_playback"))
         assertTrue(columnExists(upgraded, "listening_episodes", "current_revision_id"))
         assertTrue(columnExists(upgraded, "listening_attempts", "content_revision_id"))
         assertTrue(columnExists(upgraded, "listening_episode_revisions", "title"))
