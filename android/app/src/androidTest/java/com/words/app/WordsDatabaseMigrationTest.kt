@@ -77,7 +77,7 @@ class WordsDatabaseMigrationTest {
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
-        assertEquals(7, upgraded.version)
+        assertEquals(9, upgraded.version)
         assertEquals(12_345, scalar(upgraded, "SELECT position_ms FROM listening_playback WHERE episode_id='legacy-episode'"))
         assertEquals(1.25f, upgraded.rawQuery("SELECT playback_speed FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
             assertTrue(it.moveToFirst())
