@@ -329,17 +329,24 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         }
     }
 
-    fun markLocalFileEvicted(resourceId: String, path: String): Boolean =
-        db.update(
+    fun markLocalFileEvicted(
+        resourceId: String,
+        path: String,
+        nowMs: Long = System.currentTimeMillis(),
+        recentlyPlayedProtectionMs: Long = 30L * 24L * 60L * 60L * 1000L
+    ): Boolean {
+        val playedBefore = nowMs - recentlyPlayedProtectionMs
+        return db.update(
             "listening_discovered_resources",
             ContentValues().apply {
                 put("local_file_path", "")
                 put("content_sha256", "")
                 put("status", "expired")
             },
-            "id=? AND local_file_path=? AND status='downloaded' AND pinned=0 AND last_played_at IS NULL",
-            arrayOf(resourceId, path)
+            "id=? AND local_file_path=? AND status='downloaded' AND pinned=0 AND (last_played_at IS NULL OR last_played_at<?)",
+            arrayOf(resourceId, path, playedBefore.toString())
         ) == 1
+    }
 
     fun requeueExpiredDownload(resourceId: String): Boolean {
         val allowed = helper.readableDatabase.rawQuery(
