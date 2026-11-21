@@ -27,6 +27,13 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual("DISCOVERED", candidate["editorial"]["status"])
         self.assertFalse(candidate["editorial"]["human_recorded_audio_verified"])
 
+    def test_non_english_candidate_is_quarantined(self):
+        candidate = normalize_record({
+            "id": 43, "title": "Livre", "language": "French"
+        }, "2026-11-21T00:00:00Z")
+        self.assertEqual("QUARANTINED_NON_ENGLISH", candidate["triage"]["status"])
+        self.assertEqual("QUARANTINED", candidate["editorial"]["status"])
+
     def test_repeated_discovery_preserves_editorial_decisions_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
