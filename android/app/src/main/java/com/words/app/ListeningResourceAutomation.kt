@@ -96,10 +96,12 @@ class InternetArchiveDiscoveryWorker(
             val pages = listOf(1, backfillPage).distinct()
             var nextBackfillPage = backfillPage
             for (page in pages) {
+                if (isStopped) throw InterruptedException("Archive discovery stopped")
                 val isBackfillPage = page != 1
                 var pageLookups = 0
                 val docs = searchPage(page)
                 for (doc in docs) {
+                    if (isStopped) throw InterruptedException("Archive discovery stopped")
                     val identifier = doc.optString("identifier").trim()
                     if (!identifier.matches(Regex("[A-Za-z0-9._-]{1,120}"))) continue
                     if (checkedAt.optLong(identifier, 0L) > checkedCutoff) continue
