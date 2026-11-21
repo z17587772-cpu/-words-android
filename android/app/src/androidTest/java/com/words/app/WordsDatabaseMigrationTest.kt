@@ -74,6 +74,20 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun contentPackageValidatorAcceptsCompleteManifestAndRejectsUnsafeReferences() {
+        val valid = ListeningContentPackageValidator.validate(validPackageManifest(), 22)
+        assertEquals("words-listening-core", valid.packageId)
+        assertEquals(1, valid.episodes.size)
+        assertEquals(1, valid.episodes.single().questions.single().choices.count { it.isCorrect })
+
+        assertInvalid(validPackageManifest().replace("audio/lesson-01.mp3", "../outside.mp3"))
+        assertInvalid(validPackageManifest().replace("a".repeat(64), "not-a-checksum"))
+        assertInvalid(validPackageManifest().replace("sentence-01", "missing-sentence"))
+        assertInvalid(validPackageManifest().replace("\"in_app_playback\"", "\"streaming_only\""))
+        assertInvalid(validPackageManifest().replace("\"schema_version\": 1", "\"schema_version\": 99"))
+    }
+
+    @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
@@ -86,6 +100,71 @@ class WordsDatabaseMigrationTest {
 
         helper.close()
     }
+
+    private fun assertInvalid(json: String) {
+        try {
+            ListeningContentPackageValidator.validate(json, 22)
+            throw AssertionError("Invalid content package was accepted")
+        } catch (_: IllegalArgumentException) {
+            // Expected validation failure.
+        }
+    }
+
+    private fun validPackageManifest(): String = """
+        {
+          "schema_version": 1,
+          "package_id": "words-listening-core",
+          "package_version": 1,
+          "minimum_app_version_code": 20,
+          "content_revision": "2026-11-core-01",
+          "episodes": [{
+            "id": "lesson-01",
+            "title": "A Small Change",
+            "description": "A short listening lesson.",
+            "category": "daily",
+            "level": "L3",
+            "duration_ms": 12000,
+            "accent": "American",
+            "speaker": "speaker-a",
+            "audio": {
+              "path": "audio/lesson-01.mp3",
+              "size_bytes": 1024,
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "mime_type": "audio/mpeg",
+              "language": "en-US"
+            },
+            "rights": {
+              "source_id": "original-source-01",
+              "rights_holder": "Words Project",
+              "license_name": "Original content license",
+              "license_url": "",
+              "allowed_actions": ["in_app_playback"],
+              "territory": "worldwide"
+            },
+            "sentences": [{
+              "id": "sentence-01",
+              "ordinal": 1,
+              "start_ms": 0,
+              "end_ms": 11000,
+              "english": "Small changes can matter.",
+              "chinese": "微小的改变也可能很重要。",
+              "pronunciation_note": "Notice the stress on changes."
+            }],
+            "questions": [{
+              "id": "question-01",
+              "ordinal": 1,
+              "type": "main_idea",
+              "prompt": "What is the main idea?",
+              "explanation": "The passage focuses on small changes.",
+              "evidence_sentence_id": "sentence-01",
+              "choices": [
+                {"content": "Small changes can matter.", "is_correct": true},
+                {"content": "Only large plans are useful.", "is_correct": false}
+              ]
+            }]
+          }]
+        }
+    """.trimIndent()
 
     private fun createVersion5Fixture() {
         val db = context.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null)
