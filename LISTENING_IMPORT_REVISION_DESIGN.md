@@ -207,3 +207,10 @@ Instrumentation coverage now exercises package install, idempotency, version con
 - Quiz evidence and review scoring use attempt-scoped revision data and persisted answer rows.
 
 Stage changes now use a short, restrained content transition (115 ms exit / 220 ms entrance) with cubic easing and a small vertical offset. The navigation bar stays fixed; ordinary selection/feedback rerenders do not animate the entire screen. This is an initial motion pass, not a final sign-off: test reduced-motion settings, rapid repeated taps, interruption during animation, low-end devices, and long review pages before calling it complete.
+
+
+## 13. Background playback across package updates
+
+The playback service now validates a checkpoint against the immutable revision row identified by the media item's `episodeId`, `audio_url`, and `updated_at:audio_url` revision token. It no longer rejects an older, still-playing audio item merely because the catalog's current episode row points to a newer revision. The checkpoint is stored with the media item's own revision token, so it cannot be mistaken for progress on the new audio. Unknown, demo, and out-of-duration revision checkpoints are rejected.
+
+The single-row playback table still stores one latest checkpoint per episode; switching revisions intentionally ignores a checkpoint whose token does not match the requested revision. Multi-revision playback history is not yet a separate feature.
