@@ -35,7 +35,10 @@ class ListeningContentPackageImporter(
     private val stagingRoot: File,
     private val appVersionCode: Int
 ) {
-    fun importArchive(archive: File, nowMs: Long = System.currentTimeMillis()): ListeningPackageImportResult {
+    fun importArchive(archive: File, nowMs: Long = System.currentTimeMillis()): ListeningPackageImportResult =
+        synchronized(CONTENT_LOCK) { importArchiveLocked(archive, nowMs) }
+
+    private fun importArchiveLocked(archive: File, nowMs: Long): ListeningPackageImportResult {
         require(archive.isFile && archive.canRead()) { "Package archive is not readable" }
         require(appVersionCode > 0) { "appVersionCode must be positive" }
         require(nowMs > 0L) { "nowMs must be positive" }
@@ -237,8 +240,8 @@ class ListeningContentPackageImporter(
      * Removes only importer-owned revision audio files that are not referenced
      * by any immutable revision row. It never touches staging or .part files.
      */
-    fun recoverOrphanedAudioFiles(): Int {
-        if (!contentRoot.exists()) return 0
+    fun recoverOrphanedAudioFiles(): Int = synchronized(CONTENT_LOCK) {
+        if (!contentRoot.exists()) return@synchronized 0
         val referenced = database.readableDatabase.rawQuery(
             "SELECT audio_url FROM listening_episode_revisions WHERE audio_url IS NOT NULL",
             null
@@ -258,7 +261,7 @@ class ListeningContentPackageImporter(
                     removed += 1
                 }
             }
-        return removed
+        removed
     }
 
     private fun isInstalledPackageIntact(
@@ -598,6 +601,7 @@ class ListeningContentPackageImporter(
             .joinToString("") { "%02x".format(it) }
 
     companion object {
+        private val CONTENT_LOCK = Any()
         private const val MAX_MANIFEST_BYTES = 1L * 1024L * 1024L
         private const val MAX_FUTURE_RIGHTS_CHECK_SKEW_MS = 24L * 60L * 60L * 1000L
         private val REVISION_AUDIO_NAME = Regex("rev_[a-f0-9]{40}\\.(mp3|m4a|aac|ogg|opus|wav|flac)")
