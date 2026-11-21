@@ -123,7 +123,7 @@ jobs:
           assert "fun getAttemptCorrectCount" in repository and "fun updateAttemptStage" in repository
           assert "restoreListeningAttemptState" in activity and "persistListeningAttemptUiState" in activity
           assert "transitionListeningStage" in activity and "setDuration(115L)" in activity and "setDuration(220L)" in activity
-          assert "AccelerateInterpolator()" in activity and "DecelerateInterpolator()" in activity
+          assert "PathInterpolator(0.4f, 0f, 1f, 1f)" in activity and "PathInterpolator(0.16f, 1f, 0.3f, 1f)" in activity
           assert "attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows" in migration_test
           assert "upgradingV7ToV11BackfillsSnapshotsAndPinsExistingAttempts" in migration_test
           assert "packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision" in migration_test
