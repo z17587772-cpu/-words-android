@@ -2203,7 +2203,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(10))
 
         // Reviews are a separate queue: they never create or consume daily new-lesson assignments.
-        val dueReview = listeningRepository.getDueReviewItems().firstOrNull()
+        // Never start a review while another attempt is unfinished; startAttempt
+        // may otherwise abandon that work. The resume card takes priority.
+        val dueReview = if (activeAttempt == null || activeAttempt.isCompleted) {
+            listeningRepository.getDueReviewItems().firstOrNull()
+        } else null
         val reviewEpisode = dueReview?.let { listeningRepository.getEpisode(it.episodeId) }
         if (dueReview != null && reviewEpisode != null) {
             val reviewCard = card(16)
