@@ -1,0 +1,77 @@
+name: Validate listening module PR
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/listening-pr-check.yml'
+      - 'wordbooks/**'
+      - 'tools/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: listening-pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug-apk:
+    name: Compile listening branch and package debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Validate bundled wordbook assets
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("android/app/src/main/assets/books")
+          packs = sorted(root.glob("*.json"))
+          if not packs:
+              raise SystemExit("No bundled wordbook JSON files found")
+          for path in packs:
+              data = json.loads(path.read_text(encoding="utf-8"))
+              words = data.get("words", [])
+              if not words:
+                  raise SystemExit(f"{path.name}: empty word list")
+              if not all(item.get("word") and item.get("meaning") for item in words):
+                  raise SystemExit(f"{path.name}: missing word or meaning")
+          print(f"Validated {len(packs)} bundled wordbooks.")
+          PY
+
+      - name: Build Android debug APK
+        run: gradle --no-daemon --stacktrace clean assembleDebug
+        working-directory: android
+
+      - name: Upload PR debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: words-listening-pr-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
