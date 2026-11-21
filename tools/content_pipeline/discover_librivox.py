@@ -56,7 +56,15 @@ def extract_records(payload: Any) -> list[dict[str, Any]]:
     raise ValueError("LibriVox response did not contain a recognized records field")
 
 
-def fetch_page(since_epoch: int, offset: int, opener=urllib.request.urlopen) -> list[dict[str, Any]]:
+def fetch_page(
+    since_epoch: int,
+    offset: int,
+    opener=urllib.request.urlopen,
+    sleeper=time.sleep,
+    jitter=None,
+) -> list[dict[str, Any]]:
+    import random
+
     params = urllib.parse.urlencode({
         "format": "json",
         "extended": "1",
@@ -69,16 +77,33 @@ def fetch_page(since_epoch: int, offset: int, opener=urllib.request.urlopen) -> 
         API_URL + "?" + params,
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
     )
-    try:
-        with opener(request, timeout=45) as response:
-            status = getattr(response, "status", 200)
-            if status != 200:
-                raise RuntimeError(f"LibriVox API returned HTTP {status}")
-            raw = response.read()
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return []
-        raise RuntimeError(f"LibriVox API returned HTTP {exc.code}") from exc
+    jitter = jitter or random.uniform
+    raw = None
+    for attempt in range(4):
+        try:
+            with opener(request, timeout=45) as response:
+                status = getattr(response, "status", 200)
+                if status != 200:
+                    raise RuntimeError(f"LibriVox API returned HTTP {status}")
+                raw = response.read()
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return []
+            if exc.code not in (429, 500, 502, 503, 504) or attempt == 3:
+                raise RuntimeError(f"LibriVox API returned HTTP {exc.code}") from exc
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            try:
+                delay = min(60.0, max(1.0, float(retry_after))) if retry_after else min(30.0, 2.0 ** attempt + jitter(0.0, 1.0))
+            except ValueError:
+                delay = min(30.0, 2.0 ** attempt + jitter(0.0, 1.0))
+            sleeper(delay)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt == 3:
+                raise RuntimeError(f"LibriVox API request failed after retries: {exc}") from exc
+            sleeper(min(30.0, 2.0 ** attempt + jitter(0.0, 1.0)))
+    if raw is None:
+        raise RuntimeError("LibriVox API request exhausted retries without a response")
     try:
         return extract_records(json.loads(raw.decode("utf-8")))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
