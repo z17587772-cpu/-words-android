@@ -2,6 +2,7 @@ package com.words.app
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
+import java.time.LocalDate
 
 class ListeningRepository(private val helper: WordsDatabase) {
     private val database: SQLiteDatabase
@@ -101,10 +102,22 @@ class ListeningRepository(private val helper: WordsDatabase) {
                     })
                 }
             }
+            db.insertWithOnConflict("listening_daily_assignments", null, ContentValues().apply {
+                put("assignment_date", LocalDate.now().toString())
+                put("episode_id", DEMO_EPISODE_ID)
+                put("created_at", System.currentTimeMillis())
+            }, SQLiteDatabase.CONFLICT_IGNORE)
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
         }
+    }
+
+    fun getTodayEpisodeId(): String = helper.readableDatabase.rawQuery(
+        "SELECT episode_id FROM listening_daily_assignments WHERE assignment_date=? LIMIT 1",
+        arrayOf(LocalDate.now().toString())
+    ).use { cursor ->
+        if (cursor.moveToFirst()) cursor.getString(0) else DEMO_EPISODE_ID
     }
 
     fun getEpisode(id: String): ListeningEpisode? = helper.readableDatabase.rawQuery(
@@ -192,14 +205,14 @@ class ListeningRepository(private val helper: WordsDatabase) {
     )
 
     fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long, correct: Boolean) {
-        database.insertOrThrow("listening_answers", null, ContentValues().apply {
+        database.insertWithOnConflict("listening_answers", null, ContentValues().apply {
             put("attempt_id", attemptId)
             put("question_id", questionId)
             put("selected_choice_id", choiceId)
             put("is_correct", if (correct) 1 else 0)
             put("attempt_no", 1)
             put("answered_at", System.currentTimeMillis())
-        })
+        }, SQLiteDatabase.CONFLICT_IGNORE)
     }
 
     fun finishAttempt(attemptId: Long, score: Float) {
