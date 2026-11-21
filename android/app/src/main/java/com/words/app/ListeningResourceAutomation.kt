@@ -87,7 +87,7 @@ class InternetArchiveDiscoveryWorker(
             // Always revisit newest results, plus a bounded rotating backfill.
             val cursor = runCatching { JSONObject(previous?.cursorJson ?: "{}") }.getOrDefault(JSONObject())
             val backfillPage = cursor.optInt("next_page", 1).coerceAtLeast(1)
-            val pages = linkedSetOf(1, backfillPage, backfillPage + 1).take(MAX_SEARCH_PAGES)
+            val pages = linkedSetOf(1, backfillPage.coerceIn(1, MAX_BACKFILL_PAGE), (backfillPage + 1).coerceAtMost(MAX_BACKFILL_PAGE)).take(MAX_SEARCH_PAGES)
             for (page in pages) {
                 val docs = searchPage(page)
                 for (doc in docs) {
@@ -147,7 +147,7 @@ class InternetArchiveDiscoveryWorker(
             repository.saveProviderState(
                 ListeningProviderState(
                     provider = PROVIDER,
-                    cursorJson = JSONObject().put("next_page", if (backfillPage >= MAX_BACKFILL_PAGE) 1 else backfillPage + 2).toString(),
+                    cursorJson = JSONObject().put("next_page", if (backfillPage + 2 > MAX_BACKFILL_PAGE) 1 else backfillPage + 2).toString(),
                     lastSuccessAt = now,
                     lastAttemptAt = now
                 )
@@ -199,7 +199,7 @@ class InternetArchiveDiscoveryWorker(
     private fun readHttps(url: String, hosts: Set<String>): ByteArray {
         var current = URL(url)
         repeat(MAX_REDIRECTS + 1) { hop ->
-            require(current.protocol.equals("https", true) && current.host.lowercase() in hosts) {
+            require(current.protocol.equals("https", true) && current.host.lowercase() in hosts || current.host.equals("www.archive.org", true)) {
                 "Internet Archive redirected outside the approved API host"
             }
             val connection = current.openConnection() as HttpURLConnection
@@ -259,10 +259,10 @@ class InternetArchiveDiscoveryWorker(
         private const val PAGE_SIZE = 50
         private const val MAX_SEARCH_PAGES = 3
         private const val MAX_BACKFILL_PAGE = 50
-        private const val MAX_CANDIDATES_PER_RUN = 10
+        private const val MAX_CANDIDATES_PER_RUN = 5
         private const val MAX_TRACKS_PER_ITEM = 5
         private const val MIN_FILE_BYTES = 64 * 1024L
-        private const val MAX_FILE_BYTES = 40L * 1024L * 1024L
+        private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
         private const val MAX_JSON_BYTES = 6 * 1024 * 1024
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 45_000
