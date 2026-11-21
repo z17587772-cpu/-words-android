@@ -175,6 +175,7 @@ object ListeningContentPackageValidator {
         val actionsJson = json.requiredArray("allowed_actions", path)
         val actions = (0 until actionsJson.length()).map { actionsJson.getString(it) }.toSet()
         require("in_app_playback" in actions) { "$path.allowed_actions must permit in_app_playback" }
+        require("offline_download" in actions) { "$path.allowed_actions must permit offline_download" }
         val expiry = if (json.has("expires_at") && !json.isNull("expires_at")) {
             json.getLong("expires_at").also { require(it > 0L) { "$path.expires_at must be positive" } }
         } else null
