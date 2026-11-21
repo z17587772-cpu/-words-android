@@ -45,6 +45,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningMediaController: MediaController? = null
     private var listeningControllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
     private var listeningStage = "home"
+    private var listeningDailyEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningAttemptId = -1L
     private var listeningQuestionIndex = 0
@@ -131,7 +132,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         listeningRepository = ListeningRepository(db)
         listeningPlaybackCoordinator = ListeningPlaybackCoordinator(listeningRepository)
         listeningRepository.ensureDemoSeeded()
-        listeningEpisodeId = listeningRepository.getTodayEpisodeId()
+        listeningDailyEpisodeId = listeningRepository.getTodayEpisodeId()
+        listeningEpisodeId = listeningDailyEpisodeId
         prefs = getSharedPreferences("words_preferences", MODE_PRIVATE)
         currentBookId = prefs.getString(KEY_BOOK, WordsDatabase.BUILTIN_BOOK_ID) ?: WordsDatabase.BUILTIN_BOOK_ID
         // Move users of the original 115-word demo pack to the full curriculum pack.
@@ -1983,7 +1985,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun renderListeningHome(parent: LinearLayout) {
         addSectionTitle(parent, "听力", "每日训练 · 听力库 · 专项精听")
         parent.addView(vSpace(16))
-        val episode = listeningRepository.getEpisode(listeningEpisodeId)
+        val episode = listeningRepository.getEpisode(listeningDailyEpisodeId)
         if (episode == null) {
             val empty = card(18)
             empty.addView(text("听力课程暂不可用", 16f, ink, true))
@@ -2005,6 +2007,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         daily.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  ${episode.durationLabel}", 11f, secondary))
         daily.addView(vSpace(13))
         daily.addView(pillButton(if (episode.isDemo) "开始体验课  →" else "开始今日训练  →", true) {
+            listeningEpisodeId = episode.id
             listeningStage = "intro"
             listeningQuestionIndex = 0
             listeningSelectedChoiceId = null
@@ -2015,9 +2018,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(10))
 
         val note = card(15)
-        note.addView(text("体验课说明", 13f, ink, true))
-        note.addView(vSpace(5))
-        note.addView(text("当前课程是原创短版演示材料，使用手机系统英语语音，不是真人录音，也不计入正式 5–10 分钟课程库。正式课程会在音频来源、授权和教学质量审核通过后逐步加入。", 11f, secondary))
+        if (episode.isDemo) {
+            note.addView(text("体验课说明", 13f, ink, true))
+            note.addView(vSpace(5))
+            note.addView(text("当前课程是原创短版演示材料，使用手机系统英语语音，不是真人录音，也不计入正式 5–10 分钟课程库。正式课程会在音频来源、授权和教学质量审核通过后逐步加入。", 11f, secondary))
+        } else {
+            note.addView(text("课程说明", 13f, ink, true))
+            note.addView(vSpace(5))
+            note.addView(text("本课程已通过内容完整性与播放授权检查。训练记录会单独保存，不会覆盖你的历史成绩。", 11f, secondary))
+        }
         parent.addView(note)
         parent.addView(vSpace(20))
 
