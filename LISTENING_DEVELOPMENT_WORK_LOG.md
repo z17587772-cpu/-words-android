@@ -71,3 +71,16 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - Tightened the repository invariant: generic status updates cannot mark a resource downloaded; only `saveLocalFile` after verified local publication can do so.
 - Rechecked the PR workflow assertions: schema version 12, new scheduler, parser, repository, and instrumentation test names are now included.
 - CI still reports no run for the latest feature commits in the available workflow-run lookup. Compilation and instrumentation remain unverified; do not treat static inspection as a passing build.
+
+### 2026-11-21 — Automatic discovery to offline playback implementation
+
+- Added a second on-device source adapter using Internet Archive Advanced Search and the item Metadata API. It revisits the newest search results every day and rotates through a bounded historical backfill. Metadata requests are paced and response sizes, identifiers, file formats, file sizes and HTTPS hosts are constrained.
+- Automatic offline downloads are limited to item metadata that explicitly declares CC0 1.0, CC BY 4.0 or CC BY-SA 4.0. A generic Archive.org URL or LibriVox's general project statement is not enough. LibriVox candidates remain quarantined for item/territory review.
+- Added WorkManager download tasks requiring an unmetered network and battery-not-low. The downloader follows only HTTPS Archive.org subdomains, checks provider-declared exact byte size, computes SHA-256, probes the MP3 with MediaMetadataRetriever, and publishes an immutable hash-versioned local file only after verification.
+- Added repository APIs for download candidate reads, local library listing, favorites, and playback checkpoint persistence.
+- Added database v13 migration with a separate raw-resource playback progress table. Existing vocabulary, formal listening lessons, and learning history are not reused or rewritten.
+- Added the “自动发现资源库” section to the listening home. It shows discovery/download status, source/license attribution, favorites, and local playback. Raw audio is not promoted to formal daily lessons.
+- Extended the existing Media3 playback service to persist raw-resource position and speed. Reopening a downloaded recording resumes from the last checkpoint; a recording at its end restarts from zero.
+- Added tests for CC license allowlisting, English language normalization, resource library listing and playback checkpoint persistence. Updated CI source assertions and bumped the app version to 1.8.2 / versionCode 23 (APK build intentionally paused).
+- Safety/quality caps: at most five candidate tracks are queued per discovery run; individual MP3 files are capped at 20 MiB; audio transfers require unmetered connectivity.
+- Important remaining gates: no successful Android Gradle compile or instrumentation result has been observed yet. Network integration tests against the live Archive API, storage quota/cleanup, orphan reconciliation, cancellation, and physical-device playback remain outstanding. The current implementation is a substantial first end-to-end path, not yet a verified release.
