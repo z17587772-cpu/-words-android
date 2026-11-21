@@ -1,6 +1,7 @@
 import json
 import io
 import urllib.error
+import urllib.parse
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -34,8 +35,9 @@ class DiscoveryTests(unittest.TestCase):
                 )
             return Response()
         records = fetch_page(
-            1, 0, opener=opener, sleeper=delays.append, jitter=lambda low, high: 0.0
+            None, 0, opener=opener, sleeper=delays.append, jitter=lambda low, high: 0.0
         )
+        self.assertNotIn("since", urllib.parse.parse_qs(urllib.parse.urlparse(calls[0][0].full_url).query))
         self.assertEqual(2, len(calls))
         self.assertEqual([2.0], delays)
         self.assertEqual(5, records[0]["id"])
@@ -116,6 +118,47 @@ class DiscoveryTests(unittest.TestCase):
             expected = int(datetime(2026, 11, 18, tzinfo=timezone.utc).timestamp())
             self.assertEqual(expected, result["since_epoch"])
             self.assertEqual([(expected, 0)], observed)
+
+    def test_full_catalog_bootstrap_resumes_from_persisted_page_checkpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "state").mkdir()
+            (root / "inbox").mkdir()
+            (root / "state" / "librivox.json").write_text(json.dumps({
+                "schema_version": 1,
+                "provider": "librivox",
+                "bootstrap_complete": False,
+                "bootstrap_offset": 500,
+                "last_success_utc": None,
+            }))
+            (root / "inbox" / "librivox_candidates.json").write_text(json.dumps({
+                "schema_version": 1,
+                "candidates": [{
+                    "candidate_id": "librivox:1",
+                    "provider_item_id": "1",
+                    "editorial": {"status": "REVIEW_REQUIRED"},
+                    "rights_review": {"status": "REQUIRED"},
+                    "triage": {"status": "ELIGIBLE_FOR_EDITORIAL_TRIAGE"},
+                    "discovered_at": "2026-11-20T00:00:00Z",
+                }],
+            }))
+            observed = []
+            def fetcher(since, offset):
+                observed.append((since, offset))
+                return [{"id": 501, "title": "Book 501", "language": "English"}]
+            result = discover(
+                root,
+                now=datetime(2026, 11, 21, tzinfo=timezone.utc),
+                fetcher=fetcher,
+                sleep=lambda _: None,
+            )
+            self.assertEqual("full_bootstrap", result["mode"])
+            self.assertEqual([(None, 500)], observed)
+            inbox = json.loads((root / "inbox" / "librivox_candidates.json").read_text())
+            self.assertEqual(2, len(inbox["candidates"]))
+            state = json.loads((root / "state" / "librivox.json").read_text())
+            self.assertTrue(state["bootstrap_complete"])
+            self.assertEqual(0, state["bootstrap_offset"])
 
     def test_failed_page_does_not_advance_cursor_or_overwrite_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:
