@@ -2050,12 +2050,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
      */
     private fun restoreListeningAttemptState() {
         val savedAttemptId = prefs.getLong(KEY_LISTENING_ATTEMPT_ID, -1L)
-        if (savedAttemptId <= 0L) return
-        val progress = listeningRepository.getAttemptProgress(savedAttemptId)
+        val progress = if (savedAttemptId > 0L) {
+            listeningRepository.getAttemptProgress(savedAttemptId)
+        } else null ?: listeningRepository.getLatestIncompleteAttempt()
         if (progress == null) {
-            clearActiveListeningAttempt()
+            if (savedAttemptId > 0L) clearActiveListeningAttempt()
             return
         }
+        prefs.edit().putLong(KEY_LISTENING_ATTEMPT_ID, progress.id).apply()
 
         listeningAttemptId = progress.id
         listeningEpisodeId = progress.episodeId
@@ -2276,6 +2278,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(vSpace(16))
         c.addView(pillButton("开始第一遍盲听", true) {
             transitionListeningStage("blind") {
+                val previousAttemptId = prefs.getLong(KEY_LISTENING_ATTEMPT_ID, -1L)
+                if (previousAttemptId > 0L) {
+                    val previousAttempt = listeningRepository.getAttemptProgress(previousAttemptId)
+                    if (previousAttempt != null && !previousAttempt.isCompleted) {
+                        listeningRepository.abandonAttempt(previousAttemptId)
+                    }
+                }
                 listeningAttemptId = listeningRepository.startAttempt(episode.id)
                 listeningQuestionIndex = 0
                 persistListeningAttemptUiState()
