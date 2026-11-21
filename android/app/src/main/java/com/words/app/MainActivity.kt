@@ -37,6 +37,8 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.EditText
 import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.random.Random
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
@@ -2347,7 +2349,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             ListeningResourceAutomation.schedule(this)
             Toast.makeText(this, "已安排联网搜索；符合许可的音频将在 Wi-Fi 下自动下载", Toast.LENGTH_LONG).show()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        summary.addView(vSpace(7))
+        summary.addView(pillButton("＋ 上传 / 导入自己的听力音频", false) {
+            openListeningAudioPicker()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         parent.addView(summary)
+        renderUserListeningUploads(parent)
         parent.addView(vSpace(6))
         val filters = row()
         filters.addView(quietButton(if (discoveredDownloadedOnly) "显示全部" else "只看已下载") {
@@ -2505,6 +2512,158 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             parent.addView(item)
             parent.addView(vSpace(7))
         }
+    }
+
+    private fun openListeningAudioPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "audio/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivityForResult(intent, REQUEST_IMPORT_LISTENING_AUDIO)
+    }
+
+    private fun saveUserListeningUpload(uri: Uri) {
+        val mime = contentResolver.getType(uri).orEmpty()
+        if (mime.isNotBlank() && !mime.startsWith("audio/")) {
+            Toast.makeText(this, "请选择音频文件", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val directory = java.io.File(filesDir, "user-listening")
+        if (!directory.exists() && !directory.mkdirs()) {
+            Toast.makeText(this, "无法创建本地听力目录", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val id = java.util.UUID.randomUUID().toString()
+        val extension = when (mime.lowercase()) {
+            "audio/mpeg" -> "mp3"
+            "audio/mp4", "audio/m4a" -> "m4a"
+            "audio/aac" -> "aac"
+            "audio/ogg", "audio/opus" -> "ogg"
+            "audio/wav", "audio/x-wav" -> "wav"
+            "audio/flac" -> "flac"
+            else -> "audio"
+        }
+        val destination = java.io.File(directory, "$id.$extension")
+        try {
+            val input = contentResolver.openInputStream(uri) ?: throw java.io.IOException("无法读取所选音频")
+            var copied = 0L
+            input.use { source ->
+                java.io.FileOutputStream(destination).use { output ->
+                    val buffer = ByteArray(32 * 1024)
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        copied += count
+                        require(copied <= MAX_USER_AUDIO_BYTES) { "音频文件不能超过 100 MB" }
+                        output.write(buffer, 0, count)
+                    }
+                    output.fd.sync()
+                }
+            }
+            require(copied > 0L) { "音频文件为空" }
+            val guessedName = uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':')
+                ?.takeIf { it.isNotBlank() } ?: "我的听力音频"
+            val titleInput = EditText(this).apply {
+                setSingleLine(true)
+                setText(guessedName.substringBeforeLast('.', guessedName))
+                hint = "给这段听力起个名称"
+            }
+            android.app.AlertDialog.Builder(this)
+                .setTitle("保存听力内容")
+                .setMessage("音频已复制到应用本地目录。你可以为它设置一个便于查找的名称。")
+                .setView(titleInput)
+                .setNegativeButton("取消") { _, _ -> destination.delete() }
+                .setPositiveButton("保存") { _, _ ->
+                    val title = titleInput.text.toString().trim().ifBlank { "我的听力音频" }.take(100)
+                    val records = readUserListeningUploads()
+                    records.put(JSONObject().apply {
+                        put("id", id)
+                        put("title", title)
+                        put("path", destination.absolutePath)
+                        put("mime", mime)
+                        put("size", copied)
+                        put("added_at", System.currentTimeMillis())
+                    })
+                    prefs.edit().putString(KEY_USER_LISTENING_UPLOADS, records.toString()).apply()
+                    Toast.makeText(this, "已加入我的听力库", Toast.LENGTH_SHORT).show()
+                    renderPage()
+                }
+                .setOnCancelListener { destination.delete() }
+                .show()
+        } catch (error: Exception) {
+            destination.delete()
+            Toast.makeText(this, "导入失败：${error.message ?: "文件无法读取"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun readUserListeningUploads(): JSONArray = runCatching {
+        JSONArray(prefs.getString(KEY_USER_LISTENING_UPLOADS, "[]"))
+    }.getOrDefault(JSONArray())
+
+    private fun renderUserListeningUploads(parent: LinearLayout) {
+        val records = readUserListeningUploads()
+        val card = card(15)
+        card.addView(text("我的上传", 14f, ink, true))
+        card.addView(vSpace(4))
+        card.addView(text("可导入自己制作或获准使用的听力音频，包括通过 ChatGPT 等工具生成后保存的音频。文件仅保存在本机。", 11f, secondary))
+        if (records.length() == 0) {
+            card.addView(vSpace(6))
+            card.addView(text("还没有上传内容。", 11f, secondary))
+        } else {
+            for (index in 0 until records.length()) {
+                val record = records.optJSONObject(index) ?: continue
+                val id = record.optString("id")
+                val title = record.optString("title", "我的听力音频")
+                val file = java.io.File(record.optString("path"))
+                card.addView(vSpace(9))
+                card.addView(text(title, 13f, ink, true))
+                card.addView(text(if (file.isFile) "本地文件 · ${(file.length() / 1024L).coerceAtLeast(1L)} KB" else "文件缺失", 10f, secondary))
+                if (file.isFile) {
+                    card.addView(vSpace(5))
+                    card.addView(pillButton("播放音频  →", false) {
+                        val controller = listeningMediaController
+                        if (controller == null) {
+                            Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
+                        } else {
+                            listeningPlaybackCoordinator.checkpoint(controller)
+                            tts.stop()
+                            val item = MediaItem.Builder()
+                                .setMediaId("user-upload:$id")
+                                .setUri(Uri.fromFile(file))
+                                .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setArtist("Words · 我的上传").build())
+                                .build()
+                            controller.setMediaItem(item)
+                            controller.prepare()
+                            controller.play()
+                        }
+                    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }
+                card.addView(vSpace(4))
+                card.addView(quietButton("删除这条上传") {
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle("删除本地音频？")
+                        .setMessage("只删除你导入的音频文件及其本地记录。")
+                        .setNegativeButton("取消", null)
+                        .setPositiveButton("删除") { _, _ ->
+                            if (listeningMediaController?.currentMediaItem?.mediaId == "user-upload:$id") {
+                                listeningMediaController?.stop()
+                                listeningMediaController?.clearMediaItems()
+                            }
+                            file.delete()
+                            val remaining = JSONArray()
+                            for (j in 0 until records.length()) {
+                                val item = records.optJSONObject(j) ?: continue
+                                if (item.optString("id") != id) remaining.put(item)
+                            }
+                            prefs.edit().putString(KEY_USER_LISTENING_UPLOADS, remaining.toString()).apply()
+                            renderPage()
+                        }
+                })
+            }
+        }
+        parent.addView(card)
     }
 
     private fun playDiscoveredResource(resource: DiscoveredListeningResource) {
@@ -3343,6 +3502,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     @Deprecated("Deprecated in Android API; retained for broad device compatibility")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_IMPORT_LISTENING_AUDIO && resultCode == Activity.RESULT_OK) {
+            data?.data?.let(::saveUserListeningUpload)
+            return
+        }
         if (requestCode == REQUEST_IMPORT_PACK && resultCode == Activity.RESULT_OK) {
             val uri = data?.data ?: return
             try {
@@ -3367,6 +3530,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         private const val TAB_STATS = 4
         private const val TAB_SETTINGS = 5
         private const val REQUEST_IMPORT_PACK = 4102
+        private const val REQUEST_IMPORT_LISTENING_AUDIO = 4103
+        private const val KEY_USER_LISTENING_UPLOADS = "user_listening_uploads_v1"
+        private const val MAX_USER_AUDIO_BYTES = 100L * 1024L * 1024L
         private const val KEY_BOOK = "active_book"
         private const val KEY_QUEUE = "study_queue"
         private const val KEY_QUEUE_INDEX = "study_queue_index"
