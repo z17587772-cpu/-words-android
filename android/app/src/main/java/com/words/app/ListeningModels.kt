@@ -25,7 +25,7 @@ data class ListeningEpisode(
         }
 
     val durationLabel: String
-        get() = if (durationMs <= 0L) "时长待定" else "${durationMs / 60000} 分钟"
+        get() = if (durationMs <= 0L) "时长待定" else "约 ${(durationMs + 59_999L) / 60_000L} 分钟"
 }
 
 data class ListeningSentence(
