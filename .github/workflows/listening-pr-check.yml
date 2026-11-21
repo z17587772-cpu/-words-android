@@ -295,9 +295,9 @@ jobs:
           assert "WHERE d.assignment_date<>?" in repository
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
-          build_step = workflow.index("\\n      - name: Build debug APK after all validation gates pass")
-          test_step = workflow.index("\\n      - name: Run database migration tests on Android emulator")
-          upload_step = workflow.index("\\n      - name: Upload validated debug APK")
+          build_step = workflow.index("\n      - name: Build debug APK after all validation gates pass")
+          test_step = workflow.index("\n      - name: Run database migration tests on Android emulator")
+          upload_step = workflow.index("\n      - name: Upload validated debug APK")
           assert build_step > test_step, "APK must only be assembled after instrumentation tests pass"
           assert upload_step > build_step and workflow.index("uses: actions/upload-artifact@v4", build_step) > build_step
           apk_workflow = Path(".github/workflows/android-apk.yml").read_text(encoding="utf-8")
