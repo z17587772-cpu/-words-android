@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 8) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 9) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -116,6 +116,19 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (oldVersion < 8) {
             createListeningRevisionTables(db)
             migrateLegacyListeningRevisions(db)
+        }
+        if (oldVersion < 9) {
+            if (!hasColumn(db, "listening_daily_assignments", "content_revision_id")) {
+                db.execSQL("ALTER TABLE listening_daily_assignments ADD COLUMN content_revision_id TEXT")
+            }
+            db.execSQL("""
+                UPDATE listening_daily_assignments
+                SET content_revision_id=(
+                    SELECT current_revision_id FROM listening_episodes
+                    WHERE listening_episodes.id=listening_daily_assignments.episode_id
+                )
+                WHERE content_revision_id IS NULL OR content_revision_id=''
+            """.trimIndent())
         }
     }
 
@@ -348,6 +361,9 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         }
         if (!hasColumn(db, "listening_attempts", "content_revision_id")) {
             db.execSQL("ALTER TABLE listening_attempts ADD COLUMN content_revision_id TEXT")
+        }
+        if (!hasColumn(db, "listening_daily_assignments", "content_revision_id")) {
+            db.execSQL("ALTER TABLE listening_daily_assignments ADD COLUMN content_revision_id TEXT")
         }
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_sentences ON listening_revision_sentences(revision_id, ordinal)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_questions ON listening_revision_questions(revision_id, ordinal)")
