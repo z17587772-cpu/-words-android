@@ -181,9 +181,19 @@ object ListeningCatalogSync {
             val id = key.removePrefix("download_").toLongOrNull() ?: return@forEach
             val cursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: return@forEach
             cursor.use {
-                if (it.moveToFirst() && it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) ==
-                    DownloadManager.STATUS_SUCCESSFUL
-                ) enqueueInstall(context, id)
+                if (!it.moveToFirst()) {
+                    removeDownloadRecord(context, id)
+                    return@forEach
+                }
+                when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                    DownloadManager.STATUS_SUCCESSFUL -> enqueueInstall(context, id)
+                    DownloadManager.STATUS_FAILED -> {
+                        getDownloadRecord(context, id)?.optString("file_path")?.takeIf { it.isNotBlank() }
+                            ?.let { path -> File(path).delete() }
+                        manager.remove(id)
+                        removeDownloadRecord(context, id)
+                    }
+                }
             }
         }
     }
@@ -349,7 +359,7 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
             val root = File(applicationContext.filesDir, "listening-content")
             val importer = ListeningContentPackageImporter(
                 WordsDatabase(applicationContext), root,
-                File(applicationContext.cacheDir, "listening-import-staging"),
+                File(applicationContext.filesDir, "listening-import-staging"),
                 currentAppVersionCode(applicationContext)
             )
             val result = importer.importArchive(archive)
