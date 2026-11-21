@@ -588,6 +588,30 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     }
 
+    fun getLatestIncompleteAttempt(): ListeningAttemptProgress? =
+        helper.readableDatabase.rawQuery(
+            """SELECT id,episode_id,stage,completed_at FROM listening_attempts
+               WHERE completed_at IS NULL AND stage IN ('blind','quiz')
+               ORDER BY started_at DESC,id DESC LIMIT 1""",
+            null
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else ListeningAttemptProgress(
+                id = cursor.getLong(0),
+                episodeId = cursor.getString(1),
+                stage = cursor.getString(2),
+                isCompleted = !cursor.isNull(3)
+            )
+        }
+
+    fun abandonAttempt(attemptId: Long) {
+        database.update(
+            "listening_attempts",
+            ContentValues().apply { put("stage", "abandoned") },
+            "id=? AND completed_at IS NULL",
+            arrayOf(attemptId.toString())
+        )
+    }
+
     fun getAttemptProgress(attemptId: Long): ListeningAttemptProgress? =
         helper.readableDatabase.rawQuery(
             "SELECT id,episode_id,stage,completed_at FROM listening_attempts WHERE id=? LIMIT 1",
