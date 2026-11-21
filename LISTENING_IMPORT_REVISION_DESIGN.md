@@ -195,3 +195,15 @@ If the transaction fails, newly written audio is deleted only when no revision r
 ### Remaining validation gates
 
 Instrumentation coverage now exercises package install, idempotency, version conflicts, downgrade rejection, demo protection, and historical revision retention. These tests are authored, not yet executed. We still need Android compilation, emulator instrumentation, injected transaction-failure/crash tests, and device playback checks. The importer is not exposed through UI and WorkManager/offline download orchestration remains out of scope until these gates pass.
+
+
+## 12. In-progress attempt recovery and interaction motion
+
+- `listening_attempts.stage` records the active stage (`blind` or `quiz`); completion sets it to `completed`.
+- The Activity persists an active attempt ID and the current unsubmitted choice in preferences. The answer table remains the source of truth for submitted choices.
+- On restoration, the app loads the attempt's pinned revision, derives the first unanswered question from SQLite, restores a selected choice only if it belongs to that question, and recovers the correct count from persisted answers.
+- If every question was answered before the app was interrupted but the completion transaction had not yet run, restoration completes the attempt and opens review.
+- The user can resume the active unfinished lesson from the listening home screen. Dismissing a completed review clears only the resume pointer, not the historical attempt.
+- Quiz evidence and review scoring use attempt-scoped revision data and persisted answer rows.
+
+Stage changes now use a short, restrained content transition (115 ms exit / 220 ms entrance) with cubic easing and a small vertical offset. The navigation bar stays fixed; ordinary selection/feedback rerenders do not animate the entire screen. This is an initial motion pass, not a final sign-off: test reduced-motion settings, rapid repeated taps, interruption during animation, low-end devices, and long review pages before calling it complete.
