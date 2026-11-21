@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -95,7 +97,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "data: persist corpus frequency annotations [skip ci]"
-            git push origin HEAD:main
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then git push origin HEAD:main; fi
           fi
 
           # Validate the shipped offline dictionaries before compiling.
@@ -133,7 +135,7 @@ jobs:
             git add android wordbooks
             git rm -r -f --ignore-unmatch source_chunks source_archive || true
             git commit -m "chore: normalize Android source layout [skip ci]"
-            git push origin HEAD:main
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then git push origin HEAD:main; fi
           fi
 
       - name: Validate wordbook assets
@@ -207,6 +209,7 @@ jobs:
           retention-days: 7
 
       - name: Publish downloadable GitHub release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version_name }}
