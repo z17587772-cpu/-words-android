@@ -15,14 +15,14 @@ import java.security.Signature
 class ListeningCatalogSyncTest {
     @Test
     fun verifiesEd25519EnvelopeAndRejectsPayloadTampering() {
-        val pair = KeyPairGenerator.getInstance("Ed25519", "AndroidOpenSSL").generateKeyPair()
+        val pair = KeyPairGenerator.getInstance("Ed25519", "BC").generateKeyPair()
         val payload = JSONObject()
             .put("schema_version", 1)
             .put("catalog_version", 1)
             .put("packages", JSONArray())
             .toString()
             .toByteArray(Charsets.UTF_8)
-        val signer = Signature.getInstance("Ed25519")
+        val signer = Signature.getInstance("Ed25519", "BC")
         signer.initSign(pair.private)
         signer.update(payload)
         val envelope = JSONObject()
