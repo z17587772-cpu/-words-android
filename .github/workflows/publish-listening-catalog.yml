@@ -47,6 +47,7 @@ jobs:
             exit 1
           }
           KEY_FILE="$RUNNER_TEMP/listening-catalog-private.pem"
+          trap 'rm -f "$KEY_FILE"' EXIT
           printf '%s' "$LISTENING_CATALOG_PRIVATE_KEY_PEM" > "$KEY_FILE"
           chmod 600 "$KEY_FILE"
           LISTENING_CATALOG_PRIVATE_KEY_FILE="$KEY_FILE" \
@@ -54,8 +55,6 @@ jobs:
               content-inbox/catalog/unsigned_catalog.json \
               content-inbox/catalog/catalog.json \
               --asset-root content-inbox
-          rm -f "$KEY_FILE"
-
       - name: Publish signed catalog to content-inbox
         shell: bash
         run: |
