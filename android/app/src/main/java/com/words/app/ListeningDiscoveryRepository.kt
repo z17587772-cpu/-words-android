@@ -392,13 +392,13 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
             if (!c.moveToFirst()) return false
             c.getString(0) == "cleared" &&
                 c.getString(1).split(',').containsAll(listOf("in_app_playback", "offline_download")) &&
-                c.getString(2) == "expired"
+                c.getString(2) in setOf("expired", "failed")
         }
         if (!allowed) return false
         return db.update(
             "listening_discovered_resources",
             ContentValues().apply { put("status", "queued") },
-            "id=? AND status='expired' AND rights_status='cleared'",
+            "id=? AND status IN ('expired','failed') AND rights_status='cleared'",
             arrayOf(resourceId)
         ) == 1
     }

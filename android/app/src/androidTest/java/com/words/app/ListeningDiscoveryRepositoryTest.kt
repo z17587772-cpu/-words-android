@@ -289,4 +289,30 @@ class ListeningDiscoveryRepositoryTest {
         helper.close()
     }
 
+    @Test
+    fun failedDownloadCanBeExplicitlyRetried() {
+        context.deleteDatabase("words_local.db")
+        val helper = WordsDatabase(context)
+        val repository = ListeningDiscoveryRepository(helper)
+        val candidate = DiscoveredListeningResource(
+            provider = "internet_archive",
+            providerItemId = "failed-download-retry",
+            canonicalUrl = "https://archive.org/details/failed-download-retry",
+            mediaUrl = "https://archive.org/download/failed-download-retry/audio.mp3",
+            title = "Retry failed download",
+            rightsStatus = "cleared",
+            allowedActions = setOf("in_app_playback", "offline_download"),
+            expectedSizeBytes = 100L,
+            mimeType = "audio/mpeg"
+        )
+        val id = repository.upsertCandidate(candidate)
+        assertTrue(repository.queueDownload(id))
+        repository.updateDownloadStatus(id, "downloading")
+        repository.updateDownloadStatus(id, "failed")
+        assertTrue(repository.requeueExpiredDownload(id))
+        assertEquals("queued", repository.listResources(10).first { it.id == id }.status)
+        helper.close()
+    }
+
+
 }
