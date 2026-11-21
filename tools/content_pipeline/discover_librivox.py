@@ -147,6 +147,7 @@ def normalize_record(raw: dict[str, Any], discovered_at: str) -> dict[str, Any] 
             "catalog": str(raw.get("url_librivox") or "").strip(),
             "rss": str(raw.get("url_rss") or "").strip(),
             "archive": str(raw.get("url_iarchive") or "").strip(),
+            "audio_zip": str(raw.get("url_zip_file") or "").strip(),
             "text": str(raw.get("url_text_source") or "").strip(),
         },
         "rights_review": {
