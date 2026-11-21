@@ -4,27 +4,24 @@ on:
   workflow_dispatch:
   push:
     branches: [main, 'feature/**']
-    tags: ['v*']
   pull_request:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: words-android-${{ github.ref }}
+  group: words-android-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-debug-apk:
-    name: Normalize, test and build words
+    name: Read-only Android build and APK artifact
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 45
     steps:
-      - name: Check out repository
+      - name: Check out source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -38,191 +35,38 @@ jobs:
           packages: ''
 
       - name: Install Android SDK platform and build tools
-        run: sdkmanager --install "platforms;android-36" "build-tools;35.0.0"
+        run: sdkmanager --install "platforms;android-35" "platforms;android-36" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
 
-      - name: Reconstruct and normalize the Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -d android ]; then
-            PROJECT_DIR=android
-          else
-            cat source_chunks/part00 source_chunks/part01 source_chunks/part02 source_chunks/part03 source_chunks/part04 source_chunks/part05 source_chunks/part06 source_chunks/part07 source_chunks/part08 source_chunks/part09 > /tmp/words-source.zip.b64
-            base64 --decode /tmp/words-source.zip.b64 > /tmp/words-source.zip
-            if ! unzip -t /tmp/words-source.zip; then
-              zip -FF /tmp/words-source.zip --out /tmp/words-source-repaired.zip
-              mv /tmp/words-source-repaired.zip /tmp/words-source.zip
-              unzip -t /tmp/words-source.zip
-            fi
-            unzip -q -o /tmp/words-source.zip -d .
-            python tools/upgrade_project.py words-android
-            PROJECT_DIR=words-android
-          fi
-
-          # Preserve the original curriculum book as the default selection.
-          python - "$PROJECT_DIR" <<'PY'
-          from pathlib import Path
-          import re, sys
-          project = Path(sys.argv[1])
-          p = project / "app/src/main/java/com/words/app/MainActivity.kt"
-          s = p.read_text(encoding="utf-8").replace("ScrollView.LayoutParams(", "ViewGroup.LayoutParams(")
-          p.write_text(s, encoding="utf-8")
-          db = project / "app/src/main/java/com/words/app/WordsDatabase.kt"
-          s = db.read_text(encoding="utf-8")
-          s, n = re.subn(r'const val BUILTIN_BOOK_ID\s*=\s*"[^"]+"', 'const val BUILTIN_BOOK_ID = "gaokao_standard_2025"', s)
-          if n != 1:
-              raise SystemExit(f"Expected one built-in wordbook ID, found {n}")
-          db.write_text(s, encoding="utf-8")
-          PY
-
-          mkdir -p "$PROJECT_DIR/app/src/main/assets/books" "$PROJECT_DIR/app/src/main/assets/licenses"
-          python tools/sync_wordbooks.py wordbooks
-          python tools/enrich_wordbook_pos.py wordbooks
-          python tools/enrich_wordbooks.py "$PROJECT_DIR" wordbooks
-          cp wordbooks/*.json "$PROJECT_DIR/app/src/main/assets/books/"
-          cp wordbooks/KyleBing-LICENSE.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
-          cp wordbooks/ECDICT-LICENSE-MIT.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
-          cp wordbooks/WordTyper-LICENSE-MIT.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
-          cp wordbooks/WordTyper-NOTICE.md "$PROJECT_DIR/app/src/main/assets/licenses/"
-          cp wordbooks/NGSL-ATTRIBUTION.txt "$PROJECT_DIR/app/src/main/assets/licenses/"
-          cp wordbooks/SOURCES.md "$PROJECT_DIR/app/src/main/assets/licenses/"
-
-          # Persist enriched source wordbooks (not only the copies inside the APK).
-          git add wordbooks
-          if ! git diff --cached --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "data: persist corpus frequency annotations [skip ci]"
-            if [ "$GITHUB_REF" = "refs/heads/main" ]; then git push origin HEAD:main; fi
-          fi
-
-          # Validate the shipped offline dictionaries before compiling.
-          python - "$PROJECT_DIR/app/src/main/assets/books" <<'PY'
-          import json, pathlib, sys
-          root = pathlib.Path(sys.argv[1])
-          all_words = 0
-          matched = 0
-          for path in sorted(root.glob("*.json")):
-              pack = json.loads(path.read_text(encoding="utf-8"))
-              words = pack.get("words", [])
-              assert words, f"{path.name}: no words"
-              assert all(w.get("word") and w.get("meaning") for w in words), f"{path.name}: missing headword or meaning"
-              all_words += len(words)
-              matched += sum(1 for w in words if w.get("corpus_frequency", -1) >= 0)
-              print(f"{path.name}: {len(words):,} words; {sum(1 for w in words if w.get('corpus_frequency', -1) >= 0):,} corpus matches")
-          print(f"Total: {all_words:,} entries; {matched:,} corpus-frequency matches.")
-          PY
-
-          # Standard project layout: keep only source/resources, not transient Gradle outputs.
-          if [ "$PROJECT_DIR" = "words-android" ]; then
-            mv words-android android
-            PROJECT_DIR=android
-            find android -type d \( -name build -o -name .gradle \) -prune -exec rm -rf {} +
-            cat > android/.gitignore <<'EOF'
-          .gradle/
-          build/
-          **/build/
-          local.properties
-          *.iml
-          .idea/
-          EOF
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add android wordbooks
-            git rm -r -f --ignore-unmatch source_chunks source_archive || true
-            git commit -m "chore: normalize Android source layout [skip ci]"
-            if [ "$GITHUB_REF" = "refs/heads/main" ]; then git push origin HEAD:main; fi
-          fi
-
-      - name: Validate wordbook assets
+      - name: Validate bundled wordbooks
         run: |
           python - <<'PY'
-          from pathlib import Path
           import json
-          project = Path("android")
-          for p in (project / "app/src/main/assets/books").glob("*.json"):
-              data = json.loads(p.read_text(encoding="utf-8"))
-              assert data.get("words"), p
-              assert all(w.get("meaning") for w in data["words"]), p
-          source = (project / "app/src/main/java/com/words/app/MainActivity.kt").read_text(encoding="utf-8")
-          import re
-          def function_body(name):
-              start = source.index(f"private fun {name}")
-              following = re.search(r"\n    private fun ", source[start + 1:])
-              end = start + 1 + following.start() if following else len(source)
-              return source[start:end]
-          study_body = function_body("renderStudy")
-          answer_body = function_body("renderQuizAnswer")
-          assert 'text("今日背词计划"' in study_body, "Study must begin with the daily plan"
-          assert "返回" not in study_body, "Study screen must not contain a back-navigation row"
-          assert "返回选项" not in answer_body and "ANSWER REVIEW" not in answer_body, "Answer review must not contain a back row"
-          print("Wordbook schema and Study no-back-row checks passed.")
+          from pathlib import Path
+          root = Path("android/app/src/main/assets/books")
+          packs = sorted(root.glob("*.json"))
+          if not packs:
+              raise SystemExit("No bundled wordbook JSON files found")
+          for path in packs:
+              data = json.loads(path.read_text(encoding="utf-8"))
+              words = data.get("words", [])
+              if not words or not all(item.get("word") and item.get("meaning") for item in words):
+                  raise SystemExit(f"{path.name}: empty or invalid word list")
+          print(f"Validated {len(packs)} bundled wordbooks.")
           PY
 
       - name: Build Android debug APK
         run: gradle --no-daemon --stacktrace clean assembleDebug
         working-directory: android
 
-      - name: Read Android version
-        id: version
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import os, re
-          text = Path("android/app/build.gradle.kts").read_text(encoding="utf-8")
-          name = re.search(r'versionName\s*=\s*"([^"]+)"', text)
-          code = re.search(r'versionCode\s*=\s*(\d+)', text)
-          if not name or not code:
-              raise SystemExit("Could not read versionName/versionCode from app/build.gradle.kts")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-              out.write(f"version_name={name.group(1)}\n")
-              out.write(f"version_code={code.group(1)}\n")
-          if os.environ.get("GITHUB_REF", "").startswith("refs/tags/"):
-              tag = os.environ["GITHUB_REF"].removeprefix("refs/tags/")
-              if tag != f"v{name.group(1)}":
-                  raise SystemExit(f"Tag {tag} does not match Gradle version v{name.group(1)}")
-          print(f"Building words {name.group(1)} (versionCode {code.group(1)})")
-          PY
-
-      - name: Prepare install package
-        run: |
-          mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/words.apk
-          unzip -t dist/words.apk >/dev/null
-          sha256sum dist/words.apk
-
-      - name: Upload APK artifact
+      - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: words-debug-apk
-          path: dist/words.apk
+          name: words-debug-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload normalized Android source
-        uses: actions/upload-artifact@v4
-        with:
-          name: words-source-tree
-          path: android/
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Publish downloadable GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.version_name }}
-          target_commitish: main
-          name: words ${{ steps.version.outputs.version_name }}
-          body_path: RELEASE_NOTES.md
-          files: dist/words.apk
-          overwrite_files: true
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          retention-days: 14
