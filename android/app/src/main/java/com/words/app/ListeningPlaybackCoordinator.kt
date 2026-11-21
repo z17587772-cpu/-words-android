@@ -1,5 +1,6 @@
 package com.words.app
 
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
@@ -18,7 +19,8 @@ class ListeningPlaybackCoordinator(
     fun play(controller: MediaController, episode: ListeningEpisode, uri: String) {
         val currentItem = controller.currentMediaItem
         val currentUri = currentItem?.localConfiguration?.uri?.toString()
-        val sameEpisode = currentItem != null && currentUri == uri && currentItem.mediaId == episode.id
+        val sameEpisode = currentItem != null && currentUri == uri && currentItem.mediaId == episode.id &&
+            episodeId == episode.id && episodeUpdatedAt == episode.updatedAt
         if (!sameEpisode) checkpoint(controller)
 
         episodeId = episode.id
@@ -40,6 +42,9 @@ class ListeningPlaybackCoordinator(
                     MediaMetadata.Builder()
                         .setTitle(episode.title)
                         .setArtist("Words · 听力训练")
+                        .setExtras(Bundle().apply {
+                            putString("audio_revision", episode.playbackRevision(uri))
+                        })
                         .build()
                 )
                 .build()
@@ -54,7 +59,8 @@ class ListeningPlaybackCoordinator(
     fun currentSpeed(controller: MediaController?, episode: ListeningEpisode): Float {
         val expectedUri = episode.audioUrl
         val currentUri = controller?.currentMediaItem?.localConfiguration?.uri?.toString()
-        return if (controller != null && !expectedUri.isNullOrBlank() && currentUri == expectedUri && controller.currentMediaItem?.mediaId == episode.id) {
+        return if (controller != null && !expectedUri.isNullOrBlank() && currentUri == expectedUri && controller.currentMediaItem?.mediaId == episode.id &&
+            episodeId == episode.id && episodeUpdatedAt == episode.updatedAt) {
             controller.playbackParameters.speed
         } else {
             repository.getPlayback(episode.id, episode.audioUrl?.let(episode::playbackRevision))?.speed ?: DEFAULT_SPEED
