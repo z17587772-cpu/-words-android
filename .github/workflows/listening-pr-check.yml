@@ -111,6 +111,11 @@ jobs:
           assert "listening_revision_questions" in repository
           assert "listening_content_packages" in database and "listening_package_episodes" in database
           assert "class ListeningContentPackageImporter" in importer
+          assert "ExpectedChoice" in importer and "revision_hash" in importer
+          assert "expectedSentenceIds[expected.id]" in importer
+          assert "expectedQuestionIds[expected.id]" in importer
+          assert "metadata.currentRevisionId != expectedRevision" in importer
+          assert "Installed package is incomplete or its immutable audio failed verification" in importer
           assert "snapshotArchive" in importer and "MAX_ARCHIVE_BYTES" in importer
           assert "stagingRoot.usableSpace >= archiveBytes + STORAGE_RESERVE_BYTES" in importer
           assert "extractSafely(input, extractedRoot, STORAGE_RESERVE_BYTES)" in importer
