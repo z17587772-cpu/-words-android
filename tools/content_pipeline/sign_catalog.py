@@ -24,10 +24,10 @@ SHA256 = re.compile(r"[a-fA-F0-9]{64}")
 
 
 def canonical_payload(catalog: dict) -> bytes:
-    if catalog.get("schema_version") != 1:
+    if type(catalog.get("schema_version")) is not int or catalog.get("schema_version") != 1:
         raise ValueError("Unsupported catalog schema_version")
     version = catalog.get("catalog_version")
-    if not isinstance(version, int) or version <= 0:
+    if type(version) is not int or version <= 0:
         raise ValueError("catalog_version must be a positive integer")
     packages = catalog.get("packages")
     if not isinstance(packages, list) or len(packages) > 500:
@@ -44,7 +44,7 @@ def canonical_payload(catalog: dict) -> bytes:
             raise ValueError(f"duplicate package_id: {package_id}")
         seen.add(package_id)
         for field in ("package_version", "minimum_app_version_code"):
-            if not isinstance(item.get(field), int) or item[field] <= 0:
+            if type(item.get(field)) is not int or item[field] <= 0:
                 raise ValueError(f"packages[{index}].{field} must be positive")
         size = item.get("size_bytes")
         if not isinstance(size, int) or not 1 <= size <= MAX_ARCHIVE_BYTES:
@@ -52,7 +52,10 @@ def canonical_payload(catalog: dict) -> bytes:
         digest = item.get("sha256")
         if not isinstance(digest, str) or not SHA256.fullmatch(digest):
             raise ValueError(f"packages[{index}].sha256 is invalid")
-        parsed = urlparse(item.get("url", ""))
+        url = item.get("url")
+        if not isinstance(url, str):
+            raise ValueError(f"packages[{index}].url must be a string")
+        parsed = urlparse(url)
         if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
             raise ValueError(f"packages[{index}].url must be an HTTPS URL without credentials")
 
