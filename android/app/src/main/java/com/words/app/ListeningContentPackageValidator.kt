@@ -80,7 +80,7 @@ object ListeningContentPackageValidator {
     private val sha256Pattern = Regex("[a-fA-F0-9]{64}")
     private val questionTypes = setOf(
         "main_idea", "detail", "inference", "attitude",
-        "pronunciation", "dictation", "connected_speech", "note_taking", "shadowing"
+        "pronunciation", "connected_speech", "note_taking"
     )
     private val categories = setOf(
         "daily", "news", "science", "story", "interview", "exam", "pronunciation", "general"
