@@ -320,6 +320,21 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun packageArchivePreservesConfiguredFreeSpaceReserve() {
+        val staging = java.io.File(context.cacheDir, "listening-archive-space-${System.nanoTime()}")
+        try {
+            ListeningPackageArchive.extractSafely(
+                java.io.ByteArrayInputStream(createZip("manifest.json" to "{}".toByteArray())),
+                staging,
+                Long.MAX_VALUE
+            )
+            throw AssertionError("Archive extraction ignored the configured free-space reserve")
+        } catch (_: IllegalArgumentException) {
+            assertFalse(staging.exists())
+        }
+    }
+
+    @Test
     fun packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
