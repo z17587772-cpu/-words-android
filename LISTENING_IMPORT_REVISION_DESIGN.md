@@ -141,3 +141,19 @@ The first revision-safe persistence slice is now implemented on `feature/listeni
 - Regression tests were added for post-attempt mutation of the live catalog.
 
 This is a persistence and read-path foundation, **not a completed importer**. The next implementation must create new revision rows and snapshots from validated package content, stage each audio file at a unique revision-scoped path, and publish the episode pointer only after durable file verification. It must also solve removed-question lifecycle without deleting parent rows referenced by historical answers. No production course package should be considered installable until those importer and recovery tests exist.
+
+
+## 10. Current implementation and verification handoff
+
+Schema v10 and the attempt-scoped read path have been implemented. The current source has:
+- immutable revision-owned sentences, questions and choices;
+- immutable episode title/description/category/level/duration/accent/speech-rate/audio-URI metadata;
+- current revision pointer on the stable episode;
+- revision pinning on attempts and daily assignments;
+- attempt-specific Repository methods consumed by MainActivity;
+- scoring and review based on the pinned revision;
+- migration and regression tests for legacy backfill and live-catalog mutation.
+
+Source-level checks passed and a separate SQLite in-memory smoke simulation verified the legacy snapshot backfill, historical review query and foreign-key check. Android Gradle compilation and instrumentation have not yet been executed; no latest-head CI run is available. Treat runtime validation as pending.
+
+The importer, package digest registry, revision-scoped audio publication journal, crash recovery, removed-question tombstone policy and WorkManager sync remain unimplemented. The next safe step is importer implementation on top of v10, with audio verification and atomic pointer publication; do not expose package installation until rollback and history-preservation tests pass.
