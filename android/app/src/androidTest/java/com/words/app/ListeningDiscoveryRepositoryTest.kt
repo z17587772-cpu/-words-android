@@ -75,6 +75,16 @@ class ListeningDiscoveryRepositoryTest {
         assertEquals("/private/example.mp3", row[4])
         repository.saveProviderState(ListeningProviderState("librivox", cursorJson = """{"since":123}""", lastSuccessAt = 300L))
         assertNotNull(repository.getProviderState("librivox"))
+        repository.saveResourcePlayback(id, 12_345L, 1.25f)
+        val playback = repository.getResourcePlayback(id)
+        assertNotNull(playback)
+        assertEquals(12_345L, playback!!.positionMs)
+        assertEquals(1.25f, playback.speed, 0.001f)
+        val listed = repository.listResources(10).single()
+        assertEquals(id, listed.id)
+        assertEquals("downloaded", listed.status)
+        assertEquals("/private/example.mp3", listed.localFilePath)
+        assertTrue(listed.pinned)
         helper.close()
     }
 
