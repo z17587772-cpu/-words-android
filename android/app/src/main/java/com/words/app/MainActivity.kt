@@ -2456,6 +2456,39 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 item.addView(pillButton("播放 / 继续收听  →", false) {
                     playDiscoveredResource(resource)
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                item.addView(vSpace(5))
+                item.addView(quietButton("删除本地音频（保留记录）") {
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle("删除本地音频？")
+                        .setMessage("只删除手机中的音频文件，保留资源信息、收藏状态和听到的位置。之后仍可在许可有效时重新下载。")
+                        .setNegativeButton("取消", null)
+                        .setPositiveButton("删除") { _, _ ->
+                            val root = java.io.File(filesDir, "listening-library")
+                            val rootPrefix = runCatching { root.canonicalPath.trimEnd(java.io.File.separatorChar) + java.io.File.separator }.getOrNull()
+                            val file = runCatching { java.io.File(resource.localFilePath).canonicalFile }.getOrNull()
+                            if (file == null || rootPrefix == null || !file.path.startsWith(rootPrefix)) {
+                                Toast.makeText(this, "文件路径校验失败，未删除", Toast.LENGTH_SHORT).show()
+                                return@setPositiveButton
+                            }
+                            val detached = discovery.removeLocalCopy(resource.id, resource.localFilePath)
+                            if (!detached) {
+                                Toast.makeText(this, "资源状态已变化，请刷新后重试", Toast.LENGTH_SHORT).show()
+                                renderPage()
+                                return@setPositiveButton
+                            }
+                            if (listeningMediaController?.currentMediaItem?.mediaId == "resource:${resource.id}") {
+                                listeningMediaController?.stop()
+                                listeningMediaController?.clearMediaItems()
+                            }
+                            if (!discovery.isLocalPathShared(resource.id, resource.localFilePath) && file.exists() && !file.delete()) {
+                                Toast.makeText(this, "记录已移除，文件将在后台清理", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(this, "已删除本地音频，学习记录已保留", Toast.LENGTH_SHORT).show()
+                            }
+                            renderPage()
+                        }
+                        .show()
+                })
             } else if (resource.status == "expired" && resource.rightsStatus == "cleared") {
                 item.addView(vSpace(8))
                 item.addView(pillButton("重新下载", false) {
