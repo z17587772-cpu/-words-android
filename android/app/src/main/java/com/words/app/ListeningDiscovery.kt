@@ -78,7 +78,7 @@ class LibriVoxDiscoveryWorker(
             while (pages < MAX_PAGES_PER_RUN) {
                 val records = fetchPage(sinceEpoch, offset)
                 records.forEach { raw ->
-                    normalize(raw)?.let { repository.upsertCandidate(it, now) }
+                    LibriVoxMetadataParser.normalize(raw)?.let { repository.upsertCandidate(it, now) }
                 }
                 pages++
                 offset += records.size
@@ -162,13 +162,31 @@ class LibriVoxDiscoveryWorker(
                 }
                 output.toByteArray()
             }
-            return extractRecords(JSONObject(String(bytes, Charsets.UTF_8)))
+            return LibriVoxMetadataParser.extractRecords(JSONObject(String(bytes, Charsets.UTF_8)))
         } finally {
             connection.disconnect()
         }
     }
 
-    internal fun extractRecords(root: JSONObject): List<JSONObject> {
+    companion object {
+        private const val PROVIDER = "librivox"
+        private const val API_URL = "https://librivox.org/api/feed/audiobooks/"
+        private const val PUBLIC_DOMAIN_INFO = "https://librivox.org/pages/public-domain/"
+        private const val USER_AGENT = "WordsAndroidListeningDiscovery/1.0"
+        private const val PAGE_SIZE = 50
+        private const val MAX_PAGES_PER_RUN = 5
+        private const val MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+        private const val CONNECT_TIMEOUT_MS = 15_000
+        private const val READ_TIMEOUT_MS = 30_000
+        private const val PAGE_DELAY_MS = 3_000L
+        private const val OVERLAP_SECONDS = 3L * 24L * 60L * 60L
+        private const val INITIAL_BACKFILL_SECONDS = 30L * 24L * 60L * 60L
+        private const val ERROR_BACKOFF_MS = 15L * 60L * 1000L
+    }
+}
+
+internal object LibriVoxMetadataParser {
+    fun extractRecords(root: JSONObject): List<JSONObject> {
         val value = when {
             root.opt("books") is JSONArray -> root.optJSONArray("books")
             root.opt("book") is JSONArray -> root.optJSONArray("book")
@@ -179,7 +197,7 @@ class LibriVoxDiscoveryWorker(
         return (0 until value.length()).mapNotNull { value.optJSONObject(it) }
     }
 
-    internal fun normalize(raw: JSONObject): DiscoveredListeningResource? {
+    fun normalize(raw: JSONObject): DiscoveredListeningResource? {
         val providerId = raw.optString("id").takeIf { it.matches(Regex("[0-9]{1,12}")) } ?: return null
         val title = raw.optString("title").trim().takeIf { it.isNotEmpty() } ?: return null
         val language = raw.optString("language").trim()
@@ -208,7 +226,7 @@ class LibriVoxDiscoveryWorker(
         }.orEmpty()
 
         return DiscoveredListeningResource(
-            provider = PROVIDER,
+            provider = "librivox",
             providerItemId = providerId,
             canonicalUrl = canonical,
             mediaUrl = mediaUrl,
@@ -218,7 +236,7 @@ class LibriVoxDiscoveryWorker(
             durationMs = durationSeconds.coerceAtMost(Long.MAX_VALUE / 1000L) * 1000L,
             creator = creator,
             licenseName = "LibriVox public-domain recording; territory verification required",
-            licenseUrl = PUBLIC_DOMAIN_INFO,
+            licenseUrl = "https://librivox.org/pages/public-domain/",
             rightsStatus = "review_required",
             allowedActions = emptySet(),
             attribution = "LibriVox recording; retain source attribution",
@@ -231,20 +249,5 @@ class LibriVoxDiscoveryWorker(
         val uri = java.net.URI(value)
         uri.scheme.equals("https", true) && uri.host?.lowercase() in hosts && uri.userInfo == null
     }.getOrDefault(false)
-
-    companion object {
-        private const val PROVIDER = "librivox"
-        private const val API_URL = "https://librivox.org/api/feed/audiobooks/"
-        private const val PUBLIC_DOMAIN_INFO = "https://librivox.org/pages/public-domain/"
-        private const val USER_AGENT = "WordsAndroidListeningDiscovery/1.0"
-        private const val PAGE_SIZE = 50
-        private const val MAX_PAGES_PER_RUN = 5
-        private const val MAX_RESPONSE_BYTES = 4 * 1024 * 1024
-        private const val CONNECT_TIMEOUT_MS = 15_000
-        private const val READ_TIMEOUT_MS = 30_000
-        private const val PAGE_DELAY_MS = 3_000L
-        private const val OVERLAP_SECONDS = 3L * 24L * 60L * 60L
-        private const val INITIAL_BACKFILL_SECONDS = 30L * 24L * 60L * 60L
-        private const val ERROR_BACKOFF_MS = 15L * 60L * 1000L
-    }
 }
+
