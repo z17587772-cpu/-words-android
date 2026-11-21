@@ -1,27 +1,88 @@
 package com.words.app
 
+import android.os.Handler
+import android.os.Looper
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
 class ListeningPlaybackService : MediaSessionService() {
+    private val checkpointHandler = Handler(Looper.getMainLooper())
+    private var database: WordsDatabase? = null
+    private var repository: ListeningRepository? = null
     private var player: ExoPlayer? = null
     private var mediaSession: MediaSession? = null
+
+    private val playbackListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) scheduleCheckpoint() else {
+                checkpointHandler.removeCallbacks(checkpointTask)
+                checkpointNow()
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) checkpointNow()
+        }
+    }
+
+    private val checkpointTask = object : Runnable {
+        override fun run() {
+            checkpointNow()
+            if (player?.isPlaying == true) {
+                checkpointHandler.postDelayed(this, CHECKPOINT_INTERVAL_MS)
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         val exoPlayer = ExoPlayer.Builder(this).build()
+        exoPlayer.addListener(playbackListener)
         player = exoPlayer
         mediaSession = MediaSession.Builder(this, exoPlayer).build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
+    private fun scheduleCheckpoint() {
+        checkpointHandler.removeCallbacks(checkpointTask)
+        checkpointHandler.postDelayed(checkpointTask, CHECKPOINT_INTERVAL_MS)
+    }
+
+    private fun checkpointNow() {
+        val activePlayer = player ?: return
+        val item = activePlayer.currentMediaItem ?: return
+        val episodeId = item.mediaId.takeIf { it.isNotBlank() } ?: return
+        val audioUri = item.localConfiguration?.uri?.toString() ?: return
+        val store = repository ?: ListeningRepository(
+            (database ?: WordsDatabase(this).also { database = it }).also {
+                repository = ListeningRepository(it)
+            }
+        )
+        val episode = store.getEpisode(episodeId) ?: return
+        if (episode.isDemo || episode.audioUrl != audioUri) return
+        val position = activePlayer.currentPosition.coerceAtLeast(0L)
+        if (episode.durationMs > 0L && position >= episode.durationMs) return
+        store.savePlayback(episodeId, position, activePlayer.playbackParameters.speed)
+    }
+
     override fun onDestroy() {
+        checkpointHandler.removeCallbacks(checkpointTask)
+        checkpointNow()
+        player?.removeListener(playbackListener)
         mediaSession?.release()
         mediaSession = null
         player?.release()
         player = null
+        repository = null
+        database?.close()
+        database = null
         super.onDestroy()
+    }
+
+    companion object {
+        private const val CHECKPOINT_INTERVAL_MS = 5_000L
     }
 }
