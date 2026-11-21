@@ -172,6 +172,7 @@ jobs:
           assert "assignmentCount" in planner and "lastAssignedDate" not in planner
           assert "COUNT(*)" in repository and "MAX(d.assignment_date)" not in repository
           assert "lastAssignedDate" not in repository
+          assert "lastAssignedDate" not in migration_test
           assert "getAssignmentHistory(assignmentDate)" in repository
           assert "dailyPlannerNeverRepeatsAssignedLessonsAndAddsNewLessonsImmediately" in migration_test
           assert "dailyPlannerDoesNotTreatAnUpdatedRevisionAsANewLesson" in migration_test
