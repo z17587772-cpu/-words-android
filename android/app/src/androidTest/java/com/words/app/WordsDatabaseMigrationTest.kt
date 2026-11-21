@@ -22,7 +22,7 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV5ToV6PreservesVocabularyAndLearningHistory() {
+    fun upgradingV5ToV7PreservesVocabularyAndLearningHistory() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
 
@@ -40,6 +40,7 @@ class WordsDatabaseMigrationTest {
         assertTrue(tableExists(upgraded, "listening_episodes"))
         assertTrue(tableExists(upgraded, "listening_attempts"))
         assertTrue(tableExists(upgraded, "listening_playback"))
+        assertTrue(columnExists(upgraded, "listening_playback", "audio_revision"))
         upgraded.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
             assertEquals("No foreign-key violations after migration", false, cursor.moveToFirst())
         }
@@ -261,6 +262,7 @@ class WordsDatabaseMigrationTest {
         assertEquals(7, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
+        assertTrue(columnExists(database, "listening_playback", "audio_revision"))
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
 
         helper.close()
@@ -510,6 +512,14 @@ class WordsDatabaseMigrationTest {
         db.rawQuery(sql, null).use { cursor ->
             check(cursor.moveToFirst()) { "No result for query: $sql" }
             cursor.getInt(0)
+        }
+
+    private fun columnExists(db: SQLiteDatabase, table: String, column: String): Boolean =
+        db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndex("name")
+            var found = false
+            while (nameIndex >= 0 && cursor.moveToNext()) if (cursor.getString(nameIndex) == column) found = true
+            found
         }
 
     private fun tableExists(db: SQLiteDatabase, table: String): Boolean =
