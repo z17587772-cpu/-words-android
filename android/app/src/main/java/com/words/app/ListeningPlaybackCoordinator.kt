@@ -24,9 +24,10 @@ class ListeningPlaybackCoordinator(
         episodeId = episode.id
         mediaUri = uri
         durationMs = episode.durationMs
+        episodeUpdatedAt = episode.updatedAt
 
         if (!sameEpisode) {
-            val saved = repository.getPlayback(episode.id)
+            val saved = repository.getPlayback(episode.id, episode.playbackRevision(uri))
             val savedPosition = saved?.positionMs ?: 0L
             val restorePosition = if (episode.durationMs > 0L &&
                 savedPosition >= episode.durationMs - COMPLETION_GUARD_MS
@@ -56,7 +57,7 @@ class ListeningPlaybackCoordinator(
         return if (controller != null && !expectedUri.isNullOrBlank() && currentUri == expectedUri) {
             controller.playbackParameters.speed
         } else {
-            repository.getPlayback(episode.id)?.speed ?: DEFAULT_SPEED
+            repository.getPlayback(episode.id, episode.audioUrl?.let(episode::playbackRevision))?.speed ?: DEFAULT_SPEED
         }
     }
 
@@ -68,8 +69,8 @@ class ListeningPlaybackCoordinator(
             controller.setPlaybackSpeed(safeSpeed)
             checkpoint(controller)
         } else {
-            val saved = repository.getPlayback(episode.id)
-            repository.savePlayback(episode.id, saved?.positionMs ?: 0L, safeSpeed)
+            val saved = repository.getPlayback(episode.id, expectedUri?.let(episode::playbackRevision))
+            repository.savePlayback(episode.id, saved?.positionMs ?: 0L, safeSpeed, expectedUri?.let(episode::playbackRevision).orEmpty())
         }
     }
 
@@ -81,8 +82,12 @@ class ListeningPlaybackCoordinator(
 
         val position = controller.currentPosition.coerceAtLeast(0L)
         if (durationMs > 0L && position >= durationMs) return
-        repository.savePlayback(id, position, controller.playbackParameters.speed)
+        repository.savePlayback(id, position, controller.playbackParameters.speed, episodeRevision())
     }
+
+    private fun episodeRevision(): String = "${episodeUpdatedAt}:$mediaUri"
+
+    private var episodeUpdatedAt: Long = 0L
 
     fun release(controller: MediaController?) {
         if (controller != null) checkpoint(controller)
