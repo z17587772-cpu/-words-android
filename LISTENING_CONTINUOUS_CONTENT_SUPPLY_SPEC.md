@@ -244,13 +244,13 @@ This is an assignment-level invariant. A separate UI/product pass must still ens
 
 Implemented in `tools/content_pipeline/discover_librivox.py` with regression tests and a scheduled GitHub Actions workflow.
 
-- Uses the official API's documented `since`, `limit` (maximum 500), `offset`, `extended`, and JSON parameters.
+- First run backfills the complete catalog with `limit`/ `offset` pagination (maximum 500); subsequent runs use the documented `since` overlap. The bootstrap uses compact metadata (`extended=0`) to avoid downloading all per-section detail for every item.
 - Fetches incrementally with a three-day UTC overlap and a three-second pause between full pages.
 - Stores persistent state and a deduplicated candidate inbox on the separate `content-inbox` branch; the learner app and APK are not coupled to catalog discovery.
 - Candidate identity is `librivox:<project_id>`; rediscovery preserves editorial, rights-review and triage decisions.
 - Non-English candidates are quarantined.
 - All candidates start with rights review required, with offline and in-app permissions false.
-- The cursor advances only after every API page is fetched and the inbox is atomically written. Network/API failure exits non-zero and leaves the cursor unchanged.
+- Full-catalog bootstrap checkpoints the inbox and offset every five pages, then resumes from the last complete checkpoint after failure. Incremental cursor advances only after every page is fetched and the inbox is atomically written. Network/API failure exits non-zero without advancing the relevant cursor.
 - The PR workflow runs adapter unit tests. The scheduled worker is configured for daily 03:17 UTC and starts operating after the workflow is present on the repository's default branch.
 
 This adapter discovers metadata only. It does not download audio, determine worldwide public-domain status, generate a transcript/translation/questions, approve content, build course packages, sign a production catalog, or publish lessons. Those gates are intentionally not bypassed.
