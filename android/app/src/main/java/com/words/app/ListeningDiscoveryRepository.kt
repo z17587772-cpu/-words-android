@@ -53,7 +53,8 @@ data class ListeningDownloadCandidate(
 data class ListeningResourceFileRecord(
     val id: String,
     val localFilePath: String,
-    val expectedSizeBytes: Long
+    val expectedSizeBytes: Long,
+    val contentSha256: String
 )
 
 data class ListeningResourceEvictionCandidate(
@@ -268,11 +269,11 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
     fun listDownloadedLocalFiles(limit: Int = 10_000): List<ListeningResourceFileRecord> {
         val safeLimit = limit.coerceIn(1, 10_000)
         return helper.readableDatabase.rawQuery(
-            "SELECT id,local_file_path,expected_size_bytes FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>'' ORDER BY downloaded_at DESC LIMIT ?",
+            "SELECT id,local_file_path,expected_size_bytes,content_sha256 FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>'' ORDER BY downloaded_at DESC LIMIT ?",
             arrayOf(safeLimit.toString())
         ).use { c ->
             buildList {
-                while (c.moveToNext()) add(ListeningResourceFileRecord(c.getString(0), c.getString(1), c.getLong(2)))
+                while (c.moveToNext()) add(ListeningResourceFileRecord(c.getString(0), c.getString(1), c.getLong(2), c.getString(3)))
             }
         }
     }
