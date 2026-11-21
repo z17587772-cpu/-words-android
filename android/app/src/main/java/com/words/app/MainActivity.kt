@@ -132,6 +132,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
         db = WordsDatabase(this)
         db.seedBuiltInPack(this)
+        ListeningCatalogSync.schedule(this)
         listeningRepository = ListeningRepository(db)
         listeningPlaybackCoordinator = ListeningPlaybackCoordinator(listeningRepository)
         listeningRepository.ensureDemoSeeded()
