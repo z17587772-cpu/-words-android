@@ -50,6 +50,12 @@ data class ListeningDownloadCandidate(
     val status: String
 )
 
+data class ListeningResourceFileRecord(
+    val id: String,
+    val localFilePath: String,
+    val expectedSizeBytes: Long
+)
+
 data class ListeningResourceEvictionCandidate(
     val id: String,
     val localFilePath: String,
@@ -237,6 +243,18 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                         status = c.getString(21), localFilePath = c.getString(22), pinned = c.getInt(23) == 1
                     )
                 )
+            }
+        }
+    }
+
+    fun listDownloadedLocalFiles(limit: Int = 10_000): List<ListeningResourceFileRecord> {
+        val safeLimit = limit.coerceIn(1, 10_000)
+        return helper.readableDatabase.rawQuery(
+            "SELECT id,local_file_path,expected_size_bytes FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>'' ORDER BY downloaded_at DESC LIMIT ?",
+            arrayOf(safeLimit.toString())
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) add(ListeningResourceFileRecord(c.getString(0), c.getString(1), c.getLong(2)))
             }
         }
     }
