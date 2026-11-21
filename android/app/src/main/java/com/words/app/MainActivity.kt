@@ -2105,9 +2105,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun resumeListeningAttempt(attemptId: Long) {
+        val previousStage = listeningStage
         prefs.edit().putLong(KEY_LISTENING_ATTEMPT_ID, attemptId).apply()
         restoreListeningAttemptState()
-        renderPage()
+        val restoredStage = listeningStage
+        listeningStage = previousStage
+        transitionListeningStage(restoredStage)
     }
 
     private fun renderListening(parent: LinearLayout) {
