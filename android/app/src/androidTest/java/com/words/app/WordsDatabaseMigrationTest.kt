@@ -47,6 +47,33 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun playbackStateRoundTripsAndDemoNeverBecomesDailyAssignment() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        repository.ensureDemoSeeded()
+
+        val episodeId = ListeningRepository.DEMO_EPISODE_ID
+        assertEquals(null, repository.getPlayback(episodeId))
+        repository.savePlayback(episodeId, -500L, Float.NaN)
+        val first = repository.getPlayback(episodeId)
+        assertEquals(0L, first?.positionMs)
+        assertEquals(1.0f, first?.speed ?: 0f, 0.001f)
+
+        repository.savePlayback(episodeId, 42_500L, 1.5f)
+        val restored = repository.getPlayback(episodeId)
+        assertEquals(episodeId, restored?.episodeId)
+        assertEquals(42_500L, restored?.positionMs)
+        assertEquals(1.5f, restored?.speed ?: 0f, 0.001f)
+
+        assertEquals(
+            0,
+            scalar(helper.readableDatabase, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='$episodeId'")
+        )
+        helper.close()
+    }
+
+    @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
