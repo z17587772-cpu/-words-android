@@ -147,7 +147,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
 
             val candidates = getEligibleEpisodes(nowMs)
-            val history = getRecentAssignmentHistory(assignmentDate)
+            val history = getAssignmentHistory(assignmentDate)
             val selected = ListeningDailyPlanner.choose(candidates, history, assignmentDate)
             if (selected != null) {
                 val assignedRevision = ensureCurrentRevision(db, selected.id)
@@ -311,7 +311,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     }
 
-    private fun getRecentAssignmentHistory(
+    private fun getAssignmentHistory(
         beforeDate: String
     ): List<ListeningAssignmentHistory> =
         helper.readableDatabase.rawQuery(
