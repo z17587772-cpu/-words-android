@@ -27,6 +27,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
