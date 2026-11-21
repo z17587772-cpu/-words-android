@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 7) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 8) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -79,6 +79,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         db.execSQL("CREATE INDEX idx_words_book ON words(book_id)")
         db.execSQL("CREATE INDEX idx_history_date ON history(rated_at)")
         createListeningTables(db)
+        createListeningRevisionTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -111,6 +112,10 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (oldVersion < 6) createListeningTables(db)
         if (oldVersion < 7 && !hasColumn(db, "listening_playback", "audio_revision")) {
             db.execSQL("ALTER TABLE listening_playback ADD COLUMN audio_revision TEXT NOT NULL DEFAULT ''")
+        }
+        if (oldVersion < 8) {
+            createListeningRevisionTables(db)
+            migrateLegacyListeningRevisions(db)
         }
     }
 
@@ -271,6 +276,128 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempts_episode ON listening_attempts(episode_id, started_at)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_answers_attempt ON listening_answers(attempt_id, question_id)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_daily_episode ON listening_daily_assignments(episode_id)")
+    }
+
+
+    private fun createListeningRevisionTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_episode_revisions (
+                revision_id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                revision_hash TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE,
+                UNIQUE(episode_id, revision_id)
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_revision_sentences (
+                revision_id TEXT NOT NULL,
+                sentence_id TEXT NOT NULL,
+                episode_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                start_ms INTEGER NOT NULL,
+                end_ms INTEGER NOT NULL,
+                english TEXT NOT NULL,
+                chinese TEXT NOT NULL,
+                pronunciation_note TEXT NOT NULL,
+                PRIMARY KEY(revision_id, sentence_id),
+                UNIQUE(revision_id, ordinal),
+                FOREIGN KEY(revision_id) REFERENCES listening_episode_revisions(revision_id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_revision_questions (
+                revision_id TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                episode_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                question_type TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                explanation TEXT NOT NULL,
+                evidence_sentence_id TEXT,
+                PRIMARY KEY(revision_id, question_id),
+                UNIQUE(revision_id, ordinal),
+                FOREIGN KEY(revision_id) REFERENCES listening_episode_revisions(revision_id) ON DELETE CASCADE,
+                FOREIGN KEY(revision_id, evidence_sentence_id)
+                    REFERENCES listening_revision_sentences(revision_id, sentence_id)
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_revision_choices (
+                revision_id TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                choice_id INTEGER NOT NULL,
+                ordinal INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(revision_id, choice_id),
+                UNIQUE(revision_id, question_id, ordinal),
+                FOREIGN KEY(revision_id, question_id)
+                    REFERENCES listening_revision_questions(revision_id, question_id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        if (!hasColumn(db, "listening_episodes", "current_revision_id")) {
+            db.execSQL("ALTER TABLE listening_episodes ADD COLUMN current_revision_id TEXT")
+        }
+        if (!hasColumn(db, "listening_attempts", "content_revision_id")) {
+            db.execSQL("ALTER TABLE listening_attempts ADD COLUMN content_revision_id TEXT")
+        }
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_sentences ON listening_revision_sentences(revision_id, ordinal)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_questions ON listening_revision_questions(revision_id, ordinal)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_choices ON listening_revision_choices(revision_id, question_id, ordinal)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempt_revision ON listening_attempts(content_revision_id)")
+    }
+
+    private fun migrateLegacyListeningRevisions(db: SQLiteDatabase) {
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_episode_revisions(revision_id, episode_id, revision_hash, created_at)
+            SELECT 'legacy:' || id || ':' || updated_at, id, 'legacy-v7', updated_at
+            FROM listening_episodes
+        """.trimIndent())
+        db.execSQL("""
+            UPDATE listening_episodes
+            SET current_revision_id='legacy:' || id || ':' || updated_at
+            WHERE current_revision_id IS NULL OR current_revision_id=''
+        """.trimIndent())
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_revision_sentences(
+                revision_id,sentence_id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
+            )
+            SELECT e.current_revision_id,s.id,s.episode_id,s.ordinal,s.start_ms,s.end_ms,
+                   s.english,s.chinese,s.pronunciation_note
+            FROM listening_sentences s
+            JOIN listening_episodes e ON e.id=s.episode_id
+            WHERE e.current_revision_id IS NOT NULL
+        """.trimIndent())
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_revision_questions(
+                revision_id,question_id,episode_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
+            )
+            SELECT e.current_revision_id,q.id,q.episode_id,q.ordinal,q.question_type,q.prompt,
+                   q.explanation,q.evidence_sentence_id
+            FROM listening_questions q
+            JOIN listening_episodes e ON e.id=q.episode_id
+            WHERE e.current_revision_id IS NOT NULL
+        """.trimIndent())
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_revision_choices(
+                revision_id,question_id,choice_id,ordinal,content,is_correct
+            )
+            SELECT e.current_revision_id,c.question_id,c.id,c.ordinal,c.content,c.is_correct
+            FROM listening_choices c
+            JOIN listening_questions q ON q.id=c.question_id
+            JOIN listening_episodes e ON e.id=q.episode_id
+            WHERE e.current_revision_id IS NOT NULL
+        """.trimIndent())
+        db.execSQL("""
+            UPDATE listening_attempts
+            SET content_revision_id=(
+                SELECT current_revision_id FROM listening_episodes
+                WHERE listening_episodes.id=listening_attempts.episode_id
+            )
+            WHERE content_revision_id IS NULL OR content_revision_id=''
+        """.trimIndent())
     }
 
     fun seedBuiltInPack(context: Context) {
