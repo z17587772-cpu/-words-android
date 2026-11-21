@@ -207,6 +207,8 @@ jobs:
           assert "contentSha256" in discovery_repository and "distinctBy" in activity
           assert "checked_at" in resource_automation and "trimCheckedItems" in resource_automation
           assert "InternetArchiveMetadataPolicy.isEnglish" in resource_automation
+          assert "InternetArchiveMetadataPolicy.isAgeAppropriateAudio" in resource_automation
+          assert "rejectsClearlyAdultOrExplicitMetadata" in resource_policy_test
           assert "class ListeningResourceDownloadWorker" in resource_automation
           assert "InternetArchiveMetadataPolicy.normalizeLicense" in resource_automation
           assert "offline_download" in resource_automation
