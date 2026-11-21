@@ -246,11 +246,16 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
             null
         ).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
 
-    fun getEvictionCandidates(limit: Int = 200): List<ListeningResourceEvictionCandidate> {
+    fun getEvictionCandidates(
+        limit: Int = 200,
+        recentlyPlayedProtectionMs: Long = 30L * 24L * 60L * 60L * 1000L,
+        nowMs: Long = System.currentTimeMillis()
+    ): List<ListeningResourceEvictionCandidate> {
         val safeLimit = limit.coerceIn(1, 500)
+        val playedBefore = nowMs - recentlyPlayedProtectionMs
         return helper.readableDatabase.rawQuery(
-            "SELECT id,local_file_path,expected_size_bytes FROM listening_discovered_resources WHERE status='downloaded' AND pinned=0 AND last_played_at IS NULL ORDER BY downloaded_at ASC LIMIT ?",
-            arrayOf(safeLimit.toString())
+            "SELECT id,local_file_path,expected_size_bytes FROM listening_discovered_resources WHERE status='downloaded' AND pinned=0 AND (last_played_at IS NULL OR last_played_at<?) ORDER BY COALESCE(last_played_at,0) ASC,downloaded_at ASC LIMIT ?",
+            arrayOf(playedBefore.toString(), safeLimit.toString())
         ).use { c ->
             buildList {
                 while (c.moveToNext()) add(
