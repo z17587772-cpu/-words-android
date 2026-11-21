@@ -591,6 +591,41 @@ class WordsDatabaseMigrationTest {
 
 
     @Test
+    fun dailyPlannerCompletesWholeCatalogPassAndAddsNewLessonsBeforeRepeats() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        repository.ensureDemoSeeded()
+        val db = helper.writableDatabase
+
+        insertApprovedLesson(db, "rotation-basic", "L2", "daily", "American")
+        insertApprovedLesson(db, "rotation-advanced", "L4", "science", "British")
+
+        val dayOne = repository.assignDailyEpisode("2026-11-21", 1_795_219_200_000L)
+        val dayTwo = repository.assignDailyEpisode("2026-11-22", 1_795_305_600_000L)
+        assertEquals("rotation-advanced", dayOne)
+        assertEquals("rotation-basic", dayTwo)
+
+        // A newly installed lesson joins the active pass instead of waiting
+        // behind previously assigned lessons for a fixed seven-day window.
+        insertApprovedLesson(db, "rotation-new", "L3", "campus", "Australian")
+        val dayThree = repository.assignDailyEpisode("2026-11-23", 1_795_392_000_000L)
+        assertEquals("rotation-new", dayThree)
+
+        // Only after every currently eligible lesson has appeared once may
+        // the next catalog pass begin, starting with the least-recently used.
+        val dayFour = repository.assignDailyEpisode("2026-11-24", 1_795_478_400_000L)
+        assertEquals(dayOne, dayFour)
+        assertEquals(4, scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments"))
+        assertEquals(
+            0,
+            scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='${ListeningRepository.DEMO_EPISODE_ID}'")
+        )
+        helper.close()
+    }
+
+
+    @Test
     fun attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
