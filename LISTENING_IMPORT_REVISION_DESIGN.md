@@ -221,3 +221,8 @@ The single-row playback table still stores one latest checkpoint per episode; sw
 The selected archive is copied into a unique private staging directory while its SHA-256 is computed. Extraction uses that exact private snapshot, not the original external file, eliminating a source-file mutation race between hashing and extraction. The importer caps compressed archive size at 1.1 GB in addition to ZIP entry-count, total decompressed-size, and manifest-size limits.
 
 Import and orphan recovery share a process-wide lock. This prevents recovery from classifying a just-installed, not-yet-published revision file as an orphan while its import transaction is still in progress. The staging directory is cleaned even when the private archive snapshot itself fails.
+
+
+## 15. Daily assignment UI pinning and scroll behavior
+
+The home and intro screens resolve daily lesson metadata from the daily assignment's pinned revision, not from the latest mutable episode row. This keeps the displayed title/audio metadata consistent with the revision that a new attempt will actually pin. Quiz option/answer rerenders preserve the current listening scroll offset, while deliberate stage transitions reset the scroll position.
