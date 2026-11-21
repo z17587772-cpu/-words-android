@@ -24,7 +24,7 @@ Confirmed product contract:
 - The v5→v7 migration adds listening tables and revision-aware playback metadata rather than replacing vocabulary tables.
 - The UI-facing `ListeningOption` no longer contains answer correctness; answer evaluation is handled by the repository and correctness is shown after submission.
 - Demo course is explicitly labelled as an experience lesson.
-- CI checks the answer-key boundary and packages a PR Debug APK using read-only permissions.
+- PR CI checks the answer-key boundary, content/package safety assertions and Android instrumentation; APK packaging/artifact upload is intentionally disabled during feature development.
 - Preview build is versionCode 22 / versionName 1.8.1.
 
 ### Remaining issues confirmed by source inspection
@@ -202,3 +202,4 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Made attempt completion transactional and truly idempotent: after completion it returns the persisted original score without recalculating against a later-mutated question catalog. Added a regression case that inserts a new question after completion and confirms the historical score is unchanged.
 - Tightened player identity checks to include episode ID, URI and catalog revision. Media metadata now carries the loaded audio revision; the service refuses to persist a checkpoint if the database catalog revision no longer matches the media item currently loaded.
 - Added CI source guards for audio revision checks, v6→v7 migration coverage and immutable completed scores. This does not replace Android runtime tests; the latest commit still needs a successful CI run.
+- Final source review caught and fixed a nullable MediaItem checkpoint guard and ensured speed controls also verify the active episode/catalog revision before changing playback state.
