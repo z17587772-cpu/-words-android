@@ -174,6 +174,9 @@ jobs:
           assert "workflow_dispatch:" in apk_workflow
           assert "pull_request:" not in apk_workflow and "\npush:" not in apk_workflow
           assert "ANDROID_I_WANT_MY_TCG" in workflow
+          assert ":app:compileDebugKotlin" in workflow and ":app:compileDebugAndroidTestKotlin" in workflow
+          assert "99-kvm4all.rules" in workflow
+          assert 'echo "ANDROID_I_WANT_MY_TCG=yes" >> "$GITHUB_ENV"' in workflow
           print("Package validation, audio integrity, background playback, emulator fallback and no-APK PR boundaries passed.")
           PY
 
