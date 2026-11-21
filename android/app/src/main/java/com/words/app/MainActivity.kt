@@ -2643,10 +2643,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     retriever.release()
                 }
                 require(durationMs > 0L) { "无法识别音频格式或音频时长" }
-                val suggestedTitle = displayName.ifBlank { uri.lastPathSegment.orEmpty() }
+                val rawSuggestedTitle = displayName.ifBlank { uri.lastPathSegment.orEmpty() }
                     .substringAfterLast('/').substringAfterLast(':')
                     .ifBlank { "我的听力音频" }
-                    .substringBeforeLast('.', displayName.ifBlank { "我的听力音频" })
+                val suggestedTitle = rawSuggestedTitle.substringBeforeLast('.', rawSuggestedTitle)
+                    .ifBlank { "我的听力音频" }
                 listeningPlaybackHandler.post {
                     if (isFinishing || isDestroyed) {
                         destination?.delete()
