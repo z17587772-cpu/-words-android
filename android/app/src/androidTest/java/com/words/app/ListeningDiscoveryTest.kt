@@ -13,17 +13,6 @@ import org.junit.runner.RunWith
 class ListeningDiscoveryTest {
     @Test
     fun normalizesEnglishLibriVoxMetadataWithoutGrantingDownloadRights() {
-        val worker = LibriVoxDiscoveryWorker(
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext,
-            androidx.work.WorkerParameters(
-                androidx.work.WorkerParameters.RuntimeExtras(),
-                java.util.UUID.randomUUID().toString(),
-                androidx.work.Data.EMPTY,
-                emptyList(),
-                androidx.work.WorkerParameters.ForegroundUpdater { _, _ -> com.google.common.util.concurrent.Futures.immediateVoidFuture() },
-                androidx.work.WorkerParameters.ProgressUpdater { _, _ -> com.google.common.util.concurrent.Futures.immediateVoidFuture() }
-            )
-        )
         val raw = JSONObject()
             .put("id", 123)
             .put("title", "An English Story")
@@ -34,7 +23,7 @@ class ListeningDiscoveryTest {
             .put("url_zip_file", "https://archive.org/download/an-english-story/an-english-story.zip")
             .put("authors", JSONArray().put(JSONObject().put("first_name", "A").put("last_name", "Reader")))
 
-        val candidate = worker.normalize(raw)
+        val candidate = LibriVoxMetadataParser.normalize(raw)
         assertTrue(candidate != null)
         assertEquals("librivox", candidate!!.provider)
         assertEquals("123", candidate.providerItemId)
@@ -47,28 +36,17 @@ class ListeningDiscoveryTest {
 
     @Test
     fun rejectsNonEnglishAndUntrustedMediaHosts() {
-        val worker = LibriVoxDiscoveryWorker(
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext,
-            androidx.work.WorkerParameters(
-                androidx.work.WorkerParameters.RuntimeExtras(),
-                java.util.UUID.randomUUID().toString(),
-                androidx.work.Data.EMPTY,
-                emptyList(),
-                androidx.work.WorkerParameters.ForegroundUpdater { _, _ -> com.google.common.util.concurrent.Futures.immediateVoidFuture() },
-                androidx.work.WorkerParameters.ProgressUpdater { _, _ -> com.google.common.util.concurrent.Futures.immediateVoidFuture() }
-            )
-        )
         val base = JSONObject()
             .put("id", 9)
             .put("title", "A recording")
             .put("language", "French")
             .put("url_librivox", "https://librivox.org/a-recording")
-        assertNull(worker.normalize(base))
+        assertNull(LibriVoxMetadataParser.normalize(base))
 
         val unsafe = JSONObject(base.toString())
             .put("language", "English")
             .put("url_zip_file", "https://example.invalid/audio.zip")
-        val candidate = worker.normalize(unsafe)
+        val candidate = LibriVoxMetadataParser.normalize(unsafe)
         assertTrue(candidate != null)
         assertEquals("", candidate!!.mediaUrl)
         assertEquals("review_required", candidate.rightsStatus)
@@ -76,18 +54,7 @@ class ListeningDiscoveryTest {
 
     @Test
     fun extractsKnownLibriVoxResponseShapes() {
-        val worker = LibriVoxDiscoveryWorker(
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext,
-            androidx.work.WorkerParameters(
-                androidx.work.WorkerParameters.RuntimeExtras(),
-                java.util.UUID.randomUUID().toString(),
-                androidx.work.Data.EMPTY,
-                emptyList(),
-                androidx.work.WorkerParameters.ForegroundUpdater { _, _ -> com.google.common.util.concurrent.Futures.immediateVoidFuture() },
-                androidx.work.WorkerParameters.ProgressUpdater { _, _ -> com.google.common.util.concurrent.Futures.immediateVoidFuture() }
-            )
-        )
-        assertEquals(1, worker.extractRecords(JSONObject().put("books", JSONArray().put(JSONObject().put("id", 1)))).size)
+        assertEquals(1, LibriVoxMetadataParser.extractRecords(JSONObject().put("books", JSONArray().put(JSONObject().put("id", 1)))).size)
         assertEquals(1, worker.extractRecords(JSONObject().put("book", JSONObject().put("id", 2))).size)
     }
 }
