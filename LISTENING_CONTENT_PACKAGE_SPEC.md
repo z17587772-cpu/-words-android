@@ -124,3 +124,26 @@ References:
 - Android `DownloadManager`: https://developer.android.com/reference/android/app/DownloadManager
 - WorkManager persistent work and retry guidance: https://developer.android.com/develop/background-work/background-tasks/persistent
 - Android long-running WorkManager and Android 16 job-quota note: https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running
+
+
+## Implemented Android catalog refresh slice (2026-11-21)
+
+Added `ListeningCatalogSync.kt` on the feature branch:
+
+- WorkManager schedules a unique immediate check and a 24-hour periodic refresh when both endpoint and pinned public key are configured. Periodic execution is intentionally inexact and obeys network/battery constraints.
+- The catalog is an envelope containing Base64-encoded canonical JSON payload bytes and an Ed25519 signature. The app verifies the exact payload bytes with the pinned X.509 SubjectPublicKeyInfo public key before parsing it.
+- Catalog version rollback is rejected. Each package entry binds package ID/version, minimum app version, HTTPS URL, exact byte size, and SHA-256. Package URLs must use the same HTTPS host as the catalog endpoint.
+- Android DownloadManager handles the archive transfer; its completion receiver schedules unique WorkManager install work. Startup reconciliation recovers completed downloads if a completion broadcast was missed and cleans failed/stale requests.
+- The installer verifies archive size/digest, safely extracts and validates the manifest, compares package identity/version against the signed catalog, then invokes the existing revision-safe transactional importer. Installed version markers avoid repeat downloads.
+- Existing local courses remain available when the network is unavailable. Downloads are Wi-Fi-only by default to avoid unexpected mobile-data use.
+
+Publisher support:
+- `tools/content_pipeline/sign_catalog.py` validates the catalog shape and signs canonical JSON using an Ed25519 private key supplied only via `LISTENING_CATALOG_PRIVATE_KEY_FILE`.
+- The private key must remain in a protected publisher secret/store and must never be committed or packaged in the APK.
+- Python signing tests are included and the PR workflow installs the pinned-range cryptography dependency before running all pipeline tests.
+
+**Activation gate (not yet complete):**
+- No production catalog URL or public key is configured in the current build. Empty Gradle properties deliberately disable remote refresh.
+- No production signing key, publisher endpoint, approved human-recorded course package, or automated editorial pipeline has been deployed.
+- Configure `LISTENING_CATALOG_URL` and the Base64-encoded Ed25519 X.509 public key as Gradle properties for release builds; configure the matching private key only in the protected publisher environment.
+- Do not claim live auto-updates until a signed test catalog and a real course package have installed successfully on an Android device, including process-restart and offline tests.
