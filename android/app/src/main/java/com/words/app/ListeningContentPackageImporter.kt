@@ -273,10 +273,27 @@ class ListeningContentPackageImporter(
         manifest: ListeningContentPackage,
         packageDigest: String
     ): Boolean {
+        data class InstalledRevision(
+            val revisionId: String,
+            val audioUri: String?,
+            val currentRevisionId: String?,
+            val sentenceCount: Int,
+            val questionCount: Int,
+            val choiceCount: Int
+        )
+
         val installed = database.readableDatabase.rawQuery(
-            """SELECT pe.episode_id,pe.revision_id,r.audio_url
+            """SELECT pe.episode_id,pe.revision_id,r.audio_url,e.current_revision_id,
+                      (SELECT COUNT(*) FROM listening_revision_sentences s
+                       WHERE s.revision_id=pe.revision_id),
+                      (SELECT COUNT(*) FROM listening_revision_questions q
+                       WHERE q.revision_id=pe.revision_id),
+                      (SELECT COUNT(*) FROM listening_revision_choices c
+                       WHERE c.revision_id=pe.revision_id)
                FROM listening_package_episodes pe
-               JOIN listening_episode_revisions r ON r.revision_id=pe.revision_id
+               JOIN listening_episode_revisions r
+                 ON r.revision_id=pe.revision_id AND r.episode_id=pe.episode_id
+               JOIN listening_episodes e ON e.id=pe.episode_id
                WHERE pe.package_id=? AND pe.is_active=1""",
             arrayOf(manifest.packageId)
         ).use { cursor ->
@@ -284,7 +301,14 @@ class ListeningContentPackageImporter(
                 while (cursor.moveToNext()) {
                     put(
                         cursor.getString(0),
-                        cursor.getString(1) to if (cursor.isNull(2)) null else cursor.getString(2)
+                        InstalledRevision(
+                            revisionId = cursor.getString(1),
+                            audioUri = if (cursor.isNull(2)) null else cursor.getString(2),
+                            currentRevisionId = if (cursor.isNull(3)) null else cursor.getString(3),
+                            sentenceCount = cursor.getInt(4),
+                            questionCount = cursor.getInt(5),
+                            choiceCount = cursor.getInt(6)
+                        )
                     )
                 }
             }
@@ -293,12 +317,19 @@ class ListeningContentPackageImporter(
         return manifest.episodes.all { episode ->
             val row = installed[episode.id] ?: return@all false
             val expectedRevision = revisionId(manifest, episode.id, packageDigest)
-            if (row.first != expectedRevision || row.second == null) return@all false
-            val audioFile = runCatching { File(java.net.URI(row.second!!)) }.getOrNull()
+            if (row.revisionId != expectedRevision ||
+                row.currentRevisionId != expectedRevision ||
+                row.audioUri == null ||
+                row.sentenceCount != episode.sentences.size ||
+                row.questionCount != episode.questions.size ||
+                row.choiceCount != episode.questions.sumOf { it.choices.size }
+            ) return@all false
+            val audioFile = runCatching { File(java.net.URI(row.audioUri)) }.getOrNull()
                 ?: return@all false
             ListeningAudioIntegrity.verify(audioFile, episode.audio)
         }
     }
+
 
     private fun installRightsMetadata(
         db: SQLiteDatabase,
