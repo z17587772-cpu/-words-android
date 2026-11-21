@@ -2717,7 +2717,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val file = java.io.File(record.optString("path"))
                 card.addView(vSpace(9))
                 card.addView(text(title, 13f, ink, true))
-                card.addView(text(if (file.isFile) "本地文件 · ${(file.length() / 1024L).coerceAtLeast(1L)} KB" else "文件缺失", 10f, secondary))
+                val durationMs = record.optLong("duration_ms", 0L)
+                val durationLabel = if (durationMs > 0L) " · ${durationMs / 60_000L}分${(durationMs % 60_000L) / 1_000L}秒" else ""
+                card.addView(text(
+                    (if (file.isFile) "本地文件 · ${(file.length() / 1024L).coerceAtLeast(1L)} KB" else "文件缺失") + durationLabel,
+                    10f, secondary
+                ))
                 if (file.isFile) {
                     card.addView(vSpace(5))
                     card.addView(pillButton("播放音频  →", false) {
@@ -2749,7 +2754,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                                 listeningMediaController?.stop()
                                 listeningMediaController?.clearMediaItems()
                             }
-                            file.delete()
+                            if (file.exists() && !file.delete()) {
+                                Toast.makeText(this, "无法删除音频文件，请检查存储空间后重试", Toast.LENGTH_LONG).show()
+                                return@setPositiveButton
+                            }
                             val remaining = JSONArray()
                             for (j in 0 until records.length()) {
                                 val item = records.optJSONObject(j) ?: continue
