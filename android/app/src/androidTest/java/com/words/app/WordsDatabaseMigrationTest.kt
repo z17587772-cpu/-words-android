@@ -633,6 +633,59 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun dailyPlannerMaintainsNoRepeatInvariantAcrossYearOfWeeklyCatalogGrowth() {
+        val catalog = mutableListOf<ListeningEpisode>()
+        val history = mutableListOf<ListeningAssignmentHistory>()
+        val assignedIds = mutableSetOf<String>()
+        val categories = listOf("daily", "campus", "news", "science", "story", "interview", "exam")
+        val levels = listOf("L1", "L2", "L3", "L4")
+        val accents = listOf("American", "British", "Australian", "Irish")
+
+        // Add seven genuinely new episodes every week and assign one per day.
+        // 53 weekly batches provide enough unseen lessons for a 371-day run.
+        for (day in 0 until 371) {
+            if (day % 7 == 0) {
+                repeat(7) { index ->
+                    val id = "year-${day}-${index}"
+                    catalog += ListeningEpisode(
+                        id = id,
+                        title = "Lesson $id",
+                        description = "Long-run rotation regression fixture",
+                        category = categories[(day / 7 + index) % categories.size],
+                        level = levels[(day / 7 + index) % levels.size],
+                        durationMs = 60_000L,
+                        accent = accents[(day / 7 + index) % accents.size],
+                        speechRate = 1.0f,
+                        audioUrl = "https://example.invalid/$id.mp3",
+                        isDemo = false,
+                        updatedAt = day.toLong()
+                    )
+                }
+            }
+
+            val date = java.time.LocalDate.of(2026, 1, 1).plusDays(day.toLong()).toString()
+            val selected = ListeningDailyPlanner.choose(catalog, history, date)
+            assertTrue("Expected a new lesson on day $day", selected != null)
+            assertTrue("Repeated new lesson on day $day: ${selected!!.id}", assignedIds.add(selected.id))
+            history += ListeningAssignmentHistory(
+                episodeId = selected.id,
+                category = selected.category,
+                level = selected.level,
+                accent = selected.accent,
+                assignmentCount = 1,
+                lastAssignedDate = date
+            )
+        }
+
+        assertEquals(371, assignedIds.size)
+        assertEquals(null, ListeningDailyPlanner.choose(
+            catalog,
+            history,
+            java.time.LocalDate.of(2027, 1, 7).toString()
+        ))
+    }
+
+    @Test
     fun dailyPlannerDoesNotTreatAnUpdatedRevisionAsANewLesson() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
