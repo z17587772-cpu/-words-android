@@ -557,11 +557,17 @@ class ListeningResourceDownloadWorker(
                 continue
             }
             val bytes = file?.takeIf { it.isFile }?.length() ?: candidate.expectedSizeBytes
-            if (file != null && file.exists() && !file.delete()) continue
-            if (repository.markLocalFileEvicted(candidate.id, candidate.localFilePath)) {
-                used = (used - bytes).coerceAtLeast(0L)
-                if (used + incomingBytes <= quota) return true
+            // First atomically detach the eligible metadata row. This prevents a
+            // concurrent play/pin update from leaving a DB row pointing at bytes
+            // that have already been deleted.
+            if (!repository.markLocalFileEvicted(candidate.id, candidate.localFilePath)) continue
+            if (file != null && file.exists() && !file.delete()) {
+                // The detached file is now an orphan; reconciliation will retry
+                // cleanup after its grace period. Do not pretend quota was freed.
+                return false
             }
+            used = (used - bytes).coerceAtLeast(0L)
+            if (used + incomingBytes <= quota) return true
         }
         return used + incomingBytes <= quota
     }
