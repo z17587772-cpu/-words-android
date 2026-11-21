@@ -209,6 +209,7 @@ class WordsDatabaseMigrationTest {
         assertInvalid(validPackageManifest().replace("a".repeat(64), "not-a-checksum"))
         assertInvalid(validPackageManifest().replace("\"evidence_sentence_id\": \"sentence-01\"", "\"evidence_sentence_id\": \"missing-sentence\""))
         assertInvalid(validPackageManifest().replace("\"in_app_playback\"", "\"streaming_only\""))
+        assertInvalid(validPackageManifest().replace("\"offline_download\"", "\"streaming_only\""))
         assertInvalid(validPackageManifest().replace("\"schema_version\": 1", "\"schema_version\": 99"))
     }
 
@@ -813,7 +814,7 @@ class WordsDatabaseMigrationTest {
               "license_id": "words-original-license",
               "license_name": "Original content license",
               "license_url": "",
-              "allowed_actions": ["in_app_playback"],
+              "allowed_actions": ["in_app_playback", "offline_download"],
               "territory": "worldwide"
             },
             "sentences": [{
