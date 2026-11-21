@@ -306,7 +306,6 @@ class InternetArchiveDiscoveryWorker(
         private const val PROVIDER = "internet_archive"
         private const val USER_AGENT = "WordsAndroidListeningDiscovery/1.0 (metadata and licensed audio)"
         private const val PAGE_SIZE = 50
-        private const val MAX_SEARCH_PAGES = 2
         private const val MAX_BACKFILL_PAGE = 50
         private const val MAX_CANDIDATES_PER_RUN = 4
         private const val MAX_METADATA_LOOKUPS_PER_RUN = 6
