@@ -2202,6 +2202,37 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(daily)
         parent.addView(vSpace(10))
 
+        // Reviews are a separate queue: they never create or consume daily new-lesson assignments.
+        val dueReview = listeningRepository.getDueReviewItems().firstOrNull()
+        val reviewEpisode = dueReview?.let { listeningRepository.getEpisode(it.episodeId) }
+        if (dueReview != null && reviewEpisode != null) {
+            val reviewCard = card(16)
+            reviewCard.addView(text("SPACED REVIEW", 10f, accent, true))
+            reviewCard.addView(vSpace(6))
+            reviewCard.addView(text("薄弱课程复习", 15f, ink, true))
+            reviewCard.addView(vSpace(5))
+            reviewCard.addView(text(reviewEpisode.title, 14f, ink, true))
+            reviewCard.addView(vSpace(5))
+            reviewCard.addView(
+                text(
+                    "${reviewEpisode.level}  ·  上次正确率 ${(dueReview.lastScore * 100).toInt()}%  ·  已完成 ${dueReview.completedAttemptCount} 次",
+                    11f,
+                    secondary
+                )
+            )
+            reviewCard.addView(vSpace(9))
+            reviewCard.addView(pillButton("开始复习  →", false) {
+                transitionListeningStage("intro") {
+                    listeningEpisodeId = reviewEpisode.id
+                    listeningQuestionIndex = 0
+                    listeningSelectedChoiceId = null
+                    listeningSubmitted = false
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            parent.addView(reviewCard)
+            parent.addView(vSpace(10))
+        }
+
         val note = card(15)
         if (episode.isDemo) {
             note.addView(text("体验课说明", 13f, ink, true))
