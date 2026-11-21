@@ -691,3 +691,13 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [ ] Add the matching publisher private key as an Actions secret and pin the public key in the release build.
 - [ ] Populate the content branch with reviewed package ZIPs and a matching unsigned catalog; then run the publisher workflow.
 - [ ] Confirm Actions CI and API 35 emulator tests on the latest PR head. The current PR is still Draft and no run/status is visible yet.
+
+
+## 34. Mainline drift review (2026-11-21)
+
+Compared the current feature head against `main` before any integration attempt:
+
+- The feature branch is 8 commits behind `main`; the mainline-only file diff is limited to `.github/workflows/android-apk.yml` and `android/app/build.gradle.kts`.
+- Main re-enabled push/PR APK build and artifact-upload triggers. The feature branch intentionally keeps APK packaging manual-only while implementation is in progress. Preserve that pause; do not blindly copy the main workflow triggers.
+- Main still has compileSdk 35 / versionCode 21 / versionName 1.8.0. The feature branch requires compileSdk 36 for the pinned Media3 dependency and carries versionCode 22 / versionName 1.8.1. Preserve the feature toolchain/version changes during eventual reconciliation.
+- No merge or rebase was performed. Reconcile these two files explicitly only after CI and instrumentation pass; keep the stable main branch untouched meanwhile.
