@@ -2231,8 +2231,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 true
             ) {
                 if (listeningQuestionIndex == questions.lastIndex) {
-                    val score = listeningCorrectCount.toFloat() / questions.size.coerceAtLeast(1)
-                    listeningRepository.finishAttempt(listeningAttemptId, score)
+                    listeningRepository.finishAttempt(listeningAttemptId)
                     listeningStage = "review"
                 } else {
                     listeningQuestionIndex += 1
