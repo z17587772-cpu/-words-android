@@ -88,6 +88,14 @@ jobs:
           print("Blind-listening answer-key and demo-assignment boundary checks passed.")
           PY
 
+      - name: Run database migration tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
+
       - name: Build Android debug APK
         run: gradle --no-daemon --stacktrace clean assembleDebug
         working-directory: android
