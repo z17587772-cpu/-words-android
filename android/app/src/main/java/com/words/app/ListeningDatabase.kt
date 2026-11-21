@@ -169,7 +169,7 @@ class ListeningDatabase(context: Context) :
             arrayOf(date)
         ).use { c ->
             if (!c.moveToFirst()) null
-            else c.getString(0).split("\\n").filter { it.isNotBlank() }
+            else c.getString(0).split('\n').filter { it.isNotBlank() }
         }
 
     fun saveDailyPlan(date: String, itemIds: List<String>) {
@@ -178,7 +178,7 @@ class ListeningDatabase(context: Context) :
             null,
             ContentValues().apply {
                 put("plan_date", date)
-                put("item_ids", itemIds.distinct().joinToString("\\n"))
+                put("item_ids", itemIds.distinct().joinToString("\n"))
                 put("created_at", System.currentTimeMillis())
             },
             SQLiteDatabase.CONFLICT_REPLACE
