@@ -52,6 +52,12 @@ class ListeningResourceReconcileWorker(
             val root = File(applicationContext.filesDir, "listening-library")
             if (!root.exists() && !root.mkdirs()) return Result.retry()
             val rootPrefix = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
+            val staleCutoff = System.currentTimeMillis() - STALE_DOWNLOAD_AGE_MS
+            repository.recoverStaleDownloads(staleCutoff).forEach { id ->
+                if (repository.queueDownload(id)) {
+                    ListeningResourceAutomation.enqueueDownload(applicationContext, id)
+                }
+            }
             val referenced = linkedSetOf<String>()
             val downloaded = repository.listDownloadedLocalFiles()
             for (resource in downloaded) {
@@ -111,6 +117,7 @@ class ListeningResourceReconcileWorker(
 
     companion object {
         private const val STALE_PART_AGE_MS = 6L * 60L * 60L * 1000L
+        private const val STALE_DOWNLOAD_AGE_MS = 45L * 60L * 1000L
         private const val ORPHAN_GRACE_MS = 24L * 60L * 60L * 1000L
     }
 }

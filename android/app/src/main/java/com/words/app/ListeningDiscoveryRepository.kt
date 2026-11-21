@@ -208,10 +208,38 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
             "listening_discovered_resources",
             ContentValues().apply {
                 put("status", status)
+                put("last_checked_at", System.currentTimeMillis())
             },
             where,
             arrayOf(resourceId)
         )
+    }
+
+    fun touchDownloadProgress(resourceId: String, nowMs: Long = System.currentTimeMillis()) {
+        db.update(
+            "listening_discovered_resources",
+            ContentValues().apply { put("last_checked_at", nowMs) },
+            "id=? AND rights_status='cleared' AND status='downloading'",
+            arrayOf(resourceId)
+        )
+    }
+
+    fun recoverStaleDownloads(cutoffMs: Long, nowMs: Long = System.currentTimeMillis()): List<String> {
+        val staleIds = helper.readableDatabase.rawQuery(
+            "SELECT id FROM listening_discovered_resources WHERE status='downloading' AND rights_status='cleared' AND last_checked_at<?",
+            arrayOf(cutoffMs.toString())
+        ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
+        return staleIds.filter { id ->
+            db.update(
+                "listening_discovered_resources",
+                ContentValues().apply {
+                    put("status", "failed")
+                    put("last_checked_at", nowMs)
+                },
+                "id=? AND status='downloading' AND rights_status='cleared' AND last_checked_at<?",
+                arrayOf(id, cutoffMs.toString())
+            ) == 1
+        }
     }
 
     fun saveLocalFile(resourceId: String, absolutePath: String, sha256: String, durationMs: Long = 0L, nowMs: Long = System.currentTimeMillis()) {
@@ -223,6 +251,7 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                 put("content_sha256", sha256.lowercase())
                 put("status", "downloaded")
                 put("downloaded_at", nowMs)
+                put("last_checked_at", nowMs)
                 if (durationMs > 0L) put("duration_ms", durationMs)
             },
             "id=? AND rights_status='cleared' AND status IN ('queued','downloading')",

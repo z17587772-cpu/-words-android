@@ -87,6 +87,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private val definitionTranslationViews = mutableMapOf<String, MutableList<TextView>>()
     private var toneGenerator: ToneGenerator? = null
     private lateinit var pageHost: LinearLayout
+    private var pageScrollView: ScrollView? = null
+    private var pageContent: LinearLayout? = null
     private lateinit var bottomBar: LinearLayout
     private lateinit var browseActionBar: LinearLayout
     private var selectedTab = TAB_BROWSE
@@ -237,6 +239,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         return super.onKeyDown(keyCode, event)
     }
 
+    @Deprecated("Deprecated in Android API 33; retained for consistent system Back handling")
+    override fun onBackPressed() {
+        if (selectedTab == TAB_LISTENING && listeningStage == "quiz") return
+        super.onBackPressed()
+    }
+
     override fun onDestroy() {
         listeningPlaybackCoordinator.release(listeningMediaController)
         if (::tts.isInitialized) tts.shutdown()
@@ -372,19 +380,24 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         pageHost.animate().cancel()
         pageHost.alpha = 1f
         pageHost.translationY = 0f
-        pageHost.removeAllViews()
         val compactBrowse = selectedTab == TAB_BROWSE && !showingFavorites
-        val scroll = ScrollView(this).apply {
+        // Keep the scrolling surface attached across refreshes to avoid a white flash.
+        val scroll = pageScrollView ?: ScrollView(this).apply {
             clipToPadding = false
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_ALWAYS
             isVerticalScrollBarEnabled = false
+        }.also { created ->
+            val content = column()
+            created.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            pageScrollView = created
+            pageContent = content
+            pageHost.addView(created, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
-        val content = column().apply {
-            setPadding(dp(20), dp(12), dp(20), dp(if (compactBrowse) 8 else 30))
-        }
-        scroll.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        pageHost.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        val content = pageContent ?: return
+        content.removeAllViews()
+        content.setPadding(dp(20), dp(12), dp(20), dp(if (compactBrowse) 8 else 30))
+        if (!preserveStudyPosition && !preserveListeningPosition) scroll.scrollTo(0, 0)
         if (showingFavorites) {
             renderFavorites(content)
         } else {
@@ -447,7 +460,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
         private fun renderBottomBar() {
+        val assessmentLocked = selectedTab == TAB_LISTENING && listeningStage == "quiz"
+        bottomBar.visibility = if (assessmentLocked) View.GONE else View.VISIBLE
+        bottomBar.layoutParams = bottomBar.layoutParams.apply { height = if (assessmentLocked) 0 else dp(66) }
         bottomBar.removeAllViews()
+        if (assessmentLocked) return
         val tabs = listOf(
             TAB_BROWSE to "随刷",
             TAB_STUDY to "背词",
@@ -2186,17 +2203,17 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
 
-        val daily = card(19)
-        daily.addView(text(if (episode.isDemo) "NO NEW COURSE" else "TODAY'S LISTENING", 10f, accent, true))
-        daily.addView(vSpace(8))
-        daily.addView(text(if (episode.isDemo) "暂无正式新课" else "今日新课", 14f, secondary, true))
-        daily.addView(vSpace(5))
-        daily.addView(text(episode.title, 21f, ink, true))
-        daily.addView(vSpace(6))
-        daily.addView(text(episode.description, 12f, secondary))
-        daily.addView(vSpace(12))
-        daily.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  ${episode.durationLabel}", 11f, secondary))
-        daily.addView(vSpace(13))
+        val daily = card(24)
+        daily.addView(text(if (episode.isDemo) "NO NEW COURSE" else "TODAY'S LISTENING", 11f, accent, true))
+        daily.addView(vSpace(10))
+        daily.addView(text(if (episode.isDemo) "暂无正式新课" else "今日新课", 16f, secondary, true))
+        daily.addView(vSpace(7))
+        daily.addView(text(episode.title, 24f, ink, true))
+        daily.addView(vSpace(9))
+        daily.addView(text(episode.description, 14f, secondary))
+        daily.addView(vSpace(15))
+        daily.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  ${episode.durationLabel}", 13f, secondary))
+        daily.addView(vSpace(16))
         daily.addView(pillButton(
             if (canResumeDaily) "继续上次训练  →"
             else if (episode.isDemo) "开始体验课  →" else "开始今日训练  →",
@@ -2207,6 +2224,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             } else {
                 transitionListeningStage("intro") {
                     listeningEpisodeId = episode.id
+                    listeningArchiveAssignmentDate = null
                     listeningQuestionIndex = 0
                     listeningSelectedChoiceId = null
                     listeningSubmitted = false
@@ -2243,6 +2261,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             reviewCard.addView(pillButton("开始复习  →", false) {
                 transitionListeningStage("intro") {
                     listeningEpisodeId = reviewEpisode.id
+                    listeningArchiveAssignmentDate = null
                     listeningQuestionIndex = 0
                     listeningSelectedChoiceId = null
                     listeningSubmitted = false
@@ -2329,7 +2348,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                JOIN listening_episode_revisions r
                  ON r.revision_id=d.content_revision_id
                 AND r.episode_id=d.episode_id
-               WHERE d.assignment_date < ? AND d.content_revision_id IS NOT NULL
+               WHERE d.assignment_date <= ? AND d.content_revision_id IS NOT NULL
                ORDER BY d.assignment_date DESC LIMIT 30""",
             arrayOf(today)
         ).use { cursor ->
@@ -2345,7 +2364,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val archive = card(15)
         archive.addView(text("每日听力归档", 14f, ink, true))
         archive.addView(vSpace(4))
-        archive.addView(text("按日期保存已分配的新课；历史课程不会重新占用每日新课名额。", 11f, secondary))
+        archive.addView(text("按日期自动保存每日课程，包含今天；历史课程可随时重新训练且不会占用新课名额。", 12f, secondary))
         if (entries.isEmpty()) {
             archive.addView(vSpace(6))
             archive.addView(text("完成每日训练后，历史课程会自动出现在这里。", 11f, secondary))
@@ -2356,7 +2375,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 archive.addView(vSpace(8))
                 val line = row()
                 line.addView(
-                    text("$date  ·  ${entry[2]}", 12f, ink, true),
+                    text("${if (date == today) "今天" else date}  ·  ${entry[2]}", 14f, ink, true),
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 )
                 line.addView(quietButton("重听") {
@@ -2381,7 +2400,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val allResources = discovery.listResources(200).distinctBy { resource ->
             if (resource.contentSha256.isNotBlank()) "sha:${resource.contentSha256}" else "id:${resource.id}"
         }
-        val resources = allResources.filter { resource ->
+        val playableResources = allResources.filter { resource ->
+            resource.rightsStatus == "cleared" && resource.allowedActions.contains("offline_download")
+        }
+        val pendingReviewCount = allResources.count { it.rightsStatus == "review_required" }
+        val resources = playableResources.filter { resource ->
             (!discoveredDownloadedOnly || (resource.status == "downloaded" && resource.localFilePath.isNotBlank() && java.io.File(resource.localFilePath).isFile)) &&
                 (!discoveredFavoritesOnly || resource.pinned) &&
                 (discoveredSearchQuery.isBlank() ||
@@ -2400,7 +2423,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         summary.addView(vSpace(4))
         summary.addView(text("本地占用约 $storageMb / 512 MB  ·  优先保护收藏和已播放内容", 10f, secondary))
         summary.addView(vSpace(7))
-        summary.addView(text("来源：Internet Archive（明确开放许可）与 LibriVox（待逐项核验）。原始录音独立存放，不会自动变成正式课程。", 11f, secondary))
+        summary.addView(text("只展示已核验且明确允许离线保存的资源；另有 $pendingReviewCount 条候选仍在许可审核中，审核通过前不会伪装成可播放内容。原始录音不会自动变成正式课程。", 12f, secondary))
         summary.addView(vSpace(10))
         summary.addView(pillButton("立即搜索新资源", true) {
             ListeningDiscoveryScheduler.schedule(this)
@@ -2499,7 +2522,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 local -> "已下载 · 可离线播放"
                 resource.rightsStatus == "review_required" -> "已发现 · 许可待核验"
                 resource.status == "downloading" -> "正在下载"
-                resource.status == "queued" -> "等待 Wi-Fi 下载"
+                resource.status == "queued" -> "已排队 · 等待 Wi-Fi 可用"
                 resource.status == "failed" -> "下载失败 · 等待重试"
                 resource.status == "expired" -> "本地音频因空间管理已清理"
                 resource.status == "downloaded" -> "本地文件缺失 · 正在校验修复"
@@ -2554,7 +2577,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         }
                         .show()
                 })
-            } else if (resource.status == "expired" && resource.rightsStatus == "cleared") {
+            } else if (resource.status in setOf("failed", "expired") && resource.rightsStatus == "cleared") {
                 item.addView(vSpace(8))
                 item.addView(pillButton("重新下载", false) {
                     if (discovery.requeueExpiredDownload(resource.id)) {
@@ -2894,6 +2917,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderListeningQuiz(parent: LinearLayout) {
+        if (listeningMediaController?.isPlaying == true) listeningMediaController?.pause()
+        if (::tts.isInitialized) tts.stop()
         val episode = listeningRepository.getEpisodeForAttempt(listeningAttemptId) ?: return
         val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
         val question = questions.getOrNull(listeningQuestionIndex)
@@ -2924,7 +2949,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val progress = card(13)
         progress.addView(text("${question.typeLabel}  ·  ${episode.title}", 11f, secondary, true))
         progress.addView(vSpace(8))
-        progress.addView(text(question.prompt, 17f, ink, true))
+        progress.addView(text(question.prompt, 20f, ink, true))
         progress.addView(vSpace(14))
         question.options.forEach { option ->
             val selected = listeningSelectedChoiceId == option.id
@@ -2932,11 +2957,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val borderColor = if (listeningSubmitted && listeningCorrectChoiceId == option.id) accent else if (selected) 0xFFB9C2D6.toInt() else line
             val optionView = text(
                 option.content,
-                13f,
+                16f,
                 if (listeningSubmitted && listeningCorrectChoiceId == option.id) accent else ink,
                 selected || (listeningSubmitted && listeningCorrectChoiceId == option.id)
             ).apply {
-                setPadding(dp(13), dp(14), dp(13), dp(14))
+                setPadding(dp(16), dp(17), dp(16), dp(17))
                 background = rounded(backgroundColor, borderColor, 13)
                 isEnabled = !listeningSubmitted
                 isClickable = !listeningSubmitted
@@ -2977,10 +3002,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 14f, if (listeningCurrentCorrect == true) accent else 0xFFB66B45.toInt(), true
             ))
             progress.addView(vSpace(6))
-            progress.addView(text(question.explanation, 12f, secondary))
+            progress.addView(text(question.explanation, 15f, secondary))
             if (evidence != null) {
                 progress.addView(vSpace(7))
-                progress.addView(text("音频依据：${evidence.english}", 12f, ink, true))
+                progress.addView(text("音频原句：${evidence.english}", 15f, ink, true))
+                progress.addView(vSpace(4))
+                progress.addView(text("原句翻译：${evidence.chinese}", 14f, secondary))
             }
             progress.addView(vSpace(13))
             progress.addView(pillButton(
@@ -3064,9 +3091,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             })
             sentenceCard.addView(header)
             sentenceCard.addView(vSpace(5))
-            sentenceCard.addView(text(sentence.english, 14f, ink, true))
-            sentenceCard.addView(vSpace(4))
-            sentenceCard.addView(text(sentence.chinese, 12f, secondary))
+            sentenceCard.addView(text(sentence.english, 16f, ink, true))
+            sentenceCard.addView(vSpace(5))
+            sentenceCard.addView(text(sentence.chinese, 14f, secondary))
             if (sentence.pronunciationNote.isNotBlank()) {
                 sentenceCard.addView(vSpace(7))
                 sentenceCard.addView(text("语音提示：${sentence.pronunciationNote}", 11f, accent))
@@ -3101,10 +3128,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val evidence = sentences.firstOrNull { it.id == question.evidenceSentenceId }
             if (evidence != null) {
                 answerCard.addView(vSpace(6))
-                answerCard.addView(text("音频依据：${evidence.english}", 11f, ink, true))
+                answerCard.addView(text("音频原句：${evidence.english}", 14f, ink, true))
+                answerCard.addView(vSpace(4))
+                answerCard.addView(text("原句翻译：${evidence.chinese}", 13f, secondary))
             }
             answerCard.addView(vSpace(6))
-            answerCard.addView(text(question.explanation, 11f, secondary))
+            answerCard.addView(text(question.explanation, 13f, secondary))
             parent.addView(vSpace(7))
             parent.addView(answerCard)
         }

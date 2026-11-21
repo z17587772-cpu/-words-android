@@ -446,7 +446,7 @@ class ListeningResourceDownloadWorker(
         val candidate = repository.getDownloadCandidate(id)
         if (candidate == null) {
             helper.close()
-            return Result.failure()
+            return Result.success()
         }
         if (candidate.status == "downloaded") {
             helper.close()
@@ -459,7 +459,7 @@ class ListeningResourceDownloadWorker(
             candidate.mimeType != "audio/mpeg"
         ) {
             helper.close()
-            return Result.failure()
+            return Result.success()
         }
 
         val root = File(applicationContext.filesDir, "listening-library")
@@ -474,7 +474,7 @@ class ListeningResourceDownloadWorker(
         if (!capacityAvailable) {
             repository.updateDownloadStatus(id, "failed")
             helper.close()
-            return Result.failure()
+            return Result.success()
         }
         val temporary = File(root, ".$id-${System.currentTimeMillis()}.part")
         var installedFile: File? = null
@@ -498,6 +498,9 @@ class ListeningResourceDownloadWorker(
                         }
                         digest.update(buffer, 0, count)
                         output.write(buffer, 0, count)
+                        if (total % PROGRESS_HEARTBEAT_BYTES < count) {
+                            repository.touchDownloadProgress(id)
+                        }
                     }
                         output.fd.sync()
                     }
@@ -555,7 +558,12 @@ class ListeningResourceDownloadWorker(
             temporary.delete()
             installedFile?.let { runCatching { it.delete() } }
             repository.updateDownloadStatus(id, "failed")
-            if (error is java.io.IOException) Result.retry() else Result.failure()
+            if (error is java.io.IOException && runAttemptCount < MAX_TRANSIENT_RETRIES) {
+                Result.retry()
+            } else {
+                // A terminal failure must not cancel every later item in the serial queue.
+                Result.success()
+            }
         } finally {
             helper.close()
         }
@@ -608,6 +616,7 @@ class ListeningResourceDownloadWorker(
             connection.readTimeout = READ_TIMEOUT_MS
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.setRequestProperty("Accept", "audio/mpeg, application/octet-stream")
+            connection.setRequestProperty("Accept-Encoding", "identity")
             val code = try { connection.responseCode } catch (error: Exception) { connection.disconnect(); throw error }
             if (code in 300..399) {
                 val location = connection.getHeaderField("Location") ?: throw java.io.IOException("Missing media redirect")
@@ -663,9 +672,11 @@ class ListeningResourceDownloadWorker(
         private const val MIN_FREE_SPACE_BYTES = 50L * 1024L * 1024L
         private const val MAX_LIBRARY_BYTES = 512L * 1024L * 1024L
         private const val USER_AGENT = "WordsAndroidListeningLibrary/1.0"
-        private const val CONNECT_TIMEOUT_MS = 20_000
-        private const val READ_TIMEOUT_MS = 60_000
+        private const val CONNECT_TIMEOUT_MS = 30_000
+        private const val READ_TIMEOUT_MS = 180_000
         private const val MAX_REDIRECTS = 5
         private const val MAX_FILE_BYTES = 40L * 1024L * 1024L
+        private const val PROGRESS_HEARTBEAT_BYTES = 1024L * 1024L
+        private const val MAX_TRANSIENT_RETRIES = 4
     }
 }

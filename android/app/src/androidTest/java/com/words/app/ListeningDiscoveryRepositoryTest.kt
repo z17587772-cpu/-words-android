@@ -264,4 +264,29 @@ class ListeningDiscoveryRepositoryTest {
         assertTrue(repository.listDownloadedLocalFiles().isEmpty())
         helper.close()
     }
+    @Test
+    fun abandonedDownloadIsRecoveredAndCanBeQueuedAgain() {
+        context.deleteDatabase("words_local.db")
+        val helper = WordsDatabase(context)
+        val repository = ListeningDiscoveryRepository(helper)
+        val candidate = DiscoveredListeningResource(
+            provider = "internet_archive",
+            providerItemId = "stale-download",
+            canonicalUrl = "https://archive.org/details/stale-download",
+            mediaUrl = "https://archive.org/download/stale-download/audio.mp3",
+            title = "Stale download",
+            rightsStatus = "cleared",
+            allowedActions = setOf("in_app_playback", "offline_download"),
+            expectedSizeBytes = 100L,
+            mimeType = "audio/mpeg"
+        )
+        val id = repository.upsertCandidate(candidate)
+        assertTrue(repository.queueDownload(id))
+        repository.updateDownloadStatus(id, "downloading")
+        assertTrue(repository.recoverStaleDownloads(System.currentTimeMillis() + 1L).contains(id))
+        assertTrue(repository.queueDownload(id))
+        assertEquals("queued", repository.listResources(10).first { it.id == id }.status)
+        helper.close()
+    }
+
 }
