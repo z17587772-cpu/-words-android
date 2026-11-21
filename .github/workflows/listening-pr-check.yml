@@ -199,6 +199,11 @@ jobs:
           assert "MAX_LOOKUPS_PER_PAGE = 3" in resource_automation
           assert "MAX_METADATA_LOOKUPS_PER_RUN = 6" in resource_automation
           assert "MAX_CANDIDATES_PER_RUN = 4" in resource_automation
+          assert "MAX_TRACKS_PER_ITEM = 1" in resource_automation
+          assert "CHECKED_ITEM_TTL_MS = 30L * 24L * 60L * 60L * 1000L" in resource_automation
+          assert "findDownloadedFileByHash" in discovery_repository
+          assert "isLocalPathShared" in discovery_repository
+          assert "contentSha256" in discovery_repository and "distinctBy" in activity
           assert "checked_at" in resource_automation and "trimCheckedItems" in resource_automation
           assert "InternetArchiveMetadataPolicy.isEnglish" in resource_automation
           assert "class ListeningResourceDownloadWorker" in resource_automation
