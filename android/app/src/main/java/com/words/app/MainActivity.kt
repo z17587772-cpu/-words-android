@@ -46,6 +46,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningMediaController: MediaController? = null
     private var listeningControllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
     private var listeningStage = "home"
+    private var discoveredDownloadedOnly = false
+    private var discoveredFavoritesOnly = false
     private var listeningStageTransitioning = false
     private var listeningDailyEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningEpisodeId = ListeningRepository.DEMO_EPISODE_ID
@@ -2312,10 +2314,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderDiscoveredResourceLibrary(parent: LinearLayout) {
         val discovery = ListeningDiscoveryRepository(db)
-        val resources = discovery.listResources(60)
-        val downloaded = resources.count { it.status == "downloaded" && it.localFilePath.isNotBlank() && java.io.File(it.localFilePath).isFile }
-        val queued = resources.count { it.status == "queued" || it.status == "downloading" }
-        val failed = resources.count { it.status == "failed" }
+        val allResources = discovery.listResources(200)
+        val resources = allResources.filter { resource ->
+            (!discoveredDownloadedOnly || (resource.status == "downloaded" && resource.localFilePath.isNotBlank() && java.io.File(resource.localFilePath).isFile)) &&
+                (!discoveredFavoritesOnly || resource.pinned)
+        }
+        val downloaded = allResources.count { it.status == "downloaded" && it.localFilePath.isNotBlank() && java.io.File(it.localFilePath).isFile }
+        val queued = allResources.count { it.status == "queued" || it.status == "downloading" }
+        val failed = allResources.count { it.status == "failed" }
         val storageMb = discovery.downloadedStorageBytes() / (1024L * 1024L)
         addSectionTitle(parent, "自动发现资源库", "应用联网寻找新英语听力 · Wi-Fi 下自动下载")
         parent.addView(vSpace(8))
@@ -2332,7 +2338,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, "已安排联网搜索；符合许可的音频将在 Wi-Fi 下自动下载", Toast.LENGTH_LONG).show()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         parent.addView(summary)
-        parent.addView(vSpace(8))
+        parent.addView(vSpace(6))
+        val filters = row()
+        filters.addView(quietButton(if (discoveredDownloadedOnly) "显示全部" else "只看已下载") {
+            discoveredDownloadedOnly = !discoveredDownloadedOnly
+            renderPage()
+        })
+        filters.addView(quietButton(if (discoveredFavoritesOnly) "取消收藏筛选" else "只看收藏") {
+            discoveredFavoritesOnly = !discoveredFavoritesOnly
+            renderPage()
+        })
+        parent.addView(filters)
+        parent.addView(vSpace(5))
 
         if (resources.isEmpty()) {
             val empty = card(15)
