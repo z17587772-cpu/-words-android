@@ -1,7 +1,7 @@
 # Words Listening — On-device Auto Discovery & Library Architecture
 
 Updated: 2026-11-21
-Status: approved engineering direction; implementation not yet complete
+Status: in active implementation; first end-to-end raw-resource path added, validation pending
 Target branch: `feature/listening-mvp`
 APK packaging: intentionally paused
 
@@ -98,37 +98,37 @@ Retain Ed25519 catalog verification, SHA-256, package compatibility and transact
 ### D0 — Product/data model
 - [x] Add dedicated discovered-resource table and repository.
 - [x] Add stable provider cursor/state storage.
-- [ ] Add status, rights, attribution and local-file metadata.
-- [ ] Keep raw resources separate from formal lesson tables.
+- [x] Add status, rights, attribution and local-file metadata.
+- [x] Keep raw resources separate from formal lesson tables.
 
 Exit: schema migration tests prove existing vocabulary/listening history is unchanged.
 
 ### D1 — On-device provider discovery
 - [x] Implement first on-device LibriVox metadata adapter.
-- [ ] Generalize provider interface and implement Internet Archive search/metadata adapter after rights parser tests.
+- [x] Add Internet Archive Advanced Search + item Metadata API adapter with explicit license allowlist.
 - [x] LibriVox pagination, request pacing, timeout, retry/backoff and persisted cursor.
 - [x] Normalize English metadata and persist candidates idempotently.
-- [ ] Add provider cancellation, ETag/conditional requests and broader adapter tests.
+- [ ] Add provider cancellation, ETag/conditional requests and full network-fixture tests.
 
 Exit: instrumented/fake-server tests prove pagination, restart recovery, duplicate handling, malformed response handling and provider rate limiting.
 
 ### D2 — Automatic download and safe local storage
-- [ ] Explicit license allowlist and territory policy.
-- [ ] DownloadManager + WorkManager post-processing.
-- [ ] SHA-256, file size, MIME/container and duration validation.
-- [ ] Atomic DB/file publication and orphan cleanup.
-- [ ] Storage quota, pinned/favorite protection and user-visible status.
+- [x] Explicit item-level CC0 / CC-BY 4.0 / CC-BY-SA 4.0 allowlist; unlicensed LibriVox stays quarantined.
+- [x] WorkManager audio download with unmetered-network and battery constraints.
+- [x] SHA-256, exact provider byte-size, MP3 container/duration validation.
+- [x] Immutable hash-versioned file publication and database pointer update after verification.
+- [ ] Storage quota, pinned/favorite protection, cleanup and orphan reconciliation.
 
-Exit: network interruption, process death, duplicate broadcasts, bad checksum and insufficient storage tests leave no corrupt library rows and preserve prior valid files.
+Exit: network interruption, process death, duplicate broadcasts, bad checksum and insufficient storage tests leave no corrupt library rows and preserve prior valid files. **Pending runtime verification.**
 
 ### D3 — Discovered-library UI/player
-- [ ] Add separate “资源库/自动发现” list with source, level estimate, duration and download state.
-- [ ] Search/filter/favorites/downloaded-only.
-- [ ] Play downloaded resources offline; stream only when permitted and not yet downloaded.
-- [ ] Make source/license attribution accessible.
-- [ ] Clearly distinguish raw recordings from formal courses.
+- [x] Add separate “自动发现资源库” list with source, attribution, duration and download state.
+- [ ] Add search/filter/favorites/downloaded-only controls.
+- [x] Play downloaded resources offline and resume saved position/speed.
+- [x] Display source and license attribution.
+- [x] Clearly distinguish raw recordings from formal courses.
 
-Exit: UI-flow tests cover discover -> download -> play offline -> favorite -> resume.
+Exit: UI-flow tests cover discover -> download -> play offline -> favorite -> resume. Basic list/play/resume wiring is implemented; UI-flow instrumentation remains pending.
 
 ### D4 — Learning enrichment
 - [ ] Transcript acquisition where a reliable source text exists.
