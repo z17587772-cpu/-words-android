@@ -140,7 +140,7 @@ class InternetArchiveDiscoveryWorker(
                         repository.revokeProviderItem(PROVIDER, "$identifier#")
                         continue
                     }
-                    val title = metadata.optString("title").ifBlank { doc.optString("title") }.trim()
+                    val title = InternetArchiveMetadataPolicy.asText(metadata.opt("title")).ifBlank { InternetArchiveMetadataPolicy.asText(doc.opt("title")) }.trim()
                     if (title.isBlank()) {
                         repository.revokeProviderItem(PROVIDER, "$identifier#")
                         continue
@@ -169,14 +169,14 @@ class InternetArchiveDiscoveryWorker(
                     }
                     val encodedName = Uri.encode(fileName)
                     val mediaUrl = "https://archive.org/download/$identifier/$encodedName"
-                    val creator = metadata.optString("creator").take(500)
+                    val creator = InternetArchiveMetadataPolicy.asText(metadata.opt("creator")).take(500)
                     val candidate = DiscoveredListeningResource(
                         provider = PROVIDER,
                         providerItemId = "$identifier#$fileName",
                         canonicalUrl = "https://archive.org/details/$identifier",
                         mediaUrl = mediaUrl,
                         title = title.take(500),
-                        description = description.take(3000),
+                        description = InternetArchiveMetadataPolicy.asText(metadata.opt("description")).take(3000),
                         language = "English",
                         durationMs = 0L,
                         creator = creator,
@@ -363,6 +363,15 @@ class InternetArchiveDiscoveryWorker(
 }
 
 internal object InternetArchiveMetadataPolicy {
+    fun asText(value: Any?): String {
+        val raw = when (value) {
+            is JSONArray -> (0 until value.length()).joinToString(", ") { value.optString(it) }
+            is JSONObject -> value.toString()
+            else -> value?.toString().orEmpty()
+        }
+        return raw.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim()
+    }
+
     fun isEnglish(value: Any?): Boolean {
         val language = when (value) {
             is JSONArray -> (0 until value.length()).joinToString(" ") { value.optString(it) }
