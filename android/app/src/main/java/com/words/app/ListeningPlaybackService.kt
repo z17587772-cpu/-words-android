@@ -56,11 +56,10 @@ class ListeningPlaybackService : MediaSessionService() {
         val item = activePlayer.currentMediaItem ?: return
         val episodeId = item.mediaId.takeIf { it.isNotBlank() } ?: return
         val audioUri = item.localConfiguration?.uri?.toString() ?: return
-        val store = repository ?: ListeningRepository(
-            (database ?: WordsDatabase(this).also { database = it }).also {
-                repository = ListeningRepository(it)
-            }
-        )
+        val store = repository ?: run {
+            val helper = database ?: WordsDatabase(this).also { database = it }
+            ListeningRepository(helper).also { repository = it }
+        }
         val episode = store.getEpisode(episodeId) ?: return
         if (episode.isDemo || episode.audioUrl != audioUri) return
         val position = activePlayer.currentPosition.coerceAtLeast(0L)
