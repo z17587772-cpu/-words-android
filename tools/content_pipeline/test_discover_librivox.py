@@ -1,10 +1,12 @@
 import json
+import io
+import urllib.error
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from discover_librivox import discover, extract_records, normalize_record
+from discover_librivox import discover, extract_records, fetch_page, normalize_record
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -12,6 +14,31 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual([{"id": 1}], extract_records({"books": [{"id": 1}]}))
         self.assertEqual([{"id": 1}], extract_records({"book": {"id": 1}}))
         self.assertEqual([], extract_records({"error": "Audiobooks could not be found"}))
+
+    def test_fetch_page_retries_rate_limit_and_then_succeeds(self):
+        calls = []
+        delays = []
+        class Response:
+            status = 200
+            def __enter__(self):
+                return self
+            def __exit__(self, *_):
+                return False
+            def read(self):
+                return b'{"books":[{"id":5,"title":"Retry"}]}'
+        def opener(request, timeout):
+            calls.append((request, timeout))
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(
+                    request.full_url, 429, "rate limited", {"Retry-After": "2"}, io.BytesIO(b"")
+                )
+            return Response()
+        records = fetch_page(
+            1, 0, opener=opener, sleeper=delays.append, jitter=lambda low, high: 0.0
+        )
+        self.assertEqual(2, len(calls))
+        self.assertEqual([2.0], delays)
+        self.assertEqual(5, records[0]["id"])
 
     def test_missing_id_or_title_is_not_a_candidate(self):
         self.assertIsNone(normalize_record({"id": 7}, "2026-11-21T00:00:00Z"))
