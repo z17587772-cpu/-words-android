@@ -6,12 +6,19 @@ data class ListeningAssignmentHistory(
     val episodeId: String,
     val category: String,
     val level: String,
-    val accent: String
+    val accent: String,
+    val assignmentCount: Int = 1,
+    val lastAssignedDate: String? = null
 )
 
 /**
- * Deterministic, explainable ranking for the next unassigned day.
- * It favors L3/L4 content while rotating episode IDs, topics and accents.
+ * Deterministic rotation across the complete eligible catalog.
+ *
+ * Every episode is assigned once before any episode receives its next
+ * assignment. New episodes enter the current rotation with a count of zero.
+ * Once a full pass is complete, the oldest-assigned episode starts the next
+ * pass. Topic, accent and level balancing are tie-breakers, not substitutes
+ * for completing a catalog pass.
  */
 object ListeningDailyPlanner {
     fun choose(
@@ -20,10 +27,14 @@ object ListeningDailyPlanner {
         assignmentDate: String
     ): ListeningEpisode? {
         if (candidates.isEmpty()) return null
-        val recentIds = recentHistory.map { it.episodeId }.toSet()
-        val categoryCounts = recentHistory.groupingBy { it.category }.eachCount()
-        val accentCounts = recentHistory.groupingBy { it.accent.lowercase() }.eachCount()
-        val levelCounts = recentHistory.groupingBy { it.level }.eachCount()
+
+        val historyById = recentHistory.associateBy { it.episodeId }
+        val categoryCounts = recentHistory.groupingBy { it.category }
+            .fold(0) { total, item -> total + item.assignmentCount }
+        val accentCounts = recentHistory.groupingBy { it.accent.lowercase() }
+            .fold(0) { total, item -> total + item.assignmentCount }
+        val levelCounts = recentHistory.groupingBy { it.level }
+            .fold(0) { total, item -> total + item.assignmentCount }
         val catalogRevision = candidates
             .map { "${it.id}:${it.updatedAt}:${it.audioUrl.orEmpty()}" }
             .sorted()
@@ -32,11 +43,12 @@ object ListeningDailyPlanner {
 
         return candidates.minWithOrNull(
             compareBy<ListeningEpisode>(
-                { if (it.id in recentIds) 1 else 0 },
-                { if (it.level == "L3" || it.level == "L4") 0 else 1 },
+                { historyById[it.id]?.assignmentCount ?: 0 },
+                { historyById[it.id]?.lastAssignedDate.orEmpty() },
                 { categoryCounts[it.category] ?: 0 },
                 { accentCounts[it.accent.lowercase()] ?: 0 },
                 { levelCounts[it.level] ?: 0 },
+                { if (it.level == "L3" || it.level == "L4") 0 else 1 },
                 { stableTieBreak("$seed|${it.id}") }
             )
         )
