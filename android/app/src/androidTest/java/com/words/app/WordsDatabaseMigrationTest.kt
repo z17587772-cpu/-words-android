@@ -105,7 +105,7 @@ class WordsDatabaseMigrationTest {
         try {
             try {
                 ListeningAudioIntegrity.copyAndVerify(
-                    java.io.ByteArrayInputStream("corrupt".toByteArray()),
+                    java.io.ByteArrayInputStream("jello world".toByteArray()),
                     destination,
                     descriptor
                 )
