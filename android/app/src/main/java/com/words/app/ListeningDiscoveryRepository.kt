@@ -24,7 +24,11 @@ data class DiscoveredListeningResource(
     val mimeType: String = "",
     val expectedSizeBytes: Long = 0L,
     val expectedSha256: String = "",
-    val etag: String = ""
+    val etag: String = "",
+    val id: String = "",
+    val status: String = "discovered",
+    val localFilePath: String = "",
+    val pinned: Boolean = false
 ) {
     val stableId: String
         get() {
@@ -33,6 +37,23 @@ data class DiscoveredListeningResource(
             return digest.joinToString("") { "%02x".format(it) }
         }
 }
+
+data class ListeningDownloadCandidate(
+    val id: String,
+    val mediaUrl: String,
+    val title: String,
+    val rightsStatus: String,
+    val allowedActions: Set<String>,
+    val expectedSizeBytes: Long,
+    val mimeType: String,
+    val status: String
+)
+
+data class ListeningResourcePlayback(
+    val resourceId: String,
+    val positionMs: Long,
+    val speed: Float
+)
 
 data class ListeningProviderState(
     val provider: String,
@@ -154,7 +175,7 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         )
     }
 
-    fun saveLocalFile(resourceId: String, absolutePath: String, sha256: String, nowMs: Long = System.currentTimeMillis()) {
+    fun saveLocalFile(resourceId: String, absolutePath: String, sha256: String, durationMs: Long = 0L, nowMs: Long = System.currentTimeMillis()) {
         require(absolutePath.isNotBlank() && sha256.matches(Regex("[a-fA-F0-9]{64}")))
         val changed = db.update(
             "listening_discovered_resources",
@@ -163,12 +184,94 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                 put("content_sha256", sha256.lowercase())
                 put("status", "downloaded")
                 put("downloaded_at", nowMs)
+                if (durationMs > 0L) put("duration_ms", durationMs)
             },
             "id=? AND rights_status='cleared' AND status IN ('queued','downloading')",
             arrayOf(resourceId)
         )
         check(changed == 1) { "Resource is not eligible for local publication" }
     }
+
+    fun getDownloadCandidate(resourceId: String): ListeningDownloadCandidate? =
+        helper.readableDatabase.rawQuery(
+            "SELECT id,media_url,title,rights_status,allowed_actions,expected_size_bytes,mime_type,status FROM listening_discovered_resources WHERE id=?",
+            arrayOf(resourceId)
+        ).use { c ->
+            if (!c.moveToFirst()) null else ListeningDownloadCandidate(
+                id = c.getString(0),
+                mediaUrl = c.getString(1),
+                title = c.getString(2),
+                rightsStatus = c.getString(3),
+                allowedActions = c.getString(4).split(',').filter { it.isNotBlank() }.toSet(),
+                expectedSizeBytes = c.getLong(5),
+                mimeType = c.getString(6),
+                status = c.getString(7)
+            )
+        }
+
+    fun listResources(limit: Int = 100, downloadedOnly: Boolean = false): List<DiscoveredListeningResource> {
+        val safeLimit = limit.coerceIn(1, 500)
+        val where = if (downloadedOnly) "WHERE status='downloaded'" else ""
+        return helper.readableDatabase.rawQuery(
+            "SELECT id,provider,provider_item_id,canonical_url,media_url,title,description,language,duration_ms,creator,license_name,license_url,rights_status,allowed_actions,attribution,territory,mime_type,expected_size_bytes,expected_sha256,etag,status,local_file_path,pinned FROM listening_discovered_resources $where ORDER BY discovered_at DESC LIMIT ?",
+            arrayOf(safeLimit.toString())
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) add(
+                    DiscoveredListeningResource(
+                        id = c.getString(0), provider = c.getString(1), providerItemId = c.getString(2),
+                        canonicalUrl = c.getString(3), mediaUrl = c.getString(4),
+                        title = c.getString(5), description = c.getString(6), language = c.getString(7),
+                        durationMs = c.getLong(8), creator = c.getString(9), licenseName = c.getString(10),
+                        licenseUrl = c.getString(11), rightsStatus = c.getString(12),
+                        allowedActions = c.getString(13).split(',').filter { it.isNotBlank() }.toSet(),
+                        attribution = c.getString(14), territory = c.getString(15), mimeType = c.getString(16),
+                        expectedSizeBytes = c.getLong(17), expectedSha256 = c.getString(18), etag = c.getString(19),
+                        status = c.getString(20), localFilePath = c.getString(21), pinned = c.getInt(22) == 1
+                    )
+                )
+            }
+        }
+    }
+
+    fun setPinned(resourceId: String, pinned: Boolean) {
+        db.update(
+            "listening_discovered_resources",
+            ContentValues().apply { put("pinned", if (pinned) 1 else 0) },
+            "id=?",
+            arrayOf(resourceId)
+        )
+    }
+
+    fun saveResourcePlayback(resourceId: String, positionMs: Long, speed: Float) {
+        require(positionMs >= 0L && speed.isFinite())
+        val values = ContentValues().apply {
+            put("resource_id", resourceId)
+            put("position_ms", positionMs)
+            put("speed", speed.coerceIn(0.5f, 2f))
+            put("updated_at", System.currentTimeMillis())
+        }
+        val inserted = db.insertWithOnConflict(
+            "listening_discovered_playback", null, values, SQLiteDatabase.CONFLICT_IGNORE
+        )
+        if (inserted == -1L) db.update(
+            "listening_discovered_playback", values, "resource_id=?", arrayOf(resourceId)
+        )
+        db.update(
+            "listening_discovered_resources",
+            ContentValues().apply { put("last_played_at", System.currentTimeMillis()) },
+            "id=?",
+            arrayOf(resourceId)
+        )
+    }
+
+    fun getResourcePlayback(resourceId: String): ListeningResourcePlayback? =
+        helper.readableDatabase.rawQuery(
+            "SELECT resource_id,position_ms,speed FROM listening_discovered_playback WHERE resource_id=?",
+            arrayOf(resourceId)
+        ).use { c ->
+            if (!c.moveToFirst()) null else ListeningResourcePlayback(c.getString(0), c.getLong(1), c.getFloat(2))
+        }
 
     fun saveProviderState(state: ListeningProviderState) {
         require(state.provider.matches(Regex("[a-z0-9][a-z0-9._-]{1,39}")))
