@@ -370,3 +370,17 @@ Static source assertions and an independent SQLite schema/foreign-key simulation
 - This is source/test coverage only until the Android emulator workflow actually runs; no APK build was started.
 
 Before copying revision audio into the durable content directory, the importer now checks available storage against the package's total declared audio size plus a 64 MiB reserve. This avoids partially filling a device during an otherwise valid package install.
+
+
+## 18. Continuous listening catalog and daily rotation
+
+The daily planner now uses lifetime assignment history instead of looking back only seven days:
+
+- Every eligible episode is selected once before any episode receives its next daily assignment.
+- A newly installed episode enters the current pass with zero assignments and is therefore selected before already-served lessons.
+- When all eligible episodes have been assigned, the next pass starts with the episode whose previous assignment is oldest.
+- Category, accent, and level balancing remain deterministic tie-breakers; the existing L3/L4 preference is retained without allowing advanced lessons to starve unassigned lessons.
+- Assignment history is aggregated by episode in SQLite (count + last assigned date), so the planner does not load every historical assignment row into memory.
+- Added an instrumentation regression test covering a two-lesson pass, a newly arriving third lesson, and the first repeat after the full pass.
+
+This closes the short-window repeat problem in local daily assignment. It does **not** yet create new course content or download updates. Continuous content supply still requires the signed remote catalog, periodic catalog refresh, DownloadManager transfer, WorkManager installation/reconciliation, and a sufficiently large licensed audio library. Until those are connected, the app can rotate only the approved lessons already installed on the device. Runtime execution of the new instrumentation test remains pending.
