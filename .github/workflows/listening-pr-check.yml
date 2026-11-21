@@ -230,6 +230,11 @@ jobs:
           assert "listDownloadedLocalFiles" in resource_reconcile
           assert "STALE_PART_AGE_MS" in resource_reconcile and "ORPHAN_GRACE_MS" in resource_reconcile
           assert "markMissingLocalFile" in discovery_repository
+          assert "revokeProviderItem" in discovery_repository
+          assert "sourceLicenseRevocationRemovesLocalPlaybackAndDownloadAccess" in discovery_repository_test
+          assert "findDownloadedFileByHash" in discovery_repository
+          assert "isLocalPathShared" in discovery_repository
+          assert "setRequiresStorageNotLow(true)" in resource_automation
           assert "本地音频因空间管理已清理" in activity
           assert "markLocalFileEvicted" in Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
           assert "normalizesEnglishLibriVoxMetadataWithoutGrantingDownloadRights" in discovery_test
