@@ -1,0 +1,71 @@
+name: Publish signed listening catalog
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-listening-catalog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out publisher tools
+        uses: actions/checkout@v4
+
+      - name: Check out approved content inbox
+        uses: actions/checkout@v4
+        with:
+          ref: content-inbox
+          path: content-inbox
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install signing dependency
+        run: python -m pip install -r tools/content_pipeline/requirements.txt
+
+      - name: Validate and sign approved catalog
+        env:
+          LISTENING_CATALOG_PRIVATE_KEY_PEM: ${{ secrets.LISTENING_CATALOG_PRIVATE_KEY_PEM }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$LISTENING_CATALOG_PRIVATE_KEY_PEM" || {
+            echo "::error::Add LISTENING_CATALOG_PRIVATE_KEY_PEM as a repository Actions secret."
+            exit 1
+          }
+          test -f content-inbox/catalog/unsigned_catalog.json || {
+            echo "::error::Missing content-inbox/catalog/unsigned_catalog.json. Only reviewed packages may be listed."
+            exit 1
+          }
+          KEY_FILE="$RUNNER_TEMP/listening-catalog-private.pem"
+          printf '%s' "$LISTENING_CATALOG_PRIVATE_KEY_PEM" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          LISTENING_CATALOG_PRIVATE_KEY_FILE="$KEY_FILE" \
+            python tools/content_pipeline/sign_catalog.py \
+              content-inbox/catalog/unsigned_catalog.json \
+              content-inbox/catalog/catalog.json \
+              --asset-root content-inbox
+          rm -f "$KEY_FILE"
+
+      - name: Publish signed catalog to content-inbox
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C content-inbox config user.name "github-actions[bot]"
+          git -C content-inbox config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C content-inbox add catalog/catalog.json
+          if git -C content-inbox diff --cached --quiet; then
+            echo "Signed catalog is unchanged."
+            exit 0
+          fi
+          git -C content-inbox commit -m "publish(listening): update signed course catalog"
+          git -C content-inbox push origin HEAD:content-inbox
