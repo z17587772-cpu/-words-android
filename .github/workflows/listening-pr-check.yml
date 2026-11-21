@@ -123,6 +123,9 @@ jobs:
           assert "upgradingV7ToV11BackfillsSnapshotsAndPinsExistingAttempts" in migration_test
           assert "packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision" in migration_test
           assert "getEpisodeForAttempt" in activity and "getQuestionsForAttempt" in activity
+          quiz_screen = activity.split("private fun renderListeningQuiz", 1)[1].split("private fun addListeningSpeedControls", 1)[0]
+          assert "getSentencesForAttempt(listeningAttemptId)" in quiz_screen
+          assert "getSentences(episode.id)" not in quiz_screen
           assert "episode.playbackRevision(audioUri) != itemRevision" in service
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback" in migration_test
