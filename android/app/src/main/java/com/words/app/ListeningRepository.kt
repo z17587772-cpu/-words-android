@@ -220,47 +220,63 @@ class ListeningRepository(private val helper: WordsDatabase) {
             arrayOf(assignmentDate)
         ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
 
-    private fun getEligibleEpisodes(nowMs: Long): List<ListeningEpisode> =
-        helper.readableDatabase.rawQuery(
-            """SELECT e.id,e.title,e.description,e.category,e.level,e.duration_ms,
-                      e.accent,e.speech_rate,e.audio_url,e.is_demo,e.updated_at
+    private fun getEligibleEpisodes(nowMs: Long): List<ListeningEpisode> {
+        val db = helper.writableDatabase
+        // Legacy approved lessons are snapshotted before planning. New package
+        // imports already publish their immutable revision in the same DB txn.
+        db.rawQuery(
+            "SELECT id FROM listening_episodes WHERE status='approved' AND is_demo=0",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) ensureCurrentRevision(db, cursor.getString(0))
+        }
+
+        return db.rawQuery(
+            """SELECT e.id,r.title,r.description,r.category,r.level,r.duration_ms,
+                      r.accent,r.speech_rate,r.audio_url,r.is_demo,r.updated_at
                FROM listening_episodes e
+               JOIN listening_episode_revisions r
+                 ON r.revision_id=e.current_revision_id AND r.episode_id=e.id
                JOIN listening_sources s ON s.id=e.source_id
                JOIN listening_licenses l ON l.id=e.license_id
-               WHERE e.status='approved' AND e.is_demo=0
-                 AND e.audio_url IS NOT NULL AND TRIM(e.audio_url)<>''
-                 AND e.duration_ms>0 AND TRIM(e.category)<>''
-                 AND TRIM(e.accent)<>''
+               LEFT JOIN listening_package_episodes pe ON pe.episode_id=e.id
+               WHERE e.status='approved' AND r.is_demo=0
+                 AND (pe.episode_id IS NULL OR pe.is_active=1)
+                 AND r.audio_url IS NOT NULL AND TRIM(r.audio_url)<>''
+                 AND r.duration_ms>0 AND TRIM(r.category)<>'' AND TRIM(r.accent)<>''
                  AND TRIM(s.title)<>'' AND TRIM(s.rights_holder)<>'' AND TRIM(s.attribution)<>''
                  AND s.checked_at>0
                  AND TRIM(l.license_name)<>'' AND TRIM(l.territory)<>''
-                 AND (l.allowed_actions='in_app_playback'
-                      OR l.allowed_actions LIKE 'in_app_playback,%'
-                      OR l.allowed_actions LIKE '%,in_app_playback,%'
-                      OR l.allowed_actions LIKE '%,in_app_playback')
+                 AND (',' || l.allowed_actions || ',') LIKE '%,in_app_playback,%'
                  AND (l.expires_at IS NULL OR l.expires_at>?)
                  AND EXISTS (
-                     SELECT 1 FROM listening_sentences ss
-                     WHERE ss.episode_id=e.id
+                     SELECT 1 FROM listening_revision_sentences ss
+                     WHERE ss.revision_id=r.revision_id
                  )
                  AND NOT EXISTS (
-                     SELECT 1 FROM listening_sentences ss
-                     WHERE ss.episode_id=e.id
-                       AND (ss.start_ms<0 OR ss.end_ms<=ss.start_ms OR ss.end_ms>e.duration_ms
+                     SELECT 1 FROM listening_revision_sentences ss
+                     WHERE ss.revision_id=r.revision_id
+                       AND (ss.start_ms<0 OR ss.end_ms<=ss.start_ms OR ss.end_ms>r.duration_ms
                             OR TRIM(ss.english)='' OR TRIM(ss.chinese)='')
                  )
-                 AND (SELECT COUNT(*) FROM listening_questions q WHERE q.episode_id=e.id) BETWEEN 3 AND 8
+                 AND (SELECT COUNT(*) FROM listening_revision_questions q
+                      WHERE q.revision_id=r.revision_id) BETWEEN 3 AND 8
                  AND NOT EXISTS (
-                     SELECT 1 FROM listening_questions q
-                     WHERE q.episode_id=e.id
+                     SELECT 1 FROM listening_revision_questions q
+                     WHERE q.revision_id=r.revision_id
                        AND (TRIM(q.prompt)='' OR TRIM(q.explanation)=''
                             OR q.evidence_sentence_id IS NULL
                             OR NOT EXISTS (
-                                SELECT 1 FROM listening_sentences ev
-                                WHERE ev.id=q.evidence_sentence_id AND ev.episode_id=e.id
+                                SELECT 1 FROM listening_revision_sentences ev
+                                WHERE ev.revision_id=q.revision_id
+                                  AND ev.sentence_id=q.evidence_sentence_id
                             )
-                            OR (SELECT COUNT(*) FROM listening_choices ch WHERE ch.question_id=q.id) NOT BETWEEN 2 AND 6
-                            OR (SELECT SUM(ch.is_correct) FROM listening_choices ch WHERE ch.question_id=q.id)<>1)
+                            OR (SELECT COUNT(*) FROM listening_revision_choices ch
+                                WHERE ch.revision_id=q.revision_id
+                                  AND ch.question_id=q.question_id) NOT BETWEEN 2 AND 6
+                            OR (SELECT SUM(ch.is_correct) FROM listening_revision_choices ch
+                                WHERE ch.revision_id=q.revision_id
+                                  AND ch.question_id=q.question_id)<>1)
                  )
                ORDER BY e.id""",
             arrayOf(nowMs.toString())
@@ -277,15 +293,18 @@ class ListeningRepository(private val helper: WordsDatabase) {
                 )
             }
         }
+    }
 
     private fun getRecentAssignmentHistory(
         sinceDate: String,
         beforeDate: String
     ): List<ListeningAssignmentHistory> =
         helper.readableDatabase.rawQuery(
-            """SELECT e.id,e.category,e.level,e.accent
+            """SELECT e.id,COALESCE(r.category,e.category),COALESCE(r.level,e.level),
+                      COALESCE(r.accent,e.accent)
                FROM listening_daily_assignments d
                JOIN listening_episodes e ON e.id=d.episode_id
+               LEFT JOIN listening_episode_revisions r ON r.revision_id=d.content_revision_id
                WHERE d.assignment_date>=? AND d.assignment_date<?
                ORDER BY d.assignment_date DESC LIMIT 7""",
             arrayOf(sinceDate, beforeDate)
@@ -336,7 +355,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
 
     fun getEpisodes(): List<ListeningEpisode> = helper.readableDatabase.rawQuery(
         """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo,updated_at
-           FROM listening_episodes WHERE status IN ('approved','demo') ORDER BY is_demo ASC,title ASC""",
+           FROM listening_episodes e WHERE status IN ('approved','demo') AND (NOT EXISTS (SELECT 1 FROM listening_package_episodes pe WHERE pe.episode_id=e.id) OR EXISTS (SELECT 1 FROM listening_package_episodes pe WHERE pe.episode_id=e.id AND pe.is_active=1)) ORDER BY is_demo ASC,title ASC""",
         null
     ).use { cursor ->
         buildList {
