@@ -3,7 +3,7 @@ name: Build words APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, 'feature/**']
+    branches: [main]
   pull_request:
     branches: [main]
 
