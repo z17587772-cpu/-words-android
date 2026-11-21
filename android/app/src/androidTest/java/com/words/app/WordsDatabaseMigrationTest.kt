@@ -130,7 +130,10 @@ class WordsDatabaseMigrationTest {
         val valid = ListeningContentPackageValidator.validate(validPackageManifest(), 22)
         assertEquals("words-listening-core", valid.packageId)
         assertEquals(1, valid.episodes.size)
-        assertEquals(1, valid.episodes.single().questions.single().choices.count { it.isCorrect })
+        assertEquals(3, valid.episodes.single().questions.size)
+        assertTrue(valid.episodes.single().questions.all { question ->
+            question.choices.count { choice -> choice.isCorrect } == 1
+        })
 
         assertInvalid(validPackageManifest().replace("audio/lesson-01.mp3", "../outside.mp3"))
         assertInvalid(validPackageManifest().replace("a".repeat(64), "not-a-checksum"))
