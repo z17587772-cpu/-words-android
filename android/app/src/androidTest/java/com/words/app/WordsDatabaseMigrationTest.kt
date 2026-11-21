@@ -336,6 +336,28 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun dailyPlannerRejectsStreamingOnlyLicense() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        val db = helper.writableDatabase
+        insertApprovedLesson(db, "stream-only-lesson", "L4", "daily", "American")
+        db.update(
+            "listening_licenses",
+            android.content.ContentValues().apply { put("allowed_actions", "in_app_playback") },
+            "id=?",
+            arrayOf("license-stream-only-lesson")
+        )
+
+        assertEquals(null, repository.assignDailyEpisode("2026-11-21", 1_795_300_000_000L))
+        assertEquals(
+            0,
+            scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='stream-only-lesson'")
+        )
+        helper.close()
+    }
+
+    @Test
     fun packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
