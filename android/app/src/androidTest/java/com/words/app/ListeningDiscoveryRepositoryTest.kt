@@ -85,6 +85,10 @@ class ListeningDiscoveryRepositoryTest {
         assertEquals("downloaded", listed.status)
         assertEquals("/private/example.mp3", listed.localFilePath)
         assertTrue(listed.pinned)
+        assertFalse(repository.markLocalFileEvicted(id, "/private/example.mp3"))
+        repository.setPinned(id, false)
+        assertTrue(repository.markLocalFileEvicted(id, "/private/example.mp3"))
+        assertTrue(repository.requeueExpiredDownload(id))
         helper.close()
     }
 
