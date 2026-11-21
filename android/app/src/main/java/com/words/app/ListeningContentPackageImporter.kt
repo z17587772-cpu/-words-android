@@ -184,7 +184,7 @@ class ListeningContentPackageImporter(
                         "SELECT is_demo,status FROM listening_episodes WHERE id=? LIMIT 1",
                         arrayOf(episode.id)
                     ).use { cursor ->
-                        if (cursor.moveToFirst()) cursor.getInt(0) == 1 to cursor.getString(1) else null
+                        if (cursor.moveToFirst()) (cursor.getInt(0) == 1) to cursor.getString(1) else null
                     }
                     require(
                         (existingEpisode == null && owner == null) ||
