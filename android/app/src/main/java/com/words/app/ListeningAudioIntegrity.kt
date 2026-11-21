@@ -75,6 +75,61 @@ object ListeningAudioIntegrity {
         }
     }
 
+    /**
+     * Installs an immutable revision asset. Existing destinations are never
+     * replaced; this prevents a failed or racing import from overwriting audio
+     * already referenced by a published revision.
+     */
+    fun copyAndVerifyNew(
+        source: InputStream,
+        destination: File,
+        expected: ListeningPackageAudio
+    ): File {
+        require(!destination.exists()) { "Immutable audio destination already exists" }
+        val parent = destination.absoluteFile.parentFile
+            ?: throw IllegalArgumentException("Audio destination must have a parent directory")
+        require(parent.exists() || parent.mkdirs()) { "Cannot create audio directory" }
+
+        val temporary = File.createTempFile(".revision-audio-", ".part", parent)
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            var copied = 0L
+            source.use { input ->
+                FileOutputStream(temporary).use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        if (read == 0) continue
+                        copied += read
+                        require(copied <= expected.sizeBytes) { "Audio exceeds declared size" }
+                        digest.update(buffer, 0, read)
+                        output.write(buffer, 0, read)
+                    }
+                    output.fd.sync()
+                }
+            }
+            require(copied == expected.sizeBytes) { "Audio size does not match manifest" }
+            val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
+            require(actualHash.equals(expected.sha256, ignoreCase = true)) {
+                "Audio SHA-256 does not match manifest"
+            }
+            try {
+                Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                // No REPLACE_EXISTING: a race or pre-existing destination must fail closed.
+                Files.move(temporary.toPath(), destination.toPath())
+            }
+            require(verify(destination, expected)) { "Installed audio failed post-move verification" }
+            return destination
+        } catch (error: Exception) {
+            runCatching { if (destination.exists()) destination.delete() }
+            throw error
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
+    }
+
     fun verify(file: File, expected: ListeningPackageAudio): Boolean {
         if (!file.isFile || file.length() != expected.sizeBytes) return false
         val digest = MessageDigest.getInstance("SHA-256")
