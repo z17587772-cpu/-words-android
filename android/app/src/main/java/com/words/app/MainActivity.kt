@@ -2276,7 +2276,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val sentences = listeningRepository.getSentencesForAttempt(listeningAttemptId)
         val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
         val answerReviews = listeningRepository.getAttemptAnswerReviews(listeningAttemptId).associateBy { it.questionId }
-        val score = if (questions.isEmpty()) 0 else (listeningCorrectCount * 100 / questions.size)
+        val persistedCorrectCount = answerReviews.values.count { it.isCorrect }
+        val score = if (questions.isEmpty()) 0 else (persistedCorrectCount * 100 / questions.size)
         addSectionTitle(parent, "训练复盘", "把没听出来的内容真正听明白")
         parent.addView(vSpace(12))
         val result = card(18)
@@ -2284,7 +2285,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         result.addView(vSpace(4))
         result.addView(text("$score%", 34f, accent, true))
         result.addView(vSpace(4))
-        result.addView(text("${listeningCorrectCount} / ${questions.size} 道题答对", 12f, secondary))
+        result.addView(text("${persistedCorrectCount} / ${questions.size} 道题答对", 12f, secondary))
         result.addView(vSpace(11))
         result.addView(text("成绩只记录本次作答，不覆盖此前训练记录。后续重做会产生一条新的训练记录。", 11f, secondary))
         parent.addView(result)
