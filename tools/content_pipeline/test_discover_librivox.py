@@ -119,6 +119,32 @@ class DiscoveryTests(unittest.TestCase):
             self.assertEqual(expected, result["since_epoch"])
             self.assertEqual([(expected, 0)], observed)
 
+    def test_full_bootstrap_failure_keeps_last_five_page_checkpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            calls = []
+            def fetcher(since, offset):
+                calls.append(offset)
+                if offset == 2500:
+                    raise RuntimeError("temporary API outage")
+                return [
+                    {"id": offset + index + 1, "title": f"Book {offset + index + 1}", "language": "English"}
+                    for index in range(500)
+                ]
+            with self.assertRaises(RuntimeError):
+                discover(
+                    root,
+                    now=datetime(2026, 11, 21, tzinfo=timezone.utc),
+                    fetcher=fetcher,
+                    sleep=lambda _: None,
+                )
+            self.assertEqual([0, 500, 1000, 1500, 2000, 2500], calls)
+            state = json.loads((root / "state" / "librivox.json").read_text())
+            inbox = json.loads((root / "inbox" / "librivox_candidates.json").read_text())
+            self.assertFalse(state["bootstrap_complete"])
+            self.assertEqual(2500, state["bootstrap_offset"])
+            self.assertEqual(2500, len(inbox["candidates"]))
+
     def test_full_catalog_bootstrap_resumes_from_persisted_page_checkpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
