@@ -78,7 +78,7 @@ object ListeningPackageArchive {
                                 if (read == 0) continue
                                 entryBytes += read
                                 totalBytes += read
-                                require(entryBytes <= MAX_ENTRY_BYTES) {
+                                require(entryBytes <= if (isManifest) MAX_MANIFEST_BYTES else MAX_ENTRY_BYTES) {
                                     "Package entry exceeds the file size limit"
                                 }
                                 require(totalBytes <= MAX_TOTAL_UNCOMPRESSED_BYTES) {
@@ -107,6 +107,7 @@ object ListeningPackageArchive {
     private const val MANIFEST_NAME = "manifest.json"
     private const val AUDIO_PREFIX = "audio/"
     private const val MAX_ENTRIES = 2_048
+    private const val MAX_MANIFEST_BYTES = 1L * 1024L * 1024L
     private const val MAX_ENTRY_BYTES = 512L * 1024L * 1024L
     private const val MAX_TOTAL_UNCOMPRESSED_BYTES = 1L * 1024L * 1024L * 1024L
 }
