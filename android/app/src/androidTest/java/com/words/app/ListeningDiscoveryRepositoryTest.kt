@@ -57,8 +57,8 @@ class ListeningDiscoveryRepositoryTest {
         )
         repository.upsertCandidate(initial.copy(
             title = "Provider title refresh",
-            rightsStatus = "unknown",
-            allowedActions = emptySet()
+            rightsStatus = "cleared",
+            allowedActions = setOf("in_app_playback", "offline_download")
         ), 300L)
 
         val row = helper.readableDatabase.rawQuery(
@@ -112,6 +112,48 @@ class ListeningDiscoveryRepositoryTest {
         )
         assertTrue(repository.markLocalFileEvicted(id, "/private/example.mp3"))
         assertTrue(repository.requeueExpiredDownload(id))
+        helper.close()
+    }
+
+    @Test
+    fun sourceLicenseRevocationRemovesLocalPlaybackAndDownloadAccess() {
+        context.deleteDatabase("words_local.db")
+        val helper = WordsDatabase(context)
+        val repository = ListeningDiscoveryRepository(helper)
+        val candidate = DiscoveredListeningResource(
+            provider = "internet_archive",
+            providerItemId = "license-item#track.mp3",
+            canonicalUrl = "https://archive.org/details/license-item",
+            mediaUrl = "https://archive.org/download/license-item/track.mp3",
+            title = "Licensed track",
+            rightsStatus = "cleared",
+            allowedActions = setOf("in_app_playback", "offline_download"),
+            expectedSizeBytes = 100L
+        )
+        val id = repository.upsertCandidate(candidate)
+        assertTrue(repository.queueDownload(id))
+        repository.updateDownloadStatus(id, "downloading")
+        repository.saveLocalFile(id, "/private/licensed.mp3", "b".repeat(64), 60_000L)
+
+        repository.upsertCandidate(candidate.copy(
+            rightsStatus = "review_required",
+            allowedActions = emptySet(),
+            licenseName = "",
+            licenseUrl = ""
+        ))
+
+        val row = helper.readableDatabase.rawQuery(
+            "SELECT rights_status,allowed_actions,status,local_file_path FROM listening_discovered_resources WHERE id=?",
+            arrayOf(id)
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            listOf(c.getString(0), c.getString(1), c.getString(2), c.getString(3))
+        }
+        assertEquals("review_required", row[0])
+        assertEquals("", row[1])
+        assertEquals("expired", row[2])
+        assertEquals("", row[3])
+        assertFalse(repository.queueDownload(id))
         helper.close()
     }
 
