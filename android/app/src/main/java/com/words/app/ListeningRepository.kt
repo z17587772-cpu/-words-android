@@ -323,6 +323,35 @@ class ListeningRepository(private val helper: WordsDatabase) {
             arrayOf(questionId)
         ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
 
+    fun getAttemptAnswerReviews(attemptId: Long): List<ListeningAnswerReview> =
+        helper.readableDatabase.rawQuery(
+            """SELECT q.id,a.selected_choice_id,selected.content,correct.id,correct.content,
+                      COALESCE(a.is_correct,0)
+               FROM listening_attempts attempt
+               JOIN listening_questions q ON q.episode_id=attempt.episode_id
+               LEFT JOIN listening_answers a
+                 ON a.attempt_id=attempt.id AND a.question_id=q.id AND a.attempt_no=1
+               LEFT JOIN listening_choices selected ON selected.id=a.selected_choice_id
+               JOIN listening_choices correct
+                 ON correct.question_id=q.id AND correct.is_correct=1
+               WHERE attempt.id=?
+               ORDER BY q.ordinal""",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(
+                    ListeningAnswerReview(
+                        questionId = cursor.getString(0),
+                        selectedChoiceId = if (cursor.isNull(1)) null else cursor.getLong(1),
+                        selectedContent = if (cursor.isNull(2)) null else cursor.getString(2),
+                        correctChoiceId = cursor.getLong(3),
+                        correctContent = cursor.getString(4),
+                        isCorrect = cursor.getInt(5) == 1
+                    )
+                )
+            }
+        }
+
     fun startAttempt(episodeId: String): Long = database.insertOrThrow(
         "listening_attempts", null, ContentValues().apply {
             put("episode_id", episodeId)
