@@ -155,6 +155,60 @@ class ListeningRepository(private val helper: WordsDatabase) {
         return getAssignedEpisodeId(assignmentDate)
     }
 
+
+    private fun ensureCurrentRevision(db: SQLiteDatabase, episodeId: String): String {
+        val current = db.rawQuery(
+            "SELECT current_revision_id FROM listening_episodes WHERE id=?",
+            arrayOf(episodeId)
+        ).use { cursor ->
+            require(cursor.moveToFirst()) { "Listening episode does not exist: $episodeId" }
+            if (cursor.isNull(0)) null else cursor.getString(0).takeIf { it.isNotBlank() }
+        }
+        if (current != null) return current
+        val updatedAt = db.rawQuery(
+            "SELECT updated_at FROM listening_episodes WHERE id=?",
+            arrayOf(episodeId)
+        ).use { cursor -> require(cursor.moveToFirst()); cursor.getLong(0) }
+        val revisionId = "legacy:$episodeId:$updatedAt"
+        db.insertWithOnConflict("listening_episode_revisions", null, ContentValues().apply {
+            put("revision_id", revisionId)
+            put("episode_id", episodeId)
+            put("revision_hash", "legacy-runtime")
+            put("created_at", updatedAt)
+        }, SQLiteDatabase.CONFLICT_IGNORE)
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_revision_sentences(
+                revision_id,sentence_id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
+            )
+            SELECT ?,id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
+            FROM listening_sentences WHERE episode_id=?
+        """.trimIndent(), arrayOf(revisionId, episodeId))
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_revision_questions(
+                revision_id,question_id,episode_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
+            )
+            SELECT ?,id,episode_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
+            FROM listening_questions WHERE episode_id=?
+        """.trimIndent(), arrayOf(revisionId, episodeId))
+        db.execSQL("""
+            INSERT OR IGNORE INTO listening_revision_choices(
+                revision_id,question_id,choice_id,ordinal,content,is_correct
+            )
+            SELECT ?,c.question_id,c.id,c.ordinal,c.content,c.is_correct
+            FROM listening_choices c
+            JOIN listening_questions q ON q.id=c.question_id
+            WHERE q.episode_id=?
+        """.trimIndent(), arrayOf(revisionId, episodeId))
+        db.execSQL(
+            "UPDATE listening_episodes SET current_revision_id=? WHERE id=? AND (current_revision_id IS NULL OR current_revision_id='')",
+            arrayOf(revisionId, episodeId)
+        )
+        return db.rawQuery(
+            "SELECT current_revision_id FROM listening_episodes WHERE id=?",
+            arrayOf(episodeId)
+        ).use { cursor -> require(cursor.moveToFirst()); cursor.getString(0) }
+    }
+
     private fun getAssignedEpisodeId(assignmentDate: String): String? =
         helper.readableDatabase.rawQuery(
             "SELECT episode_id FROM listening_daily_assignments WHERE assignment_date=? LIMIT 1",
@@ -271,11 +325,13 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     }
 
-    fun getSentences(episodeId: String): List<ListeningSentence> =
-        helper.readableDatabase.rawQuery(
-            """SELECT id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
-               FROM listening_sentences WHERE episode_id=? ORDER BY ordinal""",
-            arrayOf(episodeId)
+    fun getSentences(episodeId: String): List<ListeningSentence> {
+        val db = helper.writableDatabase
+        val revisionId = ensureCurrentRevision(db, episodeId)
+        return db.rawQuery(
+            """SELECT sentence_id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
+               FROM listening_revision_sentences WHERE revision_id=? ORDER BY ordinal""",
+            arrayOf(revisionId)
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(
@@ -287,12 +343,15 @@ class ListeningRepository(private val helper: WordsDatabase) {
                 )
             }
         }
+    }
 
-    fun getQuestions(episodeId: String): List<ListeningQuestion> =
-        helper.readableDatabase.rawQuery(
-            """SELECT id,episode_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
-               FROM listening_questions WHERE episode_id=? ORDER BY ordinal""",
-            arrayOf(episodeId)
+    fun getQuestions(episodeId: String): List<ListeningQuestion> {
+        val db = helper.writableDatabase
+        val revisionId = ensureCurrentRevision(db, episodeId)
+        return db.rawQuery(
+            """SELECT question_id,episode_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
+               FROM listening_revision_questions WHERE revision_id=? ORDER BY ordinal""",
+            arrayOf(revisionId)
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
@@ -300,41 +359,61 @@ class ListeningRepository(private val helper: WordsDatabase) {
                     val evidence = if (cursor.isNull(6)) null else cursor.getString(6)
                     add(ListeningQuestion(
                         questionId, cursor.getString(1), cursor.getInt(2), cursor.getString(3),
-                        cursor.getString(4), cursor.getString(5), evidence, getOptions(questionId)
+                        cursor.getString(4), cursor.getString(5), evidence,
+                        getOptions(questionId, revisionId)
                     ))
                 }
             }
         }
+    }
 
-    private fun getOptions(questionId: String): List<ListeningOption> =
+    fun getOptions(questionId: String): List<ListeningOption> {
+        val db = helper.writableDatabase
+        val episodeId = db.rawQuery(
+            "SELECT episode_id FROM listening_questions WHERE id=?", arrayOf(questionId)
+        ).use { cursor ->
+            require(cursor.moveToFirst()) { "Listening question does not exist: $questionId" }
+            cursor.getString(0)
+        }
+        return getOptions(questionId, ensureCurrentRevision(db, episodeId))
+    }
+
+    private fun getOptions(questionId: String, revisionId: String): List<ListeningOption> =
         helper.readableDatabase.rawQuery(
-            "SELECT id,content FROM listening_choices WHERE question_id=? ORDER BY ordinal",
-            arrayOf(questionId)
+            "SELECT choice_id,content FROM listening_revision_choices WHERE revision_id=? AND question_id=? ORDER BY ordinal",
+            arrayOf(revisionId, questionId)
         ).use { cursor ->
             buildList {
-                while (cursor.moveToNext()) add(
-                    ListeningOption(cursor.getLong(0), cursor.getString(1))
-                )
+                while (cursor.moveToNext()) add(ListeningOption(cursor.getLong(0), cursor.getString(1)))
             }
         }
 
-    fun getCorrectChoiceId(questionId: String): Long? =
-        helper.readableDatabase.rawQuery(
-            "SELECT id FROM listening_choices WHERE question_id=? AND is_correct=1 LIMIT 1",
-            arrayOf(questionId)
+    fun getCorrectChoiceId(questionId: String): Long? {
+        val db = helper.writableDatabase
+        val episodeId = db.rawQuery(
+            "SELECT episode_id FROM listening_questions WHERE id=?", arrayOf(questionId)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else return null }
+        val revisionId = ensureCurrentRevision(db, episodeId)
+        return db.rawQuery(
+            "SELECT choice_id FROM listening_revision_choices WHERE revision_id=? AND question_id=? AND is_correct=1 LIMIT 1",
+            arrayOf(revisionId, questionId)
         ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
+    }
 
     fun getAttemptAnswerReviews(attemptId: Long): List<ListeningAnswerReview> =
         helper.readableDatabase.rawQuery(
-            """SELECT q.id,a.selected_choice_id,selected.content,correct.id,correct.content,
+            """SELECT q.question_id,a.selected_choice_id,selected.content,correct.choice_id,correct.content,
                       COALESCE(a.is_correct,0)
                FROM listening_attempts attempt
-               JOIN listening_questions q ON q.episode_id=attempt.episode_id
+               JOIN listening_revision_questions q ON q.revision_id=attempt.content_revision_id
                LEFT JOIN listening_answers a
-                 ON a.attempt_id=attempt.id AND a.question_id=q.id AND a.attempt_no=1
-               LEFT JOIN listening_choices selected ON selected.id=a.selected_choice_id
-               JOIN listening_choices correct
-                 ON correct.question_id=q.id AND correct.is_correct=1
+                 ON a.attempt_id=attempt.id AND a.question_id=q.question_id AND a.attempt_no=1
+               LEFT JOIN listening_revision_choices selected
+                 ON selected.revision_id=attempt.content_revision_id
+                AND selected.question_id=q.question_id AND selected.choice_id=a.selected_choice_id
+               JOIN listening_revision_choices correct
+                 ON correct.revision_id=attempt.content_revision_id
+                AND correct.question_id=q.question_id AND correct.is_correct=1
                WHERE attempt.id=? AND attempt.completed_at IS NOT NULL
                ORDER BY q.ordinal""",
             arrayOf(attemptId.toString())
@@ -353,13 +432,25 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
         }
 
-    fun startAttempt(episodeId: String): Long = database.insertOrThrow(
-        "listening_attempts", null, ContentValues().apply {
-            put("episode_id", episodeId)
-            put("started_at", System.currentTimeMillis())
-            put("stage", "blind")
+    fun startAttempt(episodeId: String): Long {
+        val db = database
+        db.beginTransaction()
+        try {
+            val revisionId = ensureCurrentRevision(db, episodeId)
+            val attemptId = db.insertOrThrow(
+                "listening_attempts", null, ContentValues().apply {
+                    put("episode_id", episodeId)
+                    put("content_revision_id", revisionId)
+                    put("started_at", System.currentTimeMillis())
+                    put("stage", "blind")
+                }
+            )
+            db.setTransactionSuccessful()
+            return attemptId
+        } finally {
+            db.endTransaction()
         }
-    )
+    }
 
     fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean {
         val existing = helper.readableDatabase.rawQuery(
@@ -370,13 +461,15 @@ class ListeningRepository(private val helper: WordsDatabase) {
 
         val correct = helper.readableDatabase.rawQuery(
             """SELECT choice.is_correct
-               FROM listening_choices choice
-               JOIN listening_questions question ON question.id=choice.question_id
-               JOIN listening_attempts attempt ON attempt.episode_id=question.episode_id
+               FROM listening_attempts attempt
+               JOIN listening_revision_questions question
+                 ON question.revision_id=attempt.content_revision_id AND question.question_id=?
+               JOIN listening_revision_choices choice
+                 ON choice.revision_id=attempt.content_revision_id
+                AND choice.question_id=question.question_id AND choice.choice_id=?
                WHERE attempt.id=? AND attempt.completed_at IS NULL
-                 AND question.id=? AND choice.id=?
                LIMIT 1""",
-            arrayOf(attemptId.toString(), questionId, choiceId.toString())
+            arrayOf(questionId, choiceId.toString(), attemptId.toString())
         ).use { cursor ->
             require(cursor.moveToFirst()) {
                 "The selected choice does not belong to this question and attempt"
@@ -422,9 +515,9 @@ class ListeningRepository(private val helper: WordsDatabase) {
                           SUM(CASE WHEN answer.id IS NOT NULL THEN 1 ELSE 0 END),
                           SUM(CASE WHEN answer.is_correct=1 THEN 1 ELSE 0 END)
                    FROM listening_attempts attempt
-                   JOIN listening_questions question ON question.episode_id=attempt.episode_id
+                   JOIN listening_revision_questions question ON question.revision_id=attempt.content_revision_id
                    LEFT JOIN listening_answers answer
-                     ON answer.attempt_id=attempt.id AND answer.question_id=question.id AND answer.attempt_no=1
+                     ON answer.attempt_id=attempt.id AND answer.question_id=question.question_id AND answer.attempt_no=1
                    WHERE attempt.id=?""",
                 arrayOf(attemptId.toString())
             ).use { cursor ->
