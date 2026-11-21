@@ -96,18 +96,19 @@ Retain Ed25519 catalog verification, SHA-256, package compatibility and transact
 ## 7. Implementation phases and exit gates
 
 ### D0 — Product/data model
-- [ ] Add dedicated discovered-resource table and DAO/repository.
-- [ ] Add stable provider cursor/state storage.
+- [x] Add dedicated discovered-resource table and repository.
+- [x] Add stable provider cursor/state storage.
 - [ ] Add status, rights, attribution and local-file metadata.
 - [ ] Keep raw resources separate from formal lesson tables.
 
 Exit: schema migration tests prove existing vocabulary/listening history is unchanged.
 
 ### D1 — On-device provider discovery
-- [ ] Implement provider interface and LibriVox adapter in Android.
-- [ ] Implement Internet Archive search/metadata adapter after rights parser tests.
-- [ ] Pagination, request pacing, timeout, retry, ETag/cursor and cancellation.
-- [ ] Normalize metadata and persist candidates idempotently.
+- [x] Implement first on-device LibriVox metadata adapter.
+- [ ] Generalize provider interface and implement Internet Archive search/metadata adapter after rights parser tests.
+- [x] LibriVox pagination, request pacing, timeout, retry/backoff and persisted cursor.
+- [x] Normalize English metadata and persist candidates idempotently.
+- [ ] Add provider cancellation, ETag/conditional requests and broader adapter tests.
 
 Exit: instrumented/fake-server tests prove pagination, restart recovery, duplicate handling, malformed response handling and provider rate limiting.
 
@@ -146,5 +147,5 @@ Exit: only complete, reviewed lessons become eligible for daily assignment.
 
 ## 8. Explicitly not considered complete
 
-The current Python LibriVox discovery worker is metadata-only and runs in GitHub Actions. It does not run inside the Android app, download audio, or save recordings to the user's local library. The current Android signed-catalog worker downloads packages from one configured catalog endpoint; it does not search the wider internet. Neither component alone meets the corrected requirement.
+The Python LibriVox worker remains a metadata-only GitHub Actions harvester. An initial Android LibriVox metadata adapter now runs inside the app and saves normalized candidate records to SQLite. This is only the discovery/indexing foundation: it does not yet download audio, unpack tracks, expose a resource-library UI or play raw resources. The signed-catalog worker remains a separate fixed-endpoint course distribution lane.
 
