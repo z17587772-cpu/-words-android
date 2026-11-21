@@ -13,7 +13,14 @@ class ListeningRepository(private val helper: WordsDatabase) {
             "SELECT 1 FROM listening_episodes WHERE id=?",
             arrayOf(DEMO_EPISODE_ID)
         ).use { it.moveToFirst() }
-        if (exists) return
+        if (exists) {
+            database.insertWithOnConflict("listening_daily_assignments", null, ContentValues().apply {
+                put("assignment_date", LocalDate.now().toString())
+                put("episode_id", DEMO_EPISODE_ID)
+                put("created_at", System.currentTimeMillis())
+            }, SQLiteDatabase.CONFLICT_IGNORE)
+            return
+        }
 
         val db = database
         db.beginTransaction()
