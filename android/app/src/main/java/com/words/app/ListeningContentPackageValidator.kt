@@ -105,7 +105,9 @@ object ListeningContentPackageValidator {
         }
         val revision = root.requiredString("content_revision", "package")
         val episodesJson = root.requiredArray("episodes", "package")
-        require(episodesJson.length() > 0) { "package.episodes must not be empty" }
+        require(episodesJson.length() in 1..MAX_EPISODES_PER_PACKAGE) {
+            "package.episodes must contain 1-$MAX_EPISODES_PER_PACKAGE episodes"
+        }
 
         val episodeIds = mutableSetOf<String>()
         val episodes = (0 until episodesJson.length()).map { index ->
@@ -155,15 +157,15 @@ object ListeningContentPackageValidator {
     private fun parseAudio(json: JSONObject, path: String): ListeningPackageAudio {
         val audioPath = json.requiredString("path", path)
         val segments = audioPath.split("/")
-        require(!audioPath.startsWith("/") && !audioPath.contains("\\") &&
+        require(audioPath.startsWith("audio/") && !audioPath.startsWith("/") && !audioPath.contains("\\") &&
             segments.none { it.isBlank() || it == "." || it == ".." }
-        ) { "$path.path must be a safe relative path" }
+        ) { "$path.path must be a safe path inside audio/" }
         val size = json.requiredLong("size_bytes", path)
         require(size in 1L..MAX_AUDIO_SIZE_BYTES) { "$path.size_bytes is outside the supported range" }
         val checksum = json.requiredString("sha256", path)
         require(sha256Pattern.matches(checksum)) { "$path.sha256 must be a 64-character hex digest" }
-        val mime = json.requiredString("mime_type", path)
-        require(mime.startsWith("audio/")) { "$path.mime_type must be audio/*" }
+        val mime = json.requiredString("mime_type", path).lowercase()
+        require(mime in SUPPORTED_AUDIO_MIME_TYPES) { "$path.mime_type is unsupported" }
         val language = json.requiredString("language", path)
         require(language.startsWith("en", ignoreCase = true)) { "$path.language must identify English audio" }
         return ListeningPackageAudio(audioPath, size, checksum.lowercase(), mime, language)
@@ -303,5 +305,7 @@ object ListeningContentPackageValidator {
     }
 
     const val SUPPORTED_SCHEMA_VERSION = 1
+    private val SUPPORTED_AUDIO_MIME_TYPES = setOf("audio/mpeg", "audio/mp4", "audio/aac", "audio/ogg", "audio/opus", "audio/wav", "audio/x-wav", "audio/flac")
+    private const val MAX_EPISODES_PER_PACKAGE = 500
     private const val MAX_AUDIO_SIZE_BYTES = 512L * 1024L * 1024L
 }
