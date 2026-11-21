@@ -28,7 +28,8 @@ data class DiscoveredListeningResource(
     val id: String = "",
     val status: String = "discovered",
     val localFilePath: String = "",
-    val pinned: Boolean = false
+    val pinned: Boolean = false,
+    val contentSha256: String = ""
 ) {
     val stableId: String
         get() {
@@ -219,7 +220,7 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         val safeLimit = limit.coerceIn(1, 500)
         val where = if (downloadedOnly) "WHERE status='downloaded'" else ""
         return helper.readableDatabase.rawQuery(
-            "SELECT id,provider,provider_item_id,canonical_url,media_url,title,description,language,duration_ms,creator,license_name,license_url,rights_status,allowed_actions,attribution,territory,mime_type,expected_size_bytes,expected_sha256,etag,status,local_file_path,pinned FROM listening_discovered_resources $where ORDER BY discovered_at DESC LIMIT ?",
+            "SELECT id,provider,provider_item_id,canonical_url,media_url,title,description,language,duration_ms,creator,license_name,license_url,rights_status,allowed_actions,attribution,territory,mime_type,expected_size_bytes,expected_sha256,content_sha256,etag,status,local_file_path,pinned FROM listening_discovered_resources $where ORDER BY pinned DESC,COALESCE(last_played_at,0) DESC,discovered_at DESC LIMIT ?",
             arrayOf(safeLimit.toString())
         ).use { c ->
             buildList {
@@ -232,8 +233,8 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                         licenseUrl = c.getString(11), rightsStatus = c.getString(12),
                         allowedActions = c.getString(13).split(',').filter { it.isNotBlank() }.toSet(),
                         attribution = c.getString(14), territory = c.getString(15), mimeType = c.getString(16),
-                        expectedSizeBytes = c.getLong(17), expectedSha256 = c.getString(18), etag = c.getString(19),
-                        status = c.getString(20), localFilePath = c.getString(21), pinned = c.getInt(22) == 1
+                        expectedSizeBytes = c.getLong(17), expectedSha256 = c.getString(18), contentSha256 = c.getString(19), etag = c.getString(20),
+                        status = c.getString(21), localFilePath = c.getString(22), pinned = c.getInt(23) == 1
                     )
                 )
             }
