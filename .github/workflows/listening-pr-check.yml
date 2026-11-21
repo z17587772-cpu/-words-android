@@ -172,7 +172,12 @@ jobs:
           assert "assignmentCount" in planner and "lastAssignedDate" in planner
           assert "COUNT(*),MAX(d.assignment_date)" in repository
           assert "getAssignmentHistory(assignmentDate)" in repository
-          assert "dailyPlannerCompletesWholeCatalogPassAndAddsNewLessonsBeforeRepeats" in migration_test
+          assert "dailyPlannerNeverRepeatsAssignedLessonsAndAddsNewLessonsImmediately" in migration_test
+          assert "dailyPlannerDoesNotTreatAnUpdatedRevisionAsANewLesson" in migration_test
+          assert "unseenCandidates = candidates.filterNot" in planner
+          assert "if (unseenCandidates.isEmpty()) return null" in planner
+          assert "recentHistory" not in planner
+          assert "WHERE d.assignment_date<>?" in repository
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
           forbidden_build = "assemble" + "Debug"
