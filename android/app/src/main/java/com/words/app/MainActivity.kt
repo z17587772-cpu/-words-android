@@ -2404,11 +2404,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             item.addView(vSpace(5))
             val statusLabel = when {
                 local -> "已下载 · 可离线播放"
+                resource.rightsStatus == "review_required" -> "已发现 · 许可待核验"
                 resource.status == "downloading" -> "正在下载"
                 resource.status == "queued" -> "等待 Wi-Fi 下载"
                 resource.status == "failed" -> "下载失败 · 等待重试"
                 resource.status == "expired" -> "本地音频因空间管理已清理"
-                resource.rightsStatus == "review_required" -> "已发现 · 许可待核验"
+                resource.status == "downloaded" -> "本地文件缺失 · 正在校验修复"
                 else -> "已发现 · 等待处理"
             }
             item.addView(text(statusLabel, 11f, if (local) accent else secondary, true))
