@@ -87,3 +87,8 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 
 - Follow-up storage hardening: capped the discovered-audio library at 512 MiB, serialized downloads through one WorkManager unique chain, and only evicts unpinned recordings that have never been played. Metadata and learning history remain; evicted items can be manually downloaded again. Pinned and previously played files are protected.
 - The Internet Archive query now covers MARC21 `eng`, `English`, and `en` language metadata values; the license parser accepts both scalar and array metadata values. This was aligned with the IA metadata docs, which define `licenseurl` as the item's license field and describe language as a provider-supplied metadata value.
+
+- Discovery fairness fix: the Internet Archive adapter now maintains a 30-day per-item checked cursor, revisits newest page 1 each run, and advances a separate historical backfill page only after that page is scanned. This prevents the newest already-seen items from consuming every run and starving the historical cursor.
+- To keep each WorkManager execution bounded, the adapter performs at most three item-metadata lookups per page and six per run, queues at most four tracks per run, and selects one best-sized MP3 track per item. Invalid item metadata is skipped; transient HTTP/network errors still trigger retry/backoff.
+- Added downloaded-only and favorites filters, source-page navigation, explicit attribution text, and current storage usage to the in-app library.
+- Storage cleanup now protects pinned items and anything played in the last 30 days; older unpinned copies may be evicted while playback position/metadata remain for manual re-download and resume.
