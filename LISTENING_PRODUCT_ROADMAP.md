@@ -609,3 +609,14 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [ ] Execute the Python unit tests on GitHub Actions for the latest feature head.
 - [ ] Activate the scheduled worker after merge to the default branch and verify its first real API run.
 - [ ] Add editorial UI, audio/transcript processing, rights evidence review, course packaging, signed catalog publishing and Android sync. These are not implemented by metadata discovery.
+
+
+## 27. Full-catalog bootstrap and resumable paging (2026-11-21)
+
+- [x] Changed first-run behavior from a recent-window sample to a full LibriVox catalog backfill.
+- [x] Uses compact API metadata for the 500-item pages; extended per-section metadata is deferred until individual candidates are selected.
+- [x] Persists a bootstrap offset and atomically checkpoints the inbox every five pages.
+- [x] Resumes failed full-catalog scans from the last checkpoint; repeated pages are safe because candidate identity is provider ID.
+- [x] After bootstrap, switches to incremental sync with a three-day UTC overlap.
+- [x] Added tests for bootstrap resume, no-`since` initial requests, pagination, deduplication, pacing and incremental overlap.
+- [ ] Execute all Python tests on GitHub Actions and verify the first live full-catalog run after merge.
