@@ -15,7 +15,7 @@ import java.security.Signature
 class ListeningCatalogSyncTest {
     @Test
     fun verifiesEd25519EnvelopeAndRejectsPayloadTampering() {
-        val pair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
+        val pair = KeyPairGenerator.getInstance("Ed25519", "AndroidOpenSSL").generateKeyPair()
         val payload = JSONObject()
             .put("schema_version", 1)
             .put("catalog_version", 1)
