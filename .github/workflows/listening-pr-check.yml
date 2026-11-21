@@ -166,7 +166,7 @@ jobs:
           assert "fun getEpisodeForDailyAssignment" in repository
           assert "getEpisodeForDailyAssignment(java.time.LocalDate.now().toString()" in activity
           assert "NO NEW COURSE" in activity and "暂无正式新课" in activity
-          assert "体验课程" in activity
+          assert "体验课说明" in activity and "演示课程" in activity
           assert "fun getAttemptProgress" in repository and "fun getAttemptAnswer" in repository
           assert "fun getLatestIncompleteAttempt" in repository and "fun abandonAttempt" in repository
           assert "getLatestIncompleteAttempt()" in activity
