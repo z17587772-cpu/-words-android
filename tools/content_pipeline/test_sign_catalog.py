@@ -8,7 +8,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 
-from sign_catalog import canonical_payload, previous_catalog_version, sign_payload, validate_assets
+from sign_catalog import canonical_payload, previous_catalog_version, sign_payload, validate_assets, validate_version_progression
 
 
 class CatalogSigningTests(unittest.TestCase):
@@ -69,11 +69,8 @@ class CatalogSigningTests(unittest.TestCase):
             self.assertEqual(7, previous_catalog_version(envelope_path))
             self.catalog["catalog_version"] = 7
             with self.assertRaisesRegex(ValueError, "must increase"):
-                from sign_catalog import main
-                # The version guard is also exercised directly through the CLI flow in CI.
                 previous = previous_catalog_version(envelope_path)
-                if self.catalog["catalog_version"] <= previous:
-                    raise ValueError("catalog_version must increase beyond the previously published catalog")
+                validate_version_progression(self.catalog, previous)
 
     def test_publisher_checks_local_package_size_and_digest(self):
         with tempfile.TemporaryDirectory() as tmp:
