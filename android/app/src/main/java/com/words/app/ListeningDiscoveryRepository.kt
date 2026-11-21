@@ -148,12 +148,6 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         return id
     }
 
-    fun hasProviderItemPrefix(provider: String, providerItemPrefix: String): Boolean =
-        helper.readableDatabase.rawQuery(
-            "SELECT 1 FROM listening_discovered_resources WHERE provider=? AND provider_item_id LIKE ? LIMIT 1",
-            arrayOf(provider, providerItemPrefix.replace("%", "\\%").replace("_", "\\_") + "%")
-        ).use { it.moveToFirst() }
-
     fun queueDownload(resourceId: String): Boolean {
         val candidate = db.rawQuery(
             "SELECT rights_status,allowed_actions,status FROM listening_discovered_resources WHERE id=?",
