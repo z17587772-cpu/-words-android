@@ -134,6 +134,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         db.seedBuiltInPack(this)
         ListeningCatalogSync.schedule(this)
         ListeningDiscoveryScheduler.schedule(this)
+        ListeningResourceAutomation.schedule(this)
         listeningRepository = ListeningRepository(db)
         listeningPlaybackCoordinator = ListeningPlaybackCoordinator(listeningRepository)
         listeningRepository.ensureDemoSeeded()
@@ -2296,6 +2297,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         parent.addView(vSpace(10))
 
+        renderDiscoveredResourceLibrary(parent)
+        parent.addView(vSpace(10))
+
         val stats = card(15)
         stats.addView(text("我的听力记录", 13f, ink, true))
         stats.addView(vSpace(6))
@@ -2303,6 +2307,115 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         stats.addView(vSpace(3))
         stats.addView(text("保留每次答题记录，后续可用于分析主旨、细节、推断和语音辨识能力。", 11f, secondary))
         parent.addView(stats)
+    }
+
+    private fun renderDiscoveredResourceLibrary(parent: LinearLayout) {
+        val discovery = ListeningDiscoveryRepository(db)
+        val resources = discovery.listResources(60)
+        val downloaded = resources.count { it.status == "downloaded" && it.localFilePath.isNotBlank() && java.io.File(it.localFilePath).isFile }
+        val queued = resources.count { it.status == "queued" || it.status == "downloading" }
+        val failed = resources.count { it.status == "failed" }
+        addSectionTitle(parent, "自动发现资源库", "应用联网寻找新英语听力 · Wi-Fi 下自动下载")
+        parent.addView(vSpace(8))
+        val summary = card(16)
+        summary.addView(text("已保存 $downloaded 条  ·  下载中 $queued 条  ·  失败 $failed 条", 12f, secondary, true))
+        summary.addView(vSpace(7))
+        summary.addView(text("来源：Internet Archive（明确开放许可）与 LibriVox（待逐项核验）。原始录音独立存放，不会自动变成正式课程。", 11f, secondary))
+        summary.addView(vSpace(10))
+        summary.addView(pillButton("立即搜索新资源", true) {
+            ListeningDiscoveryScheduler.schedule(this)
+            ListeningResourceAutomation.schedule(this)
+            Toast.makeText(this, "已安排联网搜索；符合许可的音频将在 Wi-Fi 下自动下载", Toast.LENGTH_LONG).show()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        parent.addView(summary)
+        parent.addView(vSpace(8))
+
+        if (resources.isEmpty()) {
+            val empty = card(15)
+            empty.addView(text("正在建立资源索引", 13f, ink, true))
+            empty.addView(vSpace(5))
+            empty.addView(text("首次搜索需要联网。找到符合开放许可的英语录音后，会自动排队下载并保存在本机。", 11f, secondary))
+            parent.addView(empty)
+            return
+        }
+
+        resources.forEach { resource ->
+            val local = resource.status == "downloaded" &&
+                resource.localFilePath.isNotBlank() && java.io.File(resource.localFilePath).isFile
+            val item = card(15)
+            val titleRow = row()
+            titleRow.addView(
+                text(resource.title, 14f, ink, true),
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            titleRow.addView(quietButton(if (resource.pinned) "已收藏" else "收藏") {
+                discovery.setPinned(resource.id, !resource.pinned)
+                renderPage()
+            })
+            item.addView(titleRow)
+            if (resource.creator.isNotBlank()) {
+                item.addView(vSpace(4))
+                item.addView(text(resource.creator, 11f, secondary))
+            }
+            item.addView(vSpace(5))
+            val statusLabel = when {
+                local -> "已下载 · 可离线播放"
+                resource.status == "downloading" -> "正在下载"
+                resource.status == "queued" -> "等待 Wi-Fi 下载"
+                resource.status == "failed" -> "下载失败 · 等待重试"
+                resource.rightsStatus == "review_required" -> "已发现 · 许可待核验"
+                else -> "已发现 · 等待处理"
+            }
+            item.addView(text(statusLabel, 11f, if (local) accent else secondary, true))
+            item.addView(vSpace(4))
+            item.addView(text(
+                listOf(resource.provider, resource.licenseName, resource.durationMs.takeIf { it > 0L }?.let { "${(it + 59_999L) / 60_000L} 分钟" })
+                    .filterNotNull().filter { it.isNotBlank() }.joinToString("  ·  "),
+                10f, secondary
+            ))
+            if (local) {
+                item.addView(vSpace(8))
+                item.addView(pillButton("播放 / 继续收听  →", false) {
+                    playDiscoveredResource(resource)
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            } else if (resource.rightsStatus == "review_required") {
+                item.addView(vSpace(5))
+                item.addView(text("来源许可尚未满足自动离线保存条件，因此不会擅自下载。", 10f, secondary))
+            }
+            parent.addView(item)
+            parent.addView(vSpace(7))
+        }
+    }
+
+    private fun playDiscoveredResource(resource: DiscoveredListeningResource) {
+        val file = java.io.File(resource.localFilePath)
+        if (!file.isFile) {
+            Toast.makeText(this, "本地音频文件不存在，等待重新下载", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val controller = listeningMediaController
+        if (controller == null) {
+            Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
+            return
+        }
+        tts.stop()
+        val progress = ListeningDiscoveryRepository(db).getResourcePlayback(resource.id)
+        val item = MediaItem.Builder()
+            .setMediaId("resource:${resource.id}")
+            .setUri(Uri.fromFile(file))
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(resource.title)
+                    .setArtist("Words · 自动发现资源")
+                    .setExtras(Bundle().apply { putString("resource_id", resource.id) })
+                    .build()
+            )
+            .build()
+        controller.setMediaItem(item, progress?.positionMs?.coerceAtLeast(0L) ?: 0L)
+        controller.prepare()
+        controller.setPlaybackSpeed(progress?.speed?.coerceIn(0.5f, 2f) ?: 1f)
+        controller.play()
+        Toast.makeText(this, "正在播放本地音频", Toast.LENGTH_SHORT).show()
     }
 
     private fun renderListeningIntro(parent: LinearLayout) {
