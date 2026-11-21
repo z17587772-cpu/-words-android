@@ -55,7 +55,17 @@ class WordsDatabaseMigrationTest {
         repository.ensureDemoSeeded()
 
         val episodeId = ListeningRepository.DEMO_EPISODE_ID
+        val db = helper.writableDatabase
+        db.insertOrThrow("listening_daily_assignments", null, android.content.ContentValues().apply {
+            put("assignment_date", "2026-11-20")
+            put("episode_id", episodeId)
+            put("created_at", 1_795_132_800_000L)
+        })
         assertEquals(null, repository.assignDailyEpisode("2026-11-20", 1_795_132_800_000L))
+        assertEquals(
+            0,
+            scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='${episodeId}'")
+        )
         assertEquals(null, repository.getPlayback(episodeId))
         repository.savePlayback(episodeId, -500L, Float.NaN)
         val first = repository.getPlayback(episodeId)
