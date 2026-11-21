@@ -22,7 +22,7 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV5ToV7PreservesVocabularyAndLearningHistory() {
+    fun upgradingV5ToV10PreservesVocabularyAndLearningHistory() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
 
@@ -58,7 +58,7 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV6AddsAudioRevisionWithoutLosingSavedPlayback() {
+    fun upgradingV6ToV10PreservesAudioRevisionAndSavedPlayback() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
         val legacy = context.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null)
@@ -79,7 +79,7 @@ class WordsDatabaseMigrationTest {
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
-        assertEquals(9, upgraded.version)
+        assertEquals(10, upgraded.version)
         assertEquals(12_345, scalar(upgraded, "SELECT position_ms FROM listening_playback WHERE episode_id='legacy-episode'"))
         assertEquals(1.25f, upgraded.rawQuery("SELECT playback_speed FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
             assertTrue(it.moveToFirst())
