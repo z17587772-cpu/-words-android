@@ -183,6 +183,7 @@ class LibriVoxDiscoveryWorker(
         val providerId = raw.optString("id").takeIf { it.matches(Regex("[0-9]{1,12}")) } ?: return null
         val title = raw.optString("title").trim().takeIf { it.isNotEmpty() } ?: return null
         val language = raw.optString("language").trim()
+        if (!language.equals("English", ignoreCase = true)) return null
         val canonical = raw.optString("url_librivox").trim()
         val zip = raw.optString("url_zip_file").trim()
         val rss = raw.optString("url_rss").trim()
