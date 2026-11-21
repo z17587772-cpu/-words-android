@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 5) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 6) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -78,6 +78,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         """.trimIndent())
         db.execSQL("CREATE INDEX idx_words_book ON words(book_id)")
         db.execSQL("CREATE INDEX idx_history_date ON history(rated_at)")
+        createListeningTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -107,6 +108,147 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (oldVersion < 5) {
             db.execSQL("ALTER TABLE words ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
         }
+        if (oldVersion < 6) createListeningTables(db)
+    }
+
+    private fun createListeningTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_sources (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                source_url TEXT NOT NULL DEFAULT '',
+                rights_holder TEXT NOT NULL DEFAULT '',
+                attribution TEXT NOT NULL DEFAULT '',
+                checked_at INTEGER NOT NULL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_licenses (
+                id TEXT PRIMARY KEY,
+                license_name TEXT NOT NULL,
+                license_url TEXT NOT NULL DEFAULT '',
+                allowed_actions TEXT NOT NULL DEFAULT '',
+                territory TEXT NOT NULL DEFAULT '',
+                expires_at INTEGER,
+                notes TEXT NOT NULL DEFAULT ''
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_episodes (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                category TEXT NOT NULL,
+                level TEXT NOT NULL CHECK(level IN ('L1','L2','L3','L4')),
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                accent TEXT NOT NULL DEFAULT 'American',
+                speech_rate REAL NOT NULL DEFAULT 1.0,
+                audio_url TEXT,
+                source_id TEXT,
+                license_id TEXT,
+                status TEXT NOT NULL DEFAULT 'approved',
+                is_demo INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY(source_id) REFERENCES listening_sources(id),
+                FOREIGN KEY(license_id) REFERENCES listening_licenses(id)
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_sentences (
+                id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                start_ms INTEGER NOT NULL DEFAULT 0,
+                end_ms INTEGER NOT NULL DEFAULT 0,
+                english TEXT NOT NULL,
+                chinese TEXT NOT NULL DEFAULT '',
+                pronunciation_note TEXT NOT NULL DEFAULT '',
+                UNIQUE(episode_id, ordinal),
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_questions (
+                id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                question_type TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                explanation TEXT NOT NULL DEFAULT '',
+                evidence_sentence_id TEXT,
+                UNIQUE(episode_id, ordinal),
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE,
+                FOREIGN KEY(evidence_sentence_id) REFERENCES listening_sentences(id)
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_choices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(question_id, ordinal),
+                FOREIGN KEY(question_id) REFERENCES listening_questions(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                episode_id TEXT NOT NULL,
+                started_at INTEGER NOT NULL,
+                completed_at INTEGER,
+                stage TEXT NOT NULL DEFAULT 'intro',
+                first_score REAL,
+                final_score REAL,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                attempt_id INTEGER NOT NULL,
+                question_id TEXT NOT NULL,
+                selected_choice_id INTEGER,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                attempt_no INTEGER NOT NULL DEFAULT 1,
+                answered_at INTEGER NOT NULL,
+                FOREIGN KEY(attempt_id) REFERENCES listening_attempts(id) ON DELETE CASCADE,
+                FOREIGN KEY(question_id) REFERENCES listening_questions(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_playback (
+                episode_id TEXT PRIMARY KEY,
+                position_ms INTEGER NOT NULL DEFAULT 0,
+                playback_speed REAL NOT NULL DEFAULT 1.0,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_bookmarks (
+                episode_id TEXT PRIMARY KEY,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_vocab_links (
+                episode_id TEXT NOT NULL,
+                sentence_id TEXT NOT NULL,
+                word_id INTEGER NOT NULL,
+                PRIMARY KEY(episode_id, sentence_id, word_id),
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE,
+                FOREIGN KEY(sentence_id) REFERENCES listening_sentences(id) ON DELETE CASCADE,
+                FOREIGN KEY(word_id) REFERENCES words(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_episodes_level ON listening_episodes(level, category)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_sentences_episode ON listening_sentences(episode_id, ordinal)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_questions_episode ON listening_questions(episode_id, ordinal)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempts_episode ON listening_attempts(episode_id, started_at)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_answers_attempt ON listening_answers(attempt_id, question_id)")
     }
 
     fun seedBuiltInPack(context: Context) {
