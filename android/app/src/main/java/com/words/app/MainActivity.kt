@@ -1898,12 +1898,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
             return
         }
+        pauseListeningAudio()
         tts.setSpeechRate(episode.speechRate.coerceIn(0.75f, 1.15f))
         tts.speak(
             sentences.joinToString(" ") { it.english },
             TextToSpeech.QUEUE_FLUSH,
             Bundle(),
-            "listening-\${System.currentTimeMillis()}"
+            "listening-${System.currentTimeMillis()}"
         )
     }
 
@@ -1941,7 +1942,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             listeningSegmentStopRunnable = stopRunnable
             listeningPlaybackHandler.postDelayed(stopRunnable, 80L)
         } else if (ttsReady) {
-            tts.speak(sentence.english, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-sentence-\${sentence.id}")
+            pauseListeningAudio()
+            tts.speak(sentence.english, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-sentence-${sentence.id}-${System.currentTimeMillis()}")
         } else {
             Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
         }
@@ -2078,10 +2080,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         c.addView(vSpace(8))
         c.addView(pillButton("重新播放", false) {
-            if (ttsReady) {
-                val fullText = sentences.joinToString(" ") { it.english }
-                tts.speak(fullText, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-repeat-${System.currentTimeMillis()}")
-            }
+            playListeningEpisode(episode)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         c.addView(vSpace(14))
         c.addView(text("盲听阶段不会显示英文原文和中文翻译。播放完成后再进入理解测试。", 11f, secondary))
@@ -2258,6 +2257,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(6))
         parent.addView(pillButton("返回听力首页", false) {
             tts.stop()
+            pauseListeningAudio()
             listeningStage = "home"
             renderPage()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
