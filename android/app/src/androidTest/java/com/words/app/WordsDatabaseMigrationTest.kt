@@ -181,7 +181,12 @@ class WordsDatabaseMigrationTest {
             },
             "rights": {
               "source_id": "original-source-01",
+              "source_title": "Words original lesson",
+              "source_url": "",
               "rights_holder": "Words Project",
+              "attribution": "Original Words content",
+              "checked_at": 1795219200000,
+              "license_id": "words-original-license",
               "license_name": "Original content license",
               "license_url": "",
               "allowed_actions": ["in_app_playback"],
