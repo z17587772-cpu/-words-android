@@ -97,6 +97,9 @@ class ListeningContentPackageImporter(
                     require(packageDigest == installedDigest) {
                         "Package version already exists with a different archive digest"
                     }
+                    require(isInstalledPackageIntact(manifest, packageDigest)) {
+                        "Installed package is incomplete or its immutable audio failed verification"
+                    }
                     return ListeningPackageImportResult.AlreadyInstalled(
                         manifest.packageId, manifest.packageVersion
                     )
@@ -203,8 +206,16 @@ class ListeningContentPackageImporter(
             )
         } catch (error: Exception) {
             if (!databaseCommitted) newlyInstalledFiles.forEach { file ->
-                runCatching { file.delete() }
-                runCatching { file.parentFile?.delete() }
+                val referenced = runCatching {
+                    database.readableDatabase.rawQuery(
+                        "SELECT 1 FROM listening_episode_revisions WHERE audio_url=? LIMIT 1",
+                        arrayOf(file.toURI().toString())
+                    ).use { it.moveToFirst() }
+                }.getOrDefault(true)
+                if (!referenced) {
+                    runCatching { file.delete() }
+                    runCatching { file.parentFile?.delete() }
+                }
             }
             throw error
         } finally {
@@ -238,6 +249,37 @@ class ListeningContentPackageImporter(
                 }
             }
         return removed
+    }
+
+    private fun isInstalledPackageIntact(
+        manifest: ListeningContentPackage,
+        packageDigest: String
+    ): Boolean {
+        val installed = database.readableDatabase.rawQuery(
+            """SELECT pe.episode_id,pe.revision_id,r.audio_url
+               FROM listening_package_episodes pe
+               JOIN listening_episode_revisions r ON r.revision_id=pe.revision_id
+               WHERE pe.package_id=? AND pe.is_active=1""",
+            arrayOf(manifest.packageId)
+        ).use { cursor ->
+            buildMap {
+                while (cursor.moveToNext()) {
+                    put(
+                        cursor.getString(0),
+                        cursor.getString(1) to if (cursor.isNull(2)) null else cursor.getString(2)
+                    )
+                }
+            }
+        }
+        if (installed.keys != manifest.episodes.map { it.id }.toSet()) return false
+        return manifest.episodes.all { episode ->
+            val row = installed[episode.id] ?: return@all false
+            val expectedRevision = revisionId(manifest, episode.id, packageDigest)
+            if (row.first != expectedRevision || row.second == null) return@all false
+            val audioFile = runCatching { File(java.net.URI(row.second!!)) }.getOrNull()
+                ?: return@all false
+            ListeningAudioIntegrity.verify(audioFile, episode.audio)
+        }
     }
 
     private fun installRightsMetadata(
