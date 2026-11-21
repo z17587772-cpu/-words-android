@@ -108,3 +108,19 @@ Still pending:
 
 
 The importer also hashes and extracts the same private archive snapshot (rather than re-reading the external source), caps compressed archives at 1.1 GB, and serializes import with orphan recovery to avoid cleanup races.
+
+
+## Offline transport and trust boundary — implementation decision
+
+The app should not implement its own HTTP Range/resume engine for large course ZIPs. Use Android's system `DownloadManager` to transfer the archive: it handles long-running HTTP downloads, retries after connectivity changes and reboots, and exposes durable request status and byte progress. Store the downloaded ZIP in an app-specific staging directory, then pass it through the existing private-snapshot importer.
+
+Use WorkManager for the durable post-download steps (verify archive size/SHA-256, invoke the importer, clean staging files, and retry recoverable local failures) and for deferrable catalog refresh. Do not make WorkManager the 1.1 GB network transport: on Android 16, long-running foreground workers can consume job quota. The system download service is a better transport boundary.
+
+Persist each request's DownloadManager ID, package ID/version, expected archive size and SHA-256, destination, state, and timestamps in a dedicated download table. A non-exported completion receiver schedules uniquely named install work. App-start reconciliation must query persisted DownloadManager IDs and recover completed downloads if the completion broadcast was missed. Cancellation must remove the system request and mark the local record cancelled. Progress should come from DownloadManager queries rather than frequent SQLite writes.
+
+Before remote download is enabled, introduce a signed catalog index. Its Ed25519 signature, verified using a public key pinned in the app, must bind package ID/version, HTTPS archive URL, expected size, and SHA-256. The package's own rights/provenance fields are not a cryptographic trust anchor. The importer must compare its computed archive digest and manifest identity with the verified catalog entry. Until that trust chain and a real catalog endpoint exist, keep remote installation unavailable to learners.
+
+References:
+- Android `DownloadManager`: https://developer.android.com/reference/android/app/DownloadManager
+- WorkManager persistent work and retry guidance: https://developer.android.com/develop/background-work/background-tasks/persistent
+- Android long-running WorkManager and Android 16 job-quota note: https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running
