@@ -127,7 +127,8 @@ Exit: network interruption, process death, duplicate broadcasts, bad checksum an
 ### D3 — Discovered-library UI/player
 - [x] Add separate “自动发现资源库” list with source, attribution, duration and download state.
 - [x] Add downloaded-only and favorites filters.
-- [ ] Add title/source text search and dedicated storage-management controls.
+- [x] Add title, creator and source search plus downloaded-only/favorites filters.
+- [ ] Add dedicated storage-management controls and user-directed deletion.
 - [x] Play downloaded resources offline and resume saved position/speed.
 - [x] Display source and license attribution.
 - [x] Clearly distinguish raw recordings from formal courses.
