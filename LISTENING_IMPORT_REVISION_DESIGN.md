@@ -157,3 +157,41 @@ Schema v10 and the attempt-scoped read path have been implemented. The current s
 Source-level checks passed and a separate SQLite in-memory smoke simulation verified the legacy snapshot backfill, historical review query and foreign-key check. Android Gradle compilation and instrumentation have not yet been executed; no latest-head CI run is available. Treat runtime validation as pending.
 
 The importer, package digest registry, revision-scoped audio publication journal, crash recovery, removed-question tombstone policy and WorkManager sync remain unimplemented. The next safe step is importer implementation on top of v10, with audio verification and atomic pointer publication; do not expose package installation until rollback and history-preservation tests pass.
+
+
+## 11. Schema v11 importer implementation
+
+The package import foundation is now implemented on the feature branch.
+
+### Persistent catalog identity
+
+- `listening_content_packages` stores one current package version and archive digest per package ID.
+- `listening_package_episodes` records package ownership, the published revision, and whether the episode remains active in the package catalog.
+- Episode ownership is unique across packages. A package cannot claim a legacy lesson or the system-TTS demo by reusing its episode ID.
+- Lower package versions and same-version archives with different SHA-256 digests are rejected. An identical package is a no-op only after the active episode set, revision IDs, and every installed audio file are verified.
+
+### Publication order
+
+1. Extract the archive to a unique private staging directory with path, entry-count, decompressed-size, and manifest-size limits.
+2. Validate the entire manifest and require exact equality between declared audio paths and extracted audio files.
+3. Verify all audio byte counts and SHA-256 digests.
+4. Install audio at revision-specific paths without replacing an existing immutable destination.
+5. Begin one SQLite transaction; verify package version state again to detect a concurrent import.
+6. Insert provenance records only when their identifiers are absent or their existing metadata matches exactly.
+7. Create immutable revision metadata, transcript, questions, choices, and namespaced compatibility parent rows.
+8. Update package ownership/active state and episode metadata.
+9. Publish each episode's current revision pointer last, then commit.
+
+If the transaction fails, newly written audio is deleted only when no revision row references it. The orphan scan can later remove unreferenced importer-owned revision files after a process interruption. Historical audio is retained.
+
+### Lifecycle and compatibility
+
+- Parent question/sentence IDs are unique per revision; this avoids collisions in legacy parent tables while preserving the foreign-key targets of historical answers.
+- Existing parent rows are never deleted or replaced during package updates.
+- Removed episodes are marked inactive for new catalog planning; old daily assignments and attempts remain resolvable through their pinned revision.
+- The daily planner now reads current revision snapshots, so retained parent rows from prior revisions do not inflate question counts or invalidate new lessons.
+- Formal package import explicitly refuses to convert a demo or unowned legacy episode into approved package content.
+
+### Remaining validation gates
+
+Instrumentation coverage now exercises package install, idempotency, version conflicts, downgrade rejection, demo protection, and historical revision retention. These tests are authored, not yet executed. We still need Android compilation, emulator instrumentation, injected transaction-failure/crash tests, and device playback checks. The importer is not exposed through UI and WorkManager/offline download orchestration remains out of scope until these gates pass.
