@@ -335,7 +335,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
                LEFT JOIN listening_choices selected ON selected.id=a.selected_choice_id
                JOIN listening_choices correct
                  ON correct.question_id=q.id AND correct.is_correct=1
-               WHERE attempt.id=?
+               WHERE attempt.id=? AND attempt.completed_at IS NOT NULL
                ORDER BY q.ordinal""",
             arrayOf(attemptId.toString())
         ).use { cursor ->
