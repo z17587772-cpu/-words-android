@@ -391,18 +391,44 @@ class WordsDatabaseMigrationTest {
               "chinese": "微小的改变也可能很重要。",
               "pronunciation_note": "Notice the stress on changes."
             }],
-            "questions": [{
-              "id": "question-01",
-              "ordinal": 1,
-              "type": "main_idea",
-              "prompt": "What is the main idea?",
-              "explanation": "The passage focuses on small changes.",
-              "evidence_sentence_id": "sentence-01",
-              "choices": [
-                {"content": "Small changes can matter.", "is_correct": true},
-                {"content": "Only large plans are useful.", "is_correct": false}
-              ]
-            }]
+            "questions": [
+              {
+                "id": "question-01",
+                "ordinal": 1,
+                "type": "main_idea",
+                "prompt": "What is the main idea?",
+                "explanation": "The passage focuses on small changes.",
+                "evidence_sentence_id": "sentence-01",
+                "choices": [
+                  {"content": "Small changes can matter.", "is_correct": true},
+                  {"content": "Only large plans are useful.", "is_correct": false}
+                ]
+              },
+              {
+                "id": "question-02",
+                "ordinal": 2,
+                "type": "detail",
+                "prompt": "What can small actions do?",
+                "explanation": "Small actions can make a meaningful difference.",
+                "evidence_sentence_id": "sentence-01",
+                "choices": [
+                  {"content": "Make a meaningful difference.", "is_correct": true},
+                  {"content": "Prevent all future mistakes.", "is_correct": false}
+                ]
+              },
+              {
+                "id": "question-03",
+                "ordinal": 3,
+                "type": "inference",
+                "prompt": "What is implied about progress?",
+                "explanation": "Progress can build gradually through regular action.",
+                "evidence_sentence_id": "sentence-01",
+                "choices": [
+                  {"content": "It can develop over time.", "is_correct": true},
+                  {"content": "It must happen immediately.", "is_correct": false}
+                ]
+              }
+            ]
           }]
         }
     """.trimIndent()
