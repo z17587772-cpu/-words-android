@@ -29,7 +29,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(8, upgraded.version)
+        assertEquals(9, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
@@ -47,6 +47,7 @@ class WordsDatabaseMigrationTest {
         assertTrue(tableExists(upgraded, "listening_revision_choices"))
         assertTrue(columnExists(upgraded, "listening_episodes", "current_revision_id"))
         assertTrue(columnExists(upgraded, "listening_attempts", "content_revision_id"))
+        assertTrue(columnExists(upgraded, "listening_daily_assignments", "content_revision_id"))
         upgraded.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
             assertEquals("No foreign-key violations after migration", false, cursor.moveToFirst())
         }
@@ -298,6 +299,10 @@ class WordsDatabaseMigrationTest {
         val firstDay = repository.assignDailyEpisode("2026-11-21", 1_795_219_200_000L)
         assertEquals("lesson-advanced", firstDay)
         assertEquals(firstDay, repository.assignDailyEpisode("2026-11-21", 1_795_219_200_000L))
+        assertTrue(db.rawQuery(
+            "SELECT content_revision_id FROM listening_daily_assignments WHERE assignment_date='2026-11-21'",
+            null
+        ).use { it.moveToFirst() && !it.isNull(0) })
 
         val secondDay = repository.assignDailyEpisode("2026-11-22", 1_795_305_600_000L)
         assertEquals("lesson-basic", secondDay)
@@ -356,13 +361,14 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(8, database.version)
+        assertEquals(9, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
         assertTrue(tableExists(database, "listening_episode_revisions"))
         assertTrue(tableExists(database, "listening_revision_questions"))
         assertTrue(columnExists(database, "listening_attempts", "content_revision_id"))
+        assertTrue(columnExists(database, "listening_daily_assignments", "content_revision_id"))
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
 
         helper.close()
