@@ -120,7 +120,6 @@ object ListeningCatalogSync {
             val digest = item.getString("sha256")
             val uri = Uri.parse(url)
             require(packageVersion > 0 && minimumAppVersion > 0) { "Invalid package version" }
-            require(minimumAppVersion <= appVersionCode) { "Package requires a newer app version" }
             require(uri.scheme.equals("https", true) && uri.host.equals(catalogHost, true) &&
                 uri.userInfo == null && uri.port in listOf(-1, 443)
             ) { "Package URL must use the catalog HTTPS host" }
