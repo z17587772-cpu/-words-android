@@ -339,6 +339,13 @@ Static source assertions and an independent SQLite schema/foreign-key simulation
 ## 17. Low-storage protection
 
 ### Follow-up hardening — staging and extraction headroom
+### Follow-up hardening — exact installed snapshot verification
+
+- Same-version/same-digest imports no longer trust the package registry, row counts and audio file alone.
+- The idempotency check now compares the installed immutable revision metadata, sentence IDs/timestamps/text/translation/notes, question IDs/type/prompt/explanation/evidence links, and every choice's order/content/correctness against the validated package manifest.
+- It also verifies the revision hash, active package ownership, current-revision pointer, approved/non-demo status, audio path confinement and audio checksum.
+- Added a regression test that tampers with an installed question row, confirms the repeated import is rejected, restores the row, and confirms the intact package is idempotent.
+- CI source guards now check these exact-snapshot comparisons. Runtime verification remains pending.
 
 - Before copying a ZIP into private staging, the importer now checks that the staging filesystem has room for the compressed snapshot plus the 64 MiB reserve.
 - ZIP extraction checks remaining filesystem space before each write and stops while preserving the configured reserve. A failed extraction removes its partial staging directory.
