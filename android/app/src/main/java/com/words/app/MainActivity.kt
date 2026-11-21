@@ -40,6 +40,7 @@ import kotlin.random.Random
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var db: WordsDatabase
     private lateinit var listeningRepository: ListeningRepository
+    private lateinit var listeningPlaybackCoordinator: ListeningPlaybackCoordinator
     private var listeningMediaController: MediaController? = null
     private var listeningControllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
     private var listeningStage = "home"
@@ -53,10 +54,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningCorrectCount = 0
     private val listeningPlaybackHandler = Handler(Looper.getMainLooper())
     private var listeningSegmentStopRunnable: Runnable? = null
-    private var listeningCheckpointRunnable: Runnable? = null
-    private var listeningPlaybackEpisodeId: String? = null
-    private var listeningPlaybackUri: String? = null
-    private var listeningPlaybackDurationMs: Long = 0L
     private lateinit var prefs: android.content.SharedPreferences
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
@@ -131,6 +128,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         db = WordsDatabase(this)
         db.seedBuiltInPack(this)
         listeningRepository = ListeningRepository(db)
+        listeningPlaybackCoordinator = ListeningPlaybackCoordinator(listeningRepository)
         listeningRepository.ensureDemoSeeded()
         listeningEpisodeId = listeningRepository.getTodayEpisodeId()
         prefs = getSharedPreferences("words_preferences", MODE_PRIVATE)
@@ -199,7 +197,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     override fun onPause() {
-        saveListeningPlaybackCheckpoint()
+        listeningMediaController?.let { listeningPlaybackCoordinator.checkpoint(it) }
         super.onPause()
     }
 
@@ -223,9 +221,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
-        saveListeningPlaybackCheckpoint()
-        listeningCheckpointRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
-        listeningCheckpointRunnable = null
+        listeningPlaybackCoordinator.release(listeningMediaController)
         if (::tts.isInitialized) tts.shutdown()
         toneGenerator?.release()
         toneGenerator = null
@@ -1889,55 +1885,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             return
         }
 
-        listeningPlaybackEpisodeId = episode.id
-        listeningPlaybackUri = url
-        listeningPlaybackDurationMs = episode.durationMs
-        val currentUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
-        if (currentUri != url) {
-            val saved = listeningRepository.getPlayback(episode.id)
-            val duration = episode.durationMs
-            val savedPosition = saved?.positionMs ?: 0L
-            val restorePosition = if (duration > 0L && savedPosition >= duration - 2_000L) 0L
-                else savedPosition.coerceAtLeast(0L)
-            controller.setMediaItem(MediaItem.fromUri(url), restorePosition)
-            controller.prepare()
-            controller.setPlaybackSpeed(saved?.speed ?: 1.0f)
-        }
-        controller.play()
-        scheduleListeningPlaybackCheckpoint()
+        listeningPlaybackCoordinator.play(controller, episode, url)
     }
 
     private fun pauseListeningAudio() {
-        saveListeningPlaybackCheckpoint()
-        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
-        listeningSegmentStopRunnable = null
-        listeningMediaController?.pause()
-    }
-
-    private fun saveListeningPlaybackCheckpoint() {
-        val controller = listeningMediaController ?: return
-        val episodeId = listeningPlaybackEpisodeId ?: return
-        val expectedUri = listeningPlaybackUri ?: return
-        val actualUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
-        if (actualUri != expectedUri) return
-        val position = controller.currentPosition.coerceAtLeast(0L)
-        if (listeningPlaybackDurationMs > 0L && position >= listeningPlaybackDurationMs) return
-        listeningRepository.savePlayback(episodeId, position, controller.playbackParameters.speed)
-    }
-
-    private fun scheduleListeningPlaybackCheckpoint() {
-        listeningCheckpointRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
-        val checkpoint = object : Runnable {
-            override fun run() {
-                val controller = listeningMediaController ?: return
-                if (controller.currentMediaItem?.localConfiguration?.uri?.toString() != listeningPlaybackUri) return
-                saveListeningPlaybackCheckpoint()
-                if (controller.isPlaying) listeningPlaybackHandler.postDelayed(this, 5_000L)
-                else listeningCheckpointRunnable = null
-            }
+        listeningMediaController?.let {
+            listeningPlaybackCoordinator.checkpoint(it)
+            it.pause()
         }
-        listeningCheckpointRunnable = checkpoint
-        listeningPlaybackHandler.postDelayed(checkpoint, 5_000L)
     }
 
     private fun playListeningEpisode(episode: ListeningEpisode) {
