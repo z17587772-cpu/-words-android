@@ -79,7 +79,7 @@ class ListeningCatalogSyncTest {
     }
 
     @Test
-    fun rejectsDuplicatePackageIdsAndNewerAppRequirements() {
+    fun rejectsDuplicatePackageIdsAndSkipsPackagesRequiringANewerApp() {
         val duplicate = JSONObject()
             .put("schema_version", 1)
             .put("catalog_version", 5)
@@ -105,14 +105,12 @@ class ListeningCatalogSyncTest {
                 minimumAppVersion = 23
             )))
         try {
-            ListeningCatalogSync.parseCatalog(
+            val (_, compatibleEntries) = ListeningCatalogSync.parseCatalog(
                 newerApp.toString().toByteArray(Charsets.UTF_8),
                 "cdn.example.org",
                 22
             )
-            throw AssertionError("Package requiring a newer app was accepted")
-        } catch (expected: IllegalArgumentException) {
-            // App compatibility is checked before download begins.
+            assertEquals(0, compatibleEntries.size)
         }
     }
 
