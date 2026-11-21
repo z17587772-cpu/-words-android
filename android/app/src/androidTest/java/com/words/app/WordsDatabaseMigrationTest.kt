@@ -406,7 +406,11 @@ class WordsDatabaseMigrationTest {
                     arrayOf(assignmentDate)
                 )
                 val newAttemptId = repository.startAttempt(episodeId)
+                assertEquals(newAttemptId, repository.getLatestIncompleteAttempt()?.id)
                 assertEquals("A Better Small Change", repository.getEpisodeForAttempt(newAttemptId)?.title)
+                repository.abandonAttempt(newAttemptId)
+                assertEquals("abandoned", repository.getAttemptProgress(newAttemptId)?.stage)
+                assertTrue(repository.getLatestIncompleteAttempt() == null)
 
                 val conflictingManifest = manifestV2.replace("A Better Small Change", "Conflicting same-version content")
                 val conflictingArchive = java.io.File(context.cacheDir, "listening-package-conflict-${System.nanoTime()}.zip")
