@@ -2339,9 +2339,27 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun renderListeningQuiz(parent: LinearLayout) {
         val episode = listeningRepository.getEpisodeForAttempt(listeningAttemptId) ?: return
         val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
-        val question = questions.getOrNull(listeningQuestionIndex) ?: run {
-            listeningStage = "review"
-            renderListeningReview(parent)
+        val question = questions.getOrNull(listeningQuestionIndex)
+        if (question == null) {
+            val firstUnanswered = questions.indexOfFirst { candidate ->
+                listeningRepository.getAttemptAnswer(listeningAttemptId, candidate.id) == null
+            }
+            when {
+                firstUnanswered >= 0 -> {
+                    listeningQuestionIndex = firstUnanswered
+                    renderListeningQuiz(parent)
+                }
+                questions.isNotEmpty() -> {
+                    listeningRepository.finishAttempt(listeningAttemptId)
+                    listeningStage = "review"
+                    renderListeningReview(parent)
+                }
+                else -> {
+                    clearActiveListeningAttempt()
+                    listeningStage = "home"
+                    renderListeningHome(parent)
+                }
+            }
             return
         }
         addSectionTitle(parent, "理解测试", "第 ${listeningQuestionIndex + 1} / ${questions.size} 题")
