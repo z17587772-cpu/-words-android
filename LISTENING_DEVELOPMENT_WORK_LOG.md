@@ -114,3 +114,12 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - Added repository regression coverage for 31-day eviction and manual deletion with shared-file/history preservation.
 - Refined the vocabulary card flip from 520 ms to 430 ms and slightly lengthened swipe settle/commit timing to reduce abruptness while retaining the existing easing curve.
 - Runtime compilation/instrumentation is still required; no APK was built.
+
+
+## 2026-11-21 — Final source-level verification checkpoint
+- Re-fetched the changed repository, download worker, MainActivity, reconciliation worker, instrumentation test and CI workflow from the branch head.
+- Source-level assertions passed for: matching 30-day eviction eligibility, DB-first eviction ordering, rights-revocation race guard, confirmed app-private local deletion, shared-file preservation, regression-test presence, CI assertion coverage, card flip timing and SHA-256 reconciliation.
+- Added an explicit boundary assertion that a resource played today is protected, while one last played 31 days ago is eligible for eviction.
+- The PR head currently has no associated GitHub Actions run. Therefore Gradle compilation, instrumentation execution, live provider integration and device playback remain unverified; no success is claimed.
+- Branch comparison remains divergent from main (560 commits ahead, 8 behind). No merge or rebase was attempted.
+- APK packaging remains paused.
