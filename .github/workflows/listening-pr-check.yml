@@ -111,6 +111,8 @@ jobs:
           discovery_repository = (root / "ListeningDiscoveryRepository.kt").read_text(encoding="utf-8")
           discovery_test = Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryTest.kt").read_text(encoding="utf-8")
           discovery_repository_test = Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
+          resource_automation = (root / "ListeningResourceAutomation.kt").read_text(encoding="utf-8")
+          resource_policy_test = Path("android/app/src/androidTest/java/com/words/app/InternetArchiveMetadataPolicyTest.kt").read_text(encoding="utf-8")
           assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
           assert "evidence_sentence_id" in validator and "in_app_playback" in validator
           assert "offline_download" in validator
@@ -178,7 +180,7 @@ jobs:
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback" in migration_test
           assert "packageImporterCannotPromoteTheSystemTtsDemoToFormalContent" in migration_test
-          assert 'SQLiteOpenHelper(context, "words_local.db", null, 12)' in database
+          assert 'SQLiteOpenHelper(context, "words_local.db", null, 13)' in database
           assert "createListeningDiscoveryTables(db)" in database
           assert "listening_discovered_resources" in database and "listening_provider_state" in database
           assert "ListeningDiscoveryScheduler.schedule(this)" in activity
@@ -190,7 +192,20 @@ jobs:
           assert "fun queueDownload(resourceId: String): Boolean" in discovery_repository
           assert "candidate.first != \"cleared\"" in discovery_repository
           assert "offline_download" in discovery_repository
-          assert "upgradingV5ToV12PreservesVocabularyAndLearningHistory" in migration_test
+          assert "upgradingV5ToV13PreservesVocabularyAndLearningHistory" in migration_test
+          assert "listening_discovered_playback" in database
+          assert "ListeningResourceAutomation.schedule(this)" in activity
+          assert "class InternetArchiveDiscoveryWorker" in resource_automation
+          assert "class ListeningResourceDownloadWorker" in resource_automation
+          assert "InternetArchiveMetadataPolicy.normalizeLicense" in resource_automation
+          assert "offline_download" in resource_automation
+          assert "UNMETERED" in resource_automation
+          assert "MediaMetadataRetriever" in resource_automation
+          assert "ATOMIC_MOVE" in resource_automation
+          assert "saveResourcePlayback" in service
+          assert "renderDiscoveredResourceLibrary" in activity
+          assert "playDiscoveredResource" in activity
+          assert "allowsOnlyExplicitApprovedCreativeCommonsLicenses" in resource_policy_test
           assert "normalizesEnglishLibriVoxMetadataWithoutGrantingDownloadRights" in discovery_test
           assert "downloadQueueFailsClosedUnlessOfflineRightsAreExplicitlyCleared" in discovery_repository_test
           planner = (root / "ListeningDailyPlanner.kt").read_text(encoding="utf-8")
