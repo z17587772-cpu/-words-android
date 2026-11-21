@@ -76,7 +76,11 @@ def validate_assets(catalog: dict, asset_root: Path) -> None:
             raise ValueError(f"Package asset does not exist inside content-inbox: {relative}")
         if asset.stat().st_size != item["size_bytes"]:
             raise ValueError(f"Package size mismatch: {relative}")
-        digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+        hasher = hashlib.sha256()
+        with asset.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        digest = hasher.hexdigest()
         if digest.lower() != item["sha256"].lower():
             raise ValueError(f"Package SHA-256 mismatch: {relative}")
 
