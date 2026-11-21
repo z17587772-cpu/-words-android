@@ -98,11 +98,11 @@ class InternetArchiveDiscoveryWorker(
                 for (doc in docs) {
                     val identifier = doc.optString("identifier").trim()
                     if (!identifier.matches(Regex("[A-Za-z0-9._-]{1,120}"))) continue
-                    val license = InternetArchiveMetadataPolicy.normalizeLicense(doc.optString("licenseurl"))
+                    val license = InternetArchiveMetadataPolicy.normalizeLicense(doc.opt("licenseurl"))
                     if (license == null) continue
                     val detail = fetchMetadata(identifier)
                     val metadata = detail.optJSONObject("metadata") ?: continue
-                    val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.optString("licenseurl"))
+                    val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.opt("licenseurl"))
                     if (detailLicense != license) continue
                     val languageValue = metadata.opt("language") ?: doc.opt("language")
                     if (!InternetArchiveMetadataPolicy.isEnglish(languageValue)) continue
@@ -179,7 +179,7 @@ class InternetArchiveDiscoveryWorker(
     }
 
     private fun searchPage(page: Int): List<JSONObject> {
-        val query = "mediatype:audio AND language:eng"
+        val query = "mediatype:audio AND (language:eng OR language:English OR language:en)"
         val uri = Uri.parse("https://archive.org/advancedsearch.php").buildUpon()
             .appendQueryParameter("q", query)
             .appendQueryParameter("fl[]", "identifier")
@@ -291,7 +291,11 @@ internal object InternetArchiveMetadataPolicy {
         return Regex("(^|[^a-z])(eng|english|en)([^a-z]|$)", RegexOption.IGNORE_CASE).containsMatchIn(language)
     }
 
-    fun normalizeLicense(raw: String): Pair<String, String>? {
+    fun normalizeLicense(value: Any?): Pair<String, String>? {
+        val raw = when (value) {
+            is JSONArray -> (0 until value.length()).joinToString(" ") { value.optString(it) }
+            else -> value?.toString().orEmpty()
+        }
         val url = raw.trim().lowercase().trimEnd('/') + "/"
         return when (url) {
             "https://creativecommons.org/publicdomain/zero/1.0/" ->
