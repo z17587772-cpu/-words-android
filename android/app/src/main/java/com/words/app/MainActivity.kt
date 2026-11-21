@@ -2314,7 +2314,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun renderDiscoveredResourceLibrary(parent: LinearLayout) {
         val discovery = ListeningDiscoveryRepository(db)
-        val allResources = discovery.listResources(200)
+        val allResources = discovery.listResources(200).distinctBy { resource ->
+            if (resource.contentSha256.isNotBlank()) "sha:${resource.contentSha256}" else "id:${resource.id}"
+        }
         val resources = allResources.filter { resource ->
             (!discoveredDownloadedOnly || (resource.status == "downloaded" && resource.localFilePath.isNotBlank() && java.io.File(resource.localFilePath).isFile)) &&
                 (!discoveredFavoritesOnly || resource.pinned)
