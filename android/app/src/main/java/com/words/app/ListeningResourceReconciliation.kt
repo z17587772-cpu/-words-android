@@ -52,7 +52,7 @@ class ListeningResourceReconcileWorker(
             if (!root.exists()) return Result.success()
             val rootPrefix = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
             val referenced = linkedSetOf<String>()
-            val downloaded = repository.listResources(500, downloadedOnly = true)
+            val downloaded = repository.listDownloadedLocalFiles()
             for (resource in downloaded) {
                 val rawPath = resource.localFilePath
                 val file = runCatching { File(rawPath).canonicalFile }.getOrNull()
