@@ -108,6 +108,12 @@ class WordsDatabaseMigrationTest {
         } catch (_: IllegalArgumentException) {
             // Expected question/attempt ownership validation.
         }
+        try {
+            repository.finishAttempt(attemptId)
+            throw AssertionError("An incomplete attempt was completed")
+        } catch (_: IllegalArgumentException) {
+            // Every question must be answered before completion.
+        }
         repository.getQuestions(episodeId).drop(1).forEach { unanswered ->
             val correctChoice = repository.getCorrectChoiceId(unanswered.id)!!
             assertTrue(repository.recordAnswer(attemptId, unanswered.id, correctChoice))
