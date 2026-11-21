@@ -137,6 +137,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         ListeningCatalogSync.schedule(this)
         ListeningDiscoveryScheduler.schedule(this)
         ListeningResourceAutomation.schedule(this)
+        ListeningResourceReconciliationScheduler.schedule(this)
         listeningRepository = ListeningRepository(db)
         listeningPlaybackCoordinator = ListeningPlaybackCoordinator(listeningRepository)
         listeningRepository.ensureDemoSeeded()
