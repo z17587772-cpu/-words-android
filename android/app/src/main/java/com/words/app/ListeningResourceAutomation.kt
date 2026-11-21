@@ -199,7 +199,7 @@ class InternetArchiveDiscoveryWorker(
     private fun readHttps(url: String, hosts: Set<String>): ByteArray {
         var current = URL(url)
         repeat(MAX_REDIRECTS + 1) { hop ->
-            require(current.protocol.equals("https", true) && current.host.lowercase() in hosts || current.host.equals("www.archive.org", true)) {
+            require(current.protocol.equals("https", true) && (current.host.lowercase() in hosts || current.host.equals("www.archive.org", true))) {
                 "Internet Archive redirected outside the approved API host"
             }
             val connection = current.openConnection() as HttpURLConnection
@@ -245,6 +245,7 @@ class InternetArchiveDiscoveryWorker(
                 val format = file.optString("format")
                 name.lowercase().endsWith(".mp3") &&
                     (format.contains("mp3", true) || format.contains("mpeg", true)) &&
+                    (file.optString("size").toLongOrNull() ?: 0L) in MIN_FILE_BYTES..MAX_FILE_BYTES &&
                     !file.optString("source").equals("metadata", true) &&
                     !file.optString("private").equals("true", true)
             }
