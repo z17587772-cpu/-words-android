@@ -119,6 +119,11 @@ jobs:
           assert "fun getQuestionsForAttempt" in repository
           assert "fun getSentencesForAttempt" in repository
           assert "fun getEpisodeForAttempt" in repository
+          assert "fun getAttemptProgress" in repository and "fun getAttemptAnswer" in repository
+          assert "fun getAttemptCorrectCount" in repository and "fun updateAttemptStage" in repository
+          assert "restoreListeningAttemptState" in activity and "persistListeningAttemptUiState" in activity
+          assert "transitionListeningStage" in activity and "setDuration(115L)" in activity and "setDuration(220L)" in activity
+          assert "AccelerateInterpolator()" in activity and "DecelerateInterpolator()" in activity
           assert "attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows" in migration_test
           assert "upgradingV7ToV11BackfillsSnapshotsAndPinsExistingAttempts" in migration_test
           assert "packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision" in migration_test
