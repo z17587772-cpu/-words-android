@@ -147,7 +147,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
 
             val candidates = getEligibleEpisodes(nowMs)
-            val history = getRecentAssignmentHistory(date.minusDays(7).toString(), assignmentDate)
+            val history = getRecentAssignmentHistory(assignmentDate)
             val selected = ListeningDailyPlanner.choose(candidates, history, assignmentDate)
             if (selected != null) {
                 val assignedRevision = ensureCurrentRevision(db, selected.id)
@@ -312,24 +312,51 @@ class ListeningRepository(private val helper: WordsDatabase) {
     }
 
     private fun getRecentAssignmentHistory(
-        sinceDate: String,
         beforeDate: String
     ): List<ListeningAssignmentHistory> =
         helper.readableDatabase.rawQuery(
-            """SELECT e.id,COALESCE(r.category,e.category),COALESCE(r.level,e.level),
-                      COALESCE(r.accent,e.accent)
+            """SELECT e.id,
+                      COALESCE((
+                          SELECT revision.category
+                          FROM listening_daily_assignments latest
+                          JOIN listening_episode_revisions revision
+                            ON revision.revision_id=latest.content_revision_id
+                          WHERE latest.episode_id=e.id
+                          ORDER BY latest.assignment_date DESC LIMIT 1
+                      ),e.category),
+                      COALESCE((
+                          SELECT revision.level
+                          FROM listening_daily_assignments latest
+                          JOIN listening_episode_revisions revision
+                            ON revision.revision_id=latest.content_revision_id
+                          WHERE latest.episode_id=e.id
+                          ORDER BY latest.assignment_date DESC LIMIT 1
+                      ),e.level),
+                      COALESCE((
+                          SELECT revision.accent
+                          FROM listening_daily_assignments latest
+                          JOIN listening_episode_revisions revision
+                            ON revision.revision_id=latest.content_revision_id
+                          WHERE latest.episode_id=e.id
+                          ORDER BY latest.assignment_date DESC LIMIT 1
+                      ),e.accent),
+                      COUNT(*),MAX(d.assignment_date)
                FROM listening_daily_assignments d
                JOIN listening_episodes e ON e.id=d.episode_id
-               LEFT JOIN listening_episode_revisions r ON r.revision_id=d.content_revision_id
-               WHERE d.assignment_date>=? AND d.assignment_date<?
-               ORDER BY d.assignment_date DESC LIMIT 7""",
-            arrayOf(sinceDate, beforeDate)
+               WHERE d.assignment_date<?
+               GROUP BY e.id
+               ORDER BY MAX(d.assignment_date) DESC""",
+            arrayOf(beforeDate)
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(
                     ListeningAssignmentHistory(
-                        cursor.getString(0), cursor.getString(1),
-                        cursor.getString(2), cursor.getString(3)
+                        episodeId = cursor.getString(0),
+                        category = cursor.getString(1),
+                        level = cursor.getString(2),
+                        accent = cursor.getString(3),
+                        assignmentCount = cursor.getInt(4),
+                        lastAssignedDate = cursor.getString(5)
                     )
                 )
             }
