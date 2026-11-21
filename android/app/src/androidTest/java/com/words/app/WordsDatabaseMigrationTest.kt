@@ -99,6 +99,14 @@ class WordsDatabaseMigrationTest {
 
         assertEquals(2, question.options.size)
         assertFalse(repository.recordAnswer(attemptId, question.id, wrongOption.id))
+        assertFalse(repository.recordAnswer(attemptId, question.id, correctId))
+        val anotherQuestion = repository.getQuestions(episodeId)[1]
+        try {
+            repository.recordAnswer(attemptId, anotherQuestion.id, wrongOption.id)
+            throw AssertionError("A choice from another question was accepted")
+        } catch (_: IllegalArgumentException) {
+            // Expected question/attempt ownership validation.
+        }
         repository.finishAttempt(attemptId, 0f)
 
         val review = repository.getAttemptAnswerReviews(attemptId).first { it.questionId == question.id }
