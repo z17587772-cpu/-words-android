@@ -596,3 +596,16 @@ This test is authored but has not yet run on an Android emulator. It must pass i
 ## 25. Honest exhausted-pool UI state (2026-11-21)
 
 When no unseen formal lesson is available, the daily card now displays `NO NEW COURSE / 暂无正式新课` rather than implying that the fallback demo is today's new lesson. The original short TTS preview remains separately labelled as an optional experience lesson and its explanatory copy says it is not part of the formal course library. The PR CI source guard now checks these labels.
+
+
+## 26. First operational content discovery adapter (2026-11-21)
+
+- [x] Add incremental LibriVox metadata adapter with documented API parameters, 500-record pagination ceiling, three-second inter-page delay, three-day overlap, stable-ID deduplication and persistent cursor.
+- [x] Preserve rights and editorial decisions across repeated discovery; quarantine non-English metadata and default every rights permission to false.
+- [x] Add failure-safe cursor advancement and atomic inbox/state writes.
+- [x] Add unit tests for response normalization, missing metadata, rights quarantine, non-English quarantine, idempotency and failed-page cursor safety.
+- [x] Add PR CI execution of content-pipeline unit tests.
+- [x] Add daily scheduled workflow writing to a separate `content-inbox` branch.
+- [ ] Execute the Python unit tests on GitHub Actions for the latest feature head.
+- [ ] Activate the scheduled worker after merge to the default branch and verify its first real API run.
+- [ ] Add editorial UI, audio/transcript processing, rights evidence review, course packaging, signed catalog publishing and Android sync. These are not implemented by metadata discovery.
