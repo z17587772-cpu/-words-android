@@ -13,7 +13,7 @@ data class ExtractedListeningPackage(
 )
 
 /**
- * Extracts only manifest.json and audio/* entries into a fresh private staging
+ * Extracts only manifest.json and audio entries into a fresh private staging
  * directory. ZipInputStream writes regular files only; archive symlink metadata
  * is never materialized as filesystem links.
  */
