@@ -82,9 +82,16 @@ class ListeningContentPackageImporter(
                 "Each episode must use a unique audio path"
             }
             val declaredPaths = audioPaths.toSet()
+            val canonicalExtractedRoot = extractedRoot.canonicalFile
             val extractedAudioPaths = extracted.files
-                .filter { it != extracted.manifestFile }
-                .map { it.relativeTo(extractedRoot).invariantSeparatorsPath }
+                .filter { it.canonicalFile != extracted.manifestFile.canonicalFile }
+                .map { file ->
+                    val canonicalFile = file.canonicalFile
+                    require(canonicalFile.path.startsWith(
+                        canonicalExtractedRoot.path.trimEnd(File.separatorChar) + File.separator
+                    )) { "Extracted audio file escapes the staging directory" }
+                    canonicalFile.relativeTo(canonicalExtractedRoot).invariantSeparatorsPath
+                }
                 .toSet()
             require(extractedAudioPaths == declaredPaths) {
                 "Archive audio entries do not exactly match the manifest"
