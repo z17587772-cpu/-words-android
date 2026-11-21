@@ -180,8 +180,18 @@ class ListeningContentPackageImporter(
                         "SELECT package_id FROM listening_package_episodes WHERE episode_id=? LIMIT 1",
                         arrayOf(episode.id)
                     ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-                    require(owner == null || owner == manifest.packageId) {
-                        "Episode ID is already owned by another content package: ${episode.id}"
+                    val existingEpisode = db.rawQuery(
+                        "SELECT is_demo,status FROM listening_episodes WHERE id=? LIMIT 1",
+                        arrayOf(episode.id)
+                    ).use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getInt(0) == 1 to cursor.getString(1) else null
+                    }
+                    require(
+                        (existingEpisode == null && owner == null) ||
+                            (existingEpisode != null && existingEpisode.first.not() &&
+                                existingEpisode.second == "approved" && owner == manifest.packageId)
+                    ) {
+                        "Episode ID conflicts with existing content or is not owned by this package: ${episode.id}"
                     }
                     val revisionId = revisionFiles.getValue(episode.id).first
                     installRightsMetadata(db, episode, nowMs)
