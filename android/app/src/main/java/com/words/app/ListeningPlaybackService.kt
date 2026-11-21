@@ -57,20 +57,32 @@ class ListeningPlaybackService : MediaSessionService() {
     private fun checkpointNow() {
         val activePlayer = player ?: return
         val item = activePlayer.currentMediaItem ?: return
-        val episodeId = item.mediaId.takeIf { it.isNotBlank() } ?: return
-        val audioUri = item.localConfiguration?.uri?.toString() ?: return
-        val itemRevision = item.mediaMetadata.extras?.getString("audio_revision") ?: return
+        val mediaId = item.mediaId.takeIf { it.isNotBlank() } ?: return
         val position = activePlayer.currentPosition.coerceAtLeast(0L)
         val speed = activePlayer.playbackParameters.speed
-
+        val extras = item.mediaMetadata.extras
+        val resourceId = extras?.getString("resource_id")
+        if (mediaId.startsWith("resource:") && !resourceId.isNullOrBlank()) {
+            persistenceExecutor.execute {
+                try {
+                    val helper = database ?: WordsDatabase(this).also { database = it }
+                    ListeningDiscoveryRepository(helper).saveResourcePlayback(resourceId, position, speed)
+                } catch (error: Exception) {
+                    Log.w(TAG, "Unable to persist discovered-resource playback checkpoint", error)
+                }
+            }
+            return
+        }
+        val audioUri = item.localConfiguration?.uri?.toString() ?: return
+        val itemRevision = extras?.getString("audio_revision") ?: return
         persistenceExecutor.execute {
             try {
                 val store = repository ?: run {
                     val helper = database ?: WordsDatabase(this).also { database = it }
                     ListeningRepository(helper).also { repository = it }
                 }
-                if (!store.isKnownPlaybackRevision(episodeId, audioUri, itemRevision, position)) return@execute
-                store.savePlayback(episodeId, position, speed, itemRevision)
+                if (!store.isKnownPlaybackRevision(mediaId, audioUri, itemRevision, position)) return@execute
+                store.savePlayback(mediaId, position, speed, itemRevision)
             } catch (error: Exception) {
                 Log.w(TAG, "Unable to persist listening playback checkpoint", error)
             }
