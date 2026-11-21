@@ -591,7 +591,7 @@ class WordsDatabaseMigrationTest {
 
 
     @Test
-    fun dailyPlannerCompletesWholeCatalogPassAndAddsNewLessonsBeforeRepeats() {
+    fun dailyPlannerNeverRepeatsAssignedLessonsAndAddsNewLessonsImmediately() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
         val repository = ListeningRepository(helper)
@@ -606,20 +606,59 @@ class WordsDatabaseMigrationTest {
         assertEquals("rotation-advanced", dayOne)
         assertEquals("rotation-basic", dayTwo)
 
-        // A newly installed lesson joins the active pass instead of waiting
-        // behind previously assigned lessons for a fixed seven-day window.
+        // A backdated request must not recycle a lesson already assigned on a
+        // later date; the invariant is based on all assignments, not date order.
+        assertEquals(null, repository.assignDailyEpisode("2026-11-20", 1_795_132_800_000L))
+
+        // A newly installed lesson becomes the only unseen candidate and is
+        // assigned immediately, without restarting or replaying the old pass.
         insertApprovedLesson(db, "rotation-new", "L3", "campus", "Australian")
         val dayThree = repository.assignDailyEpisode("2026-11-23", 1_795_392_000_000L)
         assertEquals("rotation-new", dayThree)
 
-        // Only after every currently eligible lesson has appeared once may
-        // the next catalog pass begin, starting with the least-recently used.
-        val dayFour = repository.assignDailyEpisode("2026-11-24", 1_795_478_400_000L)
-        assertEquals(dayOne, dayFour)
+        // Exhausting the unseen pool is an honest empty state, never a repeat.
+        assertEquals(null, repository.assignDailyEpisode("2026-11-24", 1_795_478_400_000L))
+
+        // A further newly published episode replenishes the new-lesson queue.
+        insertApprovedLesson(db, "rotation-newer", "L4", "interview", "Irish")
+        assertEquals("rotation-newer", repository.assignDailyEpisode("2026-11-25", 1_795_564_800_000L))
+        assertEquals(null, repository.assignDailyEpisode("2026-11-26", 1_795_651_200_000L))
+
         assertEquals(4, scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments"))
         assertEquals(
             0,
             scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='${ListeningRepository.DEMO_EPISODE_ID}'")
+        )
+        helper.close()
+    }
+
+    @Test
+    fun dailyPlannerDoesNotTreatAnUpdatedRevisionAsANewLesson() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        val db = helper.writableDatabase
+        insertApprovedLesson(db, "stable-episode-id", "L3", "science", "British")
+        val original = repository.getEpisode("stable-episode-id")!!
+        val updatedRevision = original.copy(
+            title = "Corrected title",
+            audioUrl = "https://example.invalid/corrected-audio.mp3",
+            updatedAt = original.updatedAt + 1_000L
+        )
+        val history = listOf(
+            ListeningAssignmentHistory(
+                episodeId = original.id,
+                category = original.category,
+                level = original.level,
+                accent = original.accent,
+                assignmentCount = 1,
+                lastAssignedDate = "2026-11-21"
+            )
+        )
+
+        assertEquals(
+            null,
+            ListeningDailyPlanner.choose(listOf(updatedRevision), history, "2026-11-22")
         )
         helper.close()
     }
