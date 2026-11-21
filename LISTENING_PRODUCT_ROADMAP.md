@@ -76,10 +76,11 @@ Use a versioned manifest containing:
 - source, rights holder, attribution, license, permitted actions, territory and term/expiry.
 
 Validation/import:
-- [x] Reject unsupported schema versions, duplicate IDs, malformed timestamps, missing evidence references, invalid question cardinality, unsafe paths, malformed audio metadata and insufficient rights metadata. [ ] Verify archive entries and audio bytes as part of a complete import transaction.
+- [x] Reject unsupported schema versions, duplicate IDs, malformed timestamps, missing evidence references, invalid question cardinality, unsafe paths, malformed audio metadata and insufficient rights metadata.
+- [x] Extract ZIP archives into private staging with entry/path/duplicate/decompressed-size limits; verify audio bytes before installation.
 - Validate the complete package before mutating the database.
 - Import metadata in a single transaction.
-- [x] Add a reusable audio integrity primitive that stages to a temporary file, verifies exact size/SHA-256, and atomically moves only verified audio. [ ] Integrate it with package extraction and managed storage.
+- [x] Add a reusable audio integrity primitive that stages to a temporary file, verifies exact size/SHA-256, and atomically moves only verified audio. [ ] Integrate it with managed storage and the database transaction.
 - Keep the last valid package until the new package is fully verified.
 - Preserve attempts, bookmarks, playback state and historical content revisions.
 - Use WorkManager for retryable, network-constrained weekly sync; the local database and verified local audio remain the source of truth.
@@ -136,7 +137,7 @@ Validation/import:
 2. [x] Remove demo assignment writes and add a CI regression guard.
 3. [x] Implement playback state model + repository restore/save + Activity lifecycle checkpoints + service-owned background checkpointing; [ ] add audio revision matching and runtime interruption tests.
 4. Add sentence timestamp validation and loop controller.
-5. [x] Implement package manifest parser/validator and audio integrity primitives; [ ] implement revision-safe transactional importer.
+5. [x] Implement package manifest parser/validator, secure archive extraction and audio integrity primitives; [ ] implement revision-safe transactional importer.
 6. Implement audio download/checksum/atomic install and offline playback.
 7. Implement deterministic daily planner and library browsing.
 8. Add targeted review and vocabulary linking.
@@ -173,3 +174,4 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Wrote LISTENING_CONTENT_PACKAGE_SPEC.md. Import is deliberately not implemented yet because the database needs a revision-safe policy that preserves existing attempts and answers; SQLite REPLACE must not be used on parent content rows.
 - Moved periodic checkpoint ownership into MediaSessionService to avoid duplicate Activity/service writes. Media items carry stable episode IDs and notification metadata; sentence playback keeps the same episode identity so background persistence can resolve it.
 - Moved periodic checkpoint database reads/writes to a single-thread service executor; service teardown queues a final checkpoint before closing its database helper. Added a guard against late MediaController connection callbacks after Activity destruction.
+- Added ZIP archive extraction into a fresh staging directory, allowing only manifest/audio entries, rejecting traversal/absolute/duplicate paths, and enforcing per-entry/total decompressed-size plus entry-count limits. Added instrumentation coverage for successful extraction and rollback cleanup on traversal failure.
