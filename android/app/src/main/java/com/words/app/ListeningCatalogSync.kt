@@ -80,7 +80,11 @@ object ListeningCatalogSync {
         BuildConfig.LISTENING_CATALOG_URL.isNotBlank() &&
             BuildConfig.LISTENING_CATALOG_PUBLIC_KEY.isNotBlank()
 
-    internal fun verifyEnvelope(envelopeBytes: ByteArray): ByteArray {
+    internal fun verifyEnvelope(envelopeBytes: ByteArray): ByteArray =
+        verifyEnvelope(envelopeBytes, BuildConfig.LISTENING_CATALOG_PUBLIC_KEY)
+
+    internal fun verifyEnvelope(envelopeBytes: ByteArray, encodedPublicKey: String): ByteArray {
+        require(encodedPublicKey.isNotBlank()) { "Pinned catalog public key is not configured" }
         require(envelopeBytes.isNotEmpty() && envelopeBytes.size <= MAX_CATALOG_BYTES) {
             "Catalog envelope is empty or too large"
         }
@@ -90,7 +94,7 @@ object ListeningCatalogSync {
         val signatureBytes = Base64.decode(envelope.getString("signature"), Base64.DEFAULT)
         require(payload.isNotEmpty() && payload.size <= MAX_CATALOG_BYTES) { "Catalog payload size is invalid" }
         require(signatureBytes.size == 64) { "Catalog Ed25519 signature length is invalid" }
-        val encodedKey = Base64.decode(BuildConfig.LISTENING_CATALOG_PUBLIC_KEY, Base64.DEFAULT)
+        val encodedKey = Base64.decode(encodedPublicKey, Base64.DEFAULT)
         val publicKey = KeyFactory.getInstance("Ed25519").generatePublic(X509EncodedKeySpec(encodedKey))
         val verifier = Signature.getInstance("Ed25519")
         verifier.initVerify(publicKey)
