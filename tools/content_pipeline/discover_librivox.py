@@ -132,8 +132,12 @@ def normalize_record(raw: dict[str, Any], discovered_at: str) -> dict[str, Any] 
             "in_app_playback_cleared": False,
             "reviewed_at": None,
         },
+        "triage": {
+            "status": "ELIGIBLE_FOR_EDITORIAL_TRIAGE" if language.casefold() == "english" else "QUARANTINED_NON_ENGLISH",
+            "reason": "" if language.casefold() == "english" else "The listening course is English-only; confirm language metadata before any further processing.",
+        },
         "editorial": {
-            "status": "DISCOVERED",
+            "status": "DISCOVERED" if language.casefold() == "english" else "QUARANTINED",
             "human_recorded_audio_verified": False,
             "transcript_verified": False,
             "translation_reviewed": False,
@@ -199,6 +203,7 @@ def discover(root: Path, now: datetime | None = None, fetcher=fetch_page, sleep=
                 prior = existing[key]
                 candidate["editorial"] = prior.get("editorial", candidate["editorial"])
                 candidate["rights_review"] = prior.get("rights_review", candidate["rights_review"])
+                candidate["triage"] = prior.get("triage", candidate["triage"])
                 candidate["discovered_at"] = prior.get("discovered_at", discovered_at)
             existing[key] = candidate
         if len(records) < PAGE_SIZE:
