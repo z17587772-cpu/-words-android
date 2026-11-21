@@ -240,3 +240,35 @@ Implemented on `feature/listening-mvp` (schema v10; not yet runtime-verified):
 - Source-level inspection completed for database migration, repository query paths and MainActivity call sites.
 - GitHub PR workflow file includes Android emulator migration tests and static safety checks, but no workflow run was returned for the latest code commits. A passing CI result is therefore not established.
 - No APK was built; no merge or rebase was performed.
+
+
+## 11. Final handoff checkpoint — 2026-11-21
+
+Current implementation checkpoint:
+
+- Database schema is now **v10**.
+- Revision-owned transcript/question/choice snapshots and episode metadata/audio URI snapshots are present.
+- Existing v7 attempts are backfilled to a legacy revision; daily assignments receive a revision pin.
+- New attempts pin the daily assignment revision when the same episode is assigned for the device-local current date; otherwise they pin the episode's current revision.
+- MainActivity's active blind-listening, quiz and review screens now read lesson metadata, transcript, questions, answer choices and correct-answer feedback by attempt ID.
+- Score completion and historical answer review use the attempt's pinned revision.
+- Regression coverage includes live catalog mutation after an attempt and a v7-to-v10 legacy snapshot backfill scenario.
+- The PR validation workflow now has source guards for revision-pinned reads and the migration regression test.
+
+Validation actually performed in this handoff:
+- Re-fetched all touched source/test/workflow/documentation files from the feature branch.
+- Passed source-level assertions for schema v10, all four immutable snapshot tables, attempt and daily-assignment pins, attempt-scoped Activity reads, migration tests and CI guards.
+- Executed a SQLite in-memory migration/query smoke simulation for the v7-style episode/sentence/question/choice/attempt/answer schema; snapshot backfill, answer review query and `PRAGMA foreign_key_check` succeeded in that simulation.
+- **Not run:** Android Gradle compilation, Android instrumentation tests, emulator playback, physical-device playback, or a full GitHub Actions workflow. The latest commit has no workflow run returned, so do not describe CI as passing.
+
+Branch state at this checkpoint:
+- `feature/listening-mvp` remains separate from `main`; compare reports 192 commits ahead and 8 behind.
+- No merge, rebase or APK build was performed.
+
+Next safe implementation slice:
+1. Add a persisted package identity/version/digest registry and implement the importer against the v10 immutable revision tables.
+2. Stage audio at unique revision-scoped destinations; verify size/SHA-256 and durable file existence before publishing the current revision pointer.
+3. Add removed-question tombstones/active catalog policy; never delete question parents still referenced by `listening_answers`.
+4. Add importer idempotency, downgrade/conflict, rollback and process-interruption tests.
+5. Run the Android CI workflow, fix all compile/instrumentation failures, then validate Media3 audio and offline playback on devices.
+6. Only after those gates pass should course packages, WorkManager sync and release packaging be enabled.
