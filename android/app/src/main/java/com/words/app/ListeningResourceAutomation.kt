@@ -86,15 +86,17 @@ class InternetArchiveDiscoveryWorker(
         return try {
             var queuedCount = 0
             var detailLookups = 0
-            // Always revisit newest results, plus a bounded rotating backfill.
-            // Keep a 30-day item cursor so stable first-page results cannot starve
-            // newer material or consume the entire request budget every day.
+            // Page 1 is revisited for freshness; a separate backfill cursor
+            // advances only after its current page has been scanned.
             val cursor = runCatching { JSONObject(previous?.cursorJson ?: "{}") }.getOrDefault(JSONObject())
             val checkedAt = runCatching { JSONObject(cursor.optJSONObject("checked_at")?.toString() ?: "{}") }.getOrDefault(JSONObject())
             val checkedCutoff = now - CHECKED_ITEM_TTL_MS
-            val backfillPage = cursor.optInt("next_page", 1).coerceAtLeast(1)
-            val pages = linkedSetOf(1, backfillPage.coerceIn(1, MAX_BACKFILL_PAGE), (backfillPage + 1).coerceAtMost(MAX_BACKFILL_PAGE)).take(MAX_SEARCH_PAGES)
+            val backfillPage = cursor.optInt("next_page", 2).coerceIn(2, MAX_BACKFILL_PAGE)
+            val pages = listOf(1, backfillPage).distinct()
+            var nextBackfillPage = backfillPage
             for (page in pages) {
+                val isBackfillPage = page != 1
+                var pageLookups = 0
                 val docs = searchPage(page)
                 for (doc in docs) {
                     val identifier = doc.optString("identifier").trim()
@@ -105,9 +107,10 @@ class InternetArchiveDiscoveryWorker(
                         checkedAt.put(identifier, now)
                         continue
                     }
-                    if (detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
+                    if (detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN || pageLookups >= MAX_LOOKUPS_PER_PAGE) break
                     checkedAt.put(identifier, now)
                     detailLookups++
+                    pageLookups++
                     val detail = try {
                         fetchMetadata(identifier)
                     } catch (_: IllegalArgumentException) {
@@ -126,49 +129,54 @@ class InternetArchiveDiscoveryWorker(
                     if (title.isBlank()) continue
                     val files = detail.optJSONArray("files") ?: continue
                     val selected = selectAudioFiles(files)
-                    for (file in selected) {
-                        val fileName = file.optString("name")
-                        val size = file.optString("size").toLongOrNull() ?: 0L
-                        if (fileName.isBlank() || size !in MIN_FILE_BYTES..MAX_FILE_BYTES) continue
-                        val encodedName = Uri.encode(fileName)
-                        val mediaUrl = "https://archive.org/download/$identifier/$encodedName"
-                        val creator = metadata.optString("creator").take(500)
-                        val itemTitle = if (selected.size > 1) "$title · ${fileName.substringAfterLast('/').substringBeforeLast('.')}" else title
-                        val candidate = DiscoveredListeningResource(
-                            provider = PROVIDER,
-                            providerItemId = "$identifier#$fileName",
-                            canonicalUrl = "https://archive.org/details/$identifier",
-                            mediaUrl = mediaUrl,
-                            title = itemTitle.take(500),
-                            description = metadata.optString("description").take(3000),
-                            language = "English",
-                            durationMs = 0L,
-                            creator = creator,
-                            licenseName = license.second,
-                            licenseUrl = license.first,
-                            rightsStatus = "cleared",
-                            allowedActions = setOf("in_app_playback", "offline_download"),
-                            attribution = "Source: Internet Archive item $identifier; ${license.second}; retain source attribution",
-                            territory = "CC license grant",
-                            mimeType = "audio/mpeg",
-                            expectedSizeBytes = size
-                        )
-                        val id = repository.upsertCandidate(candidate, now)
-                        if (repository.queueDownload(id)) {
-                            ListeningResourceAutomation.enqueueDownload(applicationContext, id)
-                            queuedCount++
-                        }
+                    val file = selected.firstOrNull() ?: continue
+                    val fileName = file.optString("name")
+                    val size = file.optString("size").toLongOrNull() ?: 0L
+                    if (fileName.isBlank() || size !in MIN_FILE_BYTES..MAX_FILE_BYTES) continue
+                    val encodedName = Uri.encode(fileName)
+                    val mediaUrl = "https://archive.org/download/$identifier/$encodedName"
+                    val creator = metadata.optString("creator").take(500)
+                    val candidate = DiscoveredListeningResource(
+                        provider = PROVIDER,
+                        providerItemId = "$identifier#$fileName",
+                        canonicalUrl = "https://archive.org/details/$identifier",
+                        mediaUrl = mediaUrl,
+                        title = title.take(500),
+                        description = metadata.optString("description").take(3000),
+                        language = "English",
+                        durationMs = 0L,
+                        creator = creator,
+                        licenseName = license.second,
+                        licenseUrl = license.first,
+                        rightsStatus = "cleared",
+                        allowedActions = setOf("in_app_playback", "offline_download"),
+                        attribution = "Source: Internet Archive item $identifier; ${license.second}; retain source attribution",
+                        territory = "CC license grant",
+                        mimeType = "audio/mpeg",
+                        expectedSizeBytes = size
+                    )
+                    val id = repository.upsertCandidate(candidate, now)
+                    if (repository.queueDownload(id)) {
+                        ListeningResourceAutomation.enqueueDownload(applicationContext, id)
+                        queuedCount++
                     }
-                    if (queuedCount >= MAX_CANDIDATES_PER_RUN || detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
+                    if (queuedCount >= MAX_CANDIDATES_PER_RUN) break
                 }
-                if (docs.size < PAGE_SIZE || queuedCount >= MAX_CANDIDATES_PER_RUN || detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
-                Thread.sleep(SEARCH_DELAY_MS)
+                if (isBackfillPage) {
+                    nextBackfillPage = when {
+                        queuedCount >= MAX_CANDIDATES_PER_RUN || pageLookups >= MAX_LOOKUPS_PER_PAGE -> page
+                        docs.size < PAGE_SIZE || page >= MAX_BACKFILL_PAGE -> 2
+                        else -> page + 1
+                    }
+                }
+                if (docs.size < PAGE_SIZE || queuedCount >= MAX_CANDIDATES_PER_RUN) break
+                if (page == 1 && pages.size > 1) Thread.sleep(SEARCH_DELAY_MS)
             }
             repository.saveProviderState(
                 ListeningProviderState(
                     provider = PROVIDER,
                     cursorJson = JSONObject()
-                        .put("next_page", if (backfillPage + 2 > MAX_BACKFILL_PAGE) 1 else backfillPage + 2)
+                        .put("next_page", nextBackfillPage)
                         .put("checked_at", trimCheckedItems(checkedAt, checkedCutoff))
                         .toString(),
                     lastSuccessAt = now,
@@ -289,7 +297,7 @@ class InternetArchiveDiscoveryWorker(
                     !file.optString("source").equals("metadata", true) &&
                     !file.optString("private").equals("true", true)
             }
-            .sortedBy { it.optString("name") }
+            .sortedByDescending { it.optString("size").toLongOrNull() ?: 0L }
         return candidates.take(MAX_TRACKS_PER_ITEM)
     }
 
@@ -298,13 +306,14 @@ class InternetArchiveDiscoveryWorker(
         private const val PROVIDER = "internet_archive"
         private const val USER_AGENT = "WordsAndroidListeningDiscovery/1.0 (metadata and licensed audio)"
         private const val PAGE_SIZE = 50
-        private const val MAX_SEARCH_PAGES = 3
+        private const val MAX_SEARCH_PAGES = 2
         private const val MAX_BACKFILL_PAGE = 50
-        private const val MAX_CANDIDATES_PER_RUN = 5
-        private const val MAX_METADATA_LOOKUPS_PER_RUN = 8
+        private const val MAX_CANDIDATES_PER_RUN = 4
+        private const val MAX_METADATA_LOOKUPS_PER_RUN = 6
+        private const val MAX_LOOKUPS_PER_PAGE = 3
         private const val MAX_CHECKED_ITEMS = 1_000
         private const val CHECKED_ITEM_TTL_MS = 30L * 24L * 60L * 60L * 1000L
-        private const val MAX_TRACKS_PER_ITEM = 5
+        private const val MAX_TRACKS_PER_ITEM = 1
         private const val MIN_FILE_BYTES = 64 * 1024L
         private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
         private const val MIN_FREE_SPACE_BYTES = 50L * 1024L * 1024L
