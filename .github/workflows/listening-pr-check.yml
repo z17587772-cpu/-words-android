@@ -121,6 +121,8 @@ jobs:
           assert "fun getQuestionsForAttempt" in repository
           assert "fun getSentencesForAttempt" in repository
           assert "fun getEpisodeForAttempt" in repository
+          assert "fun getEpisodeForDailyAssignment" in repository
+          assert "getEpisodeForDailyAssignment(java.time.LocalDate.now().toString()" in activity
           assert "fun getAttemptProgress" in repository and "fun getAttemptAnswer" in repository
           assert "fun getLatestIncompleteAttempt" in repository and "fun abandonAttempt" in repository
           assert "getLatestIncompleteAttempt()" in activity
