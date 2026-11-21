@@ -2108,6 +2108,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun resumeListeningAttempt(attemptId: Long) {
+        if (listeningStageTransitioning) return
         val previousStage = listeningStage
         prefs.edit().putLong(KEY_LISTENING_ATTEMPT_ID, attemptId).apply()
         restoreListeningAttemptState()
@@ -2274,8 +2275,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(text("第一遍盲听 → 5 道理解题 → 逐句精听 → 原文翻译与语音解析 → 复盘。开始答题前不会显示全文。", 12f, secondary))
         c.addView(vSpace(16))
         c.addView(pillButton("开始第一遍盲听", true) {
-            listeningAttemptId = listeningRepository.startAttempt(episode.id)
             transitionListeningStage("blind") {
+                listeningAttemptId = listeningRepository.startAttempt(episode.id)
                 listeningQuestionIndex = 0
                 persistListeningAttemptUiState()
                 listeningCorrectCount = 0
@@ -2318,8 +2319,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(pillButton("我已完成初听，开始答题", true) {
             tts.stop()
             pauseListeningAudio()
-            listeningRepository.updateAttemptStage(listeningAttemptId, "quiz")
             transitionListeningStage("quiz") {
+                listeningRepository.updateAttemptStage(listeningAttemptId, "quiz")
                 listeningQuestionIndex = 0
                 listeningSelectedChoiceId = null
                 listeningSubmitted = false
@@ -2412,8 +2413,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 true
             ) {
                 if (listeningQuestionIndex == questions.lastIndex) {
-                    listeningRepository.finishAttempt(listeningAttemptId)
-                    transitionListeningStage("review")
+                    transitionListeningStage("review") {
+                        listeningRepository.finishAttempt(listeningAttemptId)
+                    }
                 } else {
                     transitionListeningStage("quiz") {
                         listeningQuestionIndex += 1
@@ -2533,8 +2535,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         parent.addView(vSpace(15))
         parent.addView(pillButton("再练一次", true) {
-            listeningAttemptId = listeningRepository.startAttempt(episode.id)
             transitionListeningStage("blind") {
+                listeningAttemptId = listeningRepository.startAttempt(episode.id)
                 listeningQuestionIndex = 0
                 persistListeningAttemptUiState()
                 listeningCorrectCount = 0
@@ -2548,8 +2550,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(pillButton("返回听力首页", false) {
             tts.stop()
             pauseListeningAudio()
-            clearActiveListeningAttempt()
-            transitionListeningStage("home")
+            transitionListeningStage("home") {
+                clearActiveListeningAttempt()
+            }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
