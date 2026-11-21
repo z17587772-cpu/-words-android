@@ -138,11 +138,13 @@ class ListeningRepository(private val helper: WordsDatabase) {
             val history = getRecentAssignmentHistory(date.minusDays(7).toString(), assignmentDate)
             val selected = ListeningDailyPlanner.choose(candidates, history, assignmentDate)
             if (selected != null) {
+                val assignedRevision = ensureCurrentRevision(db, selected.id)
                 db.insertWithOnConflict(
                     "listening_daily_assignments", null,
                     ContentValues().apply {
                         put("assignment_date", assignmentDate)
                         put("episode_id", selected.id)
+                        put("content_revision_id", assignedRevision)
                         put("created_at", nowMs)
                     },
                     SQLiteDatabase.CONFLICT_IGNORE
@@ -436,7 +438,14 @@ class ListeningRepository(private val helper: WordsDatabase) {
         val db = database
         db.beginTransaction()
         try {
-            val revisionId = ensureCurrentRevision(db, episodeId)
+            val assignedRevision = db.rawQuery(
+                """SELECT content_revision_id FROM listening_daily_assignments
+                   WHERE assignment_date=? AND episode_id=? LIMIT 1""",
+                arrayOf(LocalDate.now().toString(), episodeId)
+            ).use { cursor ->
+                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+            }
+            val revisionId = assignedRevision ?: ensureCurrentRevision(db, episodeId)
             val attemptId = db.insertOrThrow(
                 "listening_attempts", null, ContentValues().apply {
                     put("episode_id", episodeId)
