@@ -2037,6 +2037,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         val questions = listeningRepository.getQuestionsForAttempt(progress.id)
+        if (questions.isEmpty()) {
+            clearActiveListeningAttempt()
+            listeningStage = "home"
+            return
+        }
         val nextQuestionIndex = questions.indexOfFirst { question ->
             listeningRepository.getAttemptAnswer(progress.id, question.id) == null
         }
