@@ -11,14 +11,14 @@ import base64
 import json
 import os
 import re
-import tempfile
+import hashlib
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-MAX_ARCHIVE_BYTES = 1_100_000_000
+MAX_ARCHIVE_BYTES = 90 * 1024 * 1024
 PACKAGE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{1,79}")
 SHA256 = re.compile(r"[a-fA-F0-9]{64}")
 
@@ -61,6 +61,26 @@ def canonical_payload(catalog: dict) -> bytes:
     ).encode("utf-8")
 
 
+def validate_assets(catalog: dict, asset_root: Path) -> None:
+    root = asset_root.resolve()
+    for item in catalog["packages"]:
+        parsed = urlparse(item["url"])
+        prefix = "/z17587772-cpu/-words-android/content-inbox/"
+        if parsed.hostname != "raw.githubusercontent.com" or not parsed.path.startswith(prefix):
+            raise ValueError("Package URL must point to this repository's content-inbox branch")
+        relative = unquote(parsed.path[len(prefix):])
+        if not relative or relative.startswith("/") or ".." in Path(relative).parts:
+            raise ValueError("Package URL contains an unsafe asset path")
+        asset = (root / relative).resolve()
+        if root not in asset.parents or not asset.is_file():
+            raise ValueError(f"Package asset does not exist inside content-inbox: {relative}")
+        if asset.stat().st_size != item["size_bytes"]:
+            raise ValueError(f"Package size mismatch: {relative}")
+        digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+        if digest.lower() != item["sha256"].lower():
+            raise ValueError(f"Package SHA-256 mismatch: {relative}")
+
+
 def sign_payload(payload: bytes, private_key: Ed25519PrivateKey) -> dict[str, str]:
     return {
         "payload": base64.b64encode(payload).decode("ascii"),
@@ -83,8 +103,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Unsigned catalog JSON")
     parser.add_argument("output", type=Path, help="Signed envelope JSON")
+    parser.add_argument("--asset-root", type=Path, help="Verify package ZIPs against files in content-inbox")
     args = parser.parse_args()
     catalog = json.loads(args.input.read_text(encoding="utf-8"))
+    if args.asset_root:
+        validate_assets(catalog, args.asset_root)
     payload = canonical_payload(catalog)
     envelope = sign_payload(payload, load_private_key())
     args.output.parent.mkdir(parents=True, exist_ok=True)
