@@ -49,6 +49,41 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun upgradingV6AddsAudioRevisionWithoutLosingSavedPlayback() {
+        context.deleteDatabase(DATABASE_NAME)
+        createVersion5Fixture()
+        val legacy = context.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null)
+        legacy.execSQL("CREATE TABLE listening_episodes (id TEXT PRIMARY KEY)")
+        legacy.execSQL("""
+            CREATE TABLE listening_playback (
+                episode_id TEXT PRIMARY KEY,
+                position_ms INTEGER NOT NULL DEFAULT 0,
+                playback_speed REAL NOT NULL DEFAULT 1.0,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        legacy.execSQL("INSERT INTO listening_episodes(id) VALUES('legacy-episode')")
+        legacy.execSQL("INSERT INTO listening_playback(episode_id,position_ms,playback_speed,updated_at) VALUES('legacy-episode',12345,1.25,1700000000000)")
+        legacy.version = 6
+        legacy.close()
+
+        val helper = WordsDatabase(context)
+        val upgraded = helper.writableDatabase
+        assertEquals(7, upgraded.version)
+        assertEquals(12_345, scalar(upgraded, "SELECT position_ms FROM listening_playback WHERE episode_id='legacy-episode'"))
+        assertEquals(1.25f, upgraded.rawQuery("SELECT playback_speed FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
+            assertTrue(it.moveToFirst())
+            it.getFloat(0)
+        }, 0.001f)
+        assertEquals("", upgraded.rawQuery("SELECT audio_revision FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
+            assertTrue(it.moveToFirst())
+            it.getString(0)
+        })
+        helper.close()
+    }
+
+    @Test
     fun playbackStateRoundTripsAndDemoNeverBecomesDailyAssignment() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
