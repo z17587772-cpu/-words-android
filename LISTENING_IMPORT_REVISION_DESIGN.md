@@ -226,3 +226,6 @@ Import and orphan recovery share a process-wide lock. This prevents recovery fro
 ## 15. Daily assignment UI pinning and scroll behavior
 
 The home and intro screens resolve daily lesson metadata from the daily assignment's pinned revision, not from the latest mutable episode row. This keeps the displayed title/audio metadata consistent with the revision that a new attempt will actually pin. Quiz option/answer rerenders preserve the current listening scroll offset, while deliberate stage transitions reset the scroll position.
+
+
+The importer checks free space before durable audio installation: total declared audio bytes plus a 64 MiB reserve must be available. A storage failure is raised before any revision audio is published.
