@@ -1,6 +1,6 @@
 # Listening Content Package Specification
 
-Status: schema v1 validator and audio-integrity primitives implemented; database importer and offline sync are not yet implemented.
+Status: schema v1 validator, safe archive extraction, audio integrity, and a schema v11 revision-safe importer are implemented on the feature branch; Android runtime validation and offline sync remain pending.
 
 ## Package layout
 
@@ -82,3 +82,27 @@ Not implemented yet:
 - Revision-safe database import and rollback.
 - WorkManager catalog sync, download progress, retry, and offline library UI.
 - WorkManager catalog sync, download progress, retry, and offline library UI.
+
+
+## Schema v11 importer update
+
+Implemented on the feature branch:
+
+- Package identity/version/archive-digest registry and package-to-episode ownership records.
+- Idempotent identical-package handling after installed revision/audio verification.
+- Downgrade and same-version/different-digest rejection.
+- Exact manifest-to-archive audio path matching and license expiry checks at import time.
+- Revision-specific immutable audio files verified before database publication.
+- One SQLite transaction for revision snapshots and package/catalog publication, with the current revision pointer updated last.
+- Revision-namespaced parent question/sentence IDs, preserving historical answer foreign keys without deleting prior rows.
+- Package update deactivation for removed episodes; historical attempts and assignments keep their pinned revisions.
+- Explicit protection against promoting the demo TTS lesson or taking over an unowned legacy episode.
+- Orphan revision-audio scanning and regression tests for importer version/history behavior.
+
+Still pending:
+
+- Execute Android Gradle compilation and instrumentation tests on the emulator.
+- Add injected failures at each import stage and verify transaction rollback plus orphan recovery.
+- Validate playback of newly imported file URIs with Media3 on emulator and physical devices.
+- Add WorkManager downloads, retry/resume, storage management, and offline-library UI.
+- Do not expose package import in the learner UI until runtime and failure-injection gates pass.
