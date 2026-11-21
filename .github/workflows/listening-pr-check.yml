@@ -107,9 +107,12 @@ jobs:
 
       - name: Run database migration tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_I_WANT_MY_TCG: 'yes'
         with:
           api-level: 35
           arch: x86_64
           profile: pixel_2
+          disable-animations: true
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
