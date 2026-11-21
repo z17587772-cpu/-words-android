@@ -33,7 +33,7 @@ Confirmed product contract:
 3. **The service is only a foundation.** `MediaSessionService` correctly owns ExoPlayer and MediaSession, but the Activity still lacks end-to-end playback state observation, persistence, error recovery and tested interruption handling.
 4. **TTS demo is not Media3 audio.** The demo uses Android TextToSpeech directly. It is acceptable as a clearly labelled preview, but cannot validate real recording, precise timestamps, lock-screen playback or sentence seeking.
 5. **Demo timestamps are placeholders.** Every demo sentence has start/end time zero. Do not enable timestamp-based seek for those rows.
-6. **The formal daily planner is not implemented.** The preview course must not be written into `listening_daily_assignments`. Future assignments must be created only from fully approved production content.
+6. **The formal daily planner is implemented, but production content import is not.** It assigns only approved, non-demo episodes with complete rights, audio, timestamps, evidence and answer-choice validation. With demo-only content it returns no formal assignment and the UI continues to label the demo explicitly.
 7. **Content package import is not implemented.** There is no complete manifest validator, checksum verification, transactional package import, atomic audio install or rollback flow.
 8. **Course catalog is not production content.** There is one short system-TTS demo, not the agreed Advanced-first course library.
 9. **Test coverage is still incomplete.** A v5→v6 Android instrumentation migration test has now been added and wired to an API 35 emulator CI step. Repository, content-import, playback lifecycle and UI-flow tests are still missing.
@@ -91,8 +91,8 @@ Validation/import:
 - Only assign `status=approved`, non-demo lessons with complete transcript, questions, verified timestamps, playable audio and rights.
 - Prefer Advanced while retaining controlled L1–L4 progression.
 - Balance topic, format, accent and speaker; avoid recent repeats.
-- Make assignment deterministic for date + catalog revision; precompute stable ranking values instead of random comparators.
-- Persist assignments once. Never silently replace a started lesson after a catalog update.
+- [x] Make assignment deterministic for date + catalog revision using stable tie-breaks; prioritize L3/L4 while rotating recent episode IDs, topics and accents.
+- [x] Persist each date's assignment once with a transaction and conflict-safe insert. Existing assignments are returned unchanged. [ ] Add catalog-update handling for started lessons.
 - If no approved lesson exists, show a transparent “正式课程准备中” state and a separately labelled optional demo.
 - Store first-attempt score separately from later practice.
 - Build weak-skill review only after enough reliable data exists. Start with explainable rules; evaluate FSRS later rather than introducing a speculative algorithm immediately.
@@ -139,7 +139,7 @@ Validation/import:
 4. Add sentence timestamp validation and loop controller.
 5. [x] Implement package manifest parser/validator, secure archive extraction and audio integrity primitives; [ ] implement revision-safe transactional importer.
 6. Implement audio download/checksum/atomic install and offline playback.
-7. Implement deterministic daily planner and library browsing.
+7. [x] Implement deterministic approved-only daily planner; [ ] complete library browsing and explainable review recommendations.
 8. Add targeted review and vocabulary linking.
 9. Populate and QA licensed human-recorded content.
 10. Complete UI/accessibility polish, signing, device tests and release.
@@ -177,3 +177,5 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Added ZIP archive extraction into a fresh staging directory, allowing only manifest/audio entries, rejecting traversal/absolute/duplicate paths, and enforcing per-entry/total decompressed-size plus entry-count limits. Added instrumentation coverage for successful extraction and rollback cleanup on traversal failure.
 - Added 0.8×/1.0×/1.25×/1.5× speed selection for approved course audio in blind-listening and sentence-review stages; the selected speed is persisted and restored. The system-TTS demo intentionally does not expose a fake Media3 speed control.
 - Diagnosed the failed emulator CI attempt: the GitHub runner has no hardware CPU accelerator, so the emulator exited before tests ran (`Software CPU emulation (-accel off) is not supported`). Updated the emulator job to opt into TCG software emulation and disable animations. This was an infrastructure failure, not a test assertion or Kotlin compilation result; the latest code still requires a fresh successful validation run.
+- Added deterministic daily assignment selection with advanced-first prioritization, recent-repeat avoidance, and topic/accent rotation. Eligibility checks require approved non-demo audio, valid source/license provenance, unexpired playback rights, complete chronological sentence timing, and 3-8 fully evidenced questions with 2-6 choices and exactly one correct answer. Assignment writes are transactional and idempotent.
+- Added instrumentation coverage for advanced-first selection, repeat avoidance, stable same-day assignments, and the empty-catalog case where demo content must not become a formal assignment.
