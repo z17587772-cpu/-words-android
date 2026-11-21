@@ -111,6 +111,8 @@ jobs:
           assert "listening_revision_questions" in repository
           assert "listening_content_packages" in database and "listening_package_episodes" in database
           assert "class ListeningContentPackageImporter" in importer
+          assert "snapshotArchive" in importer and "MAX_ARCHIVE_BYTES" in importer
+          assert "synchronized(CONTENT_LOCK)" in importer
           assert "copyAndVerifyNew" in importer and "recoverOrphanedAudioFiles" in importer
           assert "Package version already exists with a different archive digest" in importer
           assert "Package downgrade rejected" in importer
