@@ -91,6 +91,8 @@ jobs:
           archive = (root / "ListeningPackageArchive.kt").read_text(encoding="utf-8")
           service = (root / "ListeningPlaybackService.kt").read_text(encoding="utf-8")
           coordinator = (root / "ListeningPlaybackCoordinator.kt").read_text(encoding="utf-8")
+          database = (root / "WordsDatabase.kt").read_text(encoding="utf-8")
+          migration_test = Path("android/app/src/androidTest/java/com/words/app/WordsDatabaseMigrationTest.kt").read_text(encoding="utf-8")
           assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
           assert "evidence_sentence_id" in validator and "in_app_playback" in validator
           assert "MAX_AUDIO_SIZE_BYTES" in validator
@@ -100,6 +102,10 @@ jobs:
           assert "Duplicate archive entry" in archive and "deleteRecursively()" in archive
           assert "CHECKPOINT_INTERVAL_MS = 5_000L" in service
           assert "checkpointNow()" in service and "setMediaId(episode.id)" in coordinator
+          assert "audio_revision" in database
+          assert "episode.playbackRevision(audioUri) != itemRevision" in service
+          assert "currentItem.mediaId != id" in coordinator
+          assert "upgradingV6AddsAudioRevisionWithoutLosingSavedPlayback" in migration_test
           repository = (root / "ListeningRepository.kt").read_text(encoding="utf-8")
           planner = (root / "ListeningDailyPlanner.kt").read_text(encoding="utf-8")
           assert "assignDailyEpisode" in repository and "e.status='approved' AND e.is_demo=0" in repository
