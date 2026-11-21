@@ -122,6 +122,12 @@ class ListeningRepository(private val helper: WordsDatabase) {
         val db = database
         db.beginTransaction()
         try {
+            // Remove legacy preview assignments written by pre-fix builds.
+            db.delete(
+                "listening_daily_assignments",
+                "episode_id IN (SELECT id FROM listening_episodes WHERE is_demo=1)",
+                null
+            )
             val existing = getAssignedEpisodeId(assignmentDate)
             if (existing != null) {
                 db.setTransactionSuccessful()
