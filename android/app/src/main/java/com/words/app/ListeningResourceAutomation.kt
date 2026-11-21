@@ -313,19 +313,36 @@ class ListeningResourceDownloadWorker(
         val id = inputData.getString(KEY_RESOURCE_ID) ?: return Result.failure()
         val helper = WordsDatabase(applicationContext)
         val repository = ListeningDiscoveryRepository(helper)
-        val candidate = repository.getDownloadCandidate(id) ?: return Result.failure()
-        if (candidate.status == "downloaded") return Result.success()
+        val candidate = repository.getDownloadCandidate(id)
+        if (candidate == null) {
+            helper.close()
+            return Result.failure()
+        }
+        if (candidate.status == "downloaded") {
+            helper.close()
+            return Result.success()
+        }
         if (candidate.rightsStatus != "cleared" ||
             !candidate.allowedActions.contains("offline_download") ||
             candidate.status !in setOf("queued", "downloading", "failed") ||
             candidate.expectedSizeBytes !in 1L..MAX_FILE_BYTES ||
             candidate.mimeType != "audio/mpeg"
-        ) return Result.failure()
+        ) {
+            helper.close()
+            return Result.failure()
+        }
 
         val root = File(applicationContext.filesDir, "listening-library")
-        if (!root.exists() && !root.mkdirs()) return Result.retry()
-        if (!ensureStorageCapacity(repository, root, candidate.expectedSizeBytes)) {
+        if (!root.exists() && !root.mkdirs()) {
+            helper.close()
+            return Result.retry()
+        }
+        val capacityAvailable = runCatching {
+            ensureStorageCapacity(repository, root, candidate.expectedSizeBytes)
+        }.getOrDefault(false)
+        if (!capacityAvailable) {
             repository.updateDownloadStatus(id, "failed")
+            helper.close()
             return Result.failure()
         }
         val temporary = File(root, ".$id-${System.currentTimeMillis()}.part")
