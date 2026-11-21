@@ -108,7 +108,9 @@ jobs:
           assert "ListeningDailyPlanner.choose" in repository and "stableTieBreak" in planner
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
-          assert "assembleDebug" not in workflow and "upload-artifact" not in workflow
+          forbidden_build = "assemble" + "Debug"
+          forbidden_upload = "upload" + "-artifact"
+          assert forbidden_build not in workflow and forbidden_upload not in workflow
           apk_workflow = Path(".github/workflows/android-apk.yml").read_text(encoding="utf-8")
           assert "workflow_dispatch:" in apk_workflow
           assert "pull_request:" not in apk_workflow and "\npush:" not in apk_workflow
