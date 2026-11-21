@@ -139,7 +139,7 @@ Validation/import:
 4. Add sentence timestamp validation and loop controller.
 5. [x] Implement package manifest parser/validator, secure archive extraction and audio integrity primitives; [ ] implement revision-safe transactional importer.
 6. Implement audio download/checksum/atomic install and offline playback.
-7. [x] Implement deterministic approved-only daily planner and explainable per-question answer review; [ ] complete library browsing and skill-based review recommendations.
+7. [x] Implement deterministic approved-only daily planner, full lesson-library listing and explainable per-question answer review; [ ] add skill-based review recommendations.
 8. Add targeted review and vocabulary linking.
 9. Populate and QA licensed human-recorded content.
 10. Complete UI/accessibility polish, signing, device tests and release.
@@ -180,3 +180,4 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Added deterministic daily assignment selection with advanced-first prioritization, recent-repeat avoidance, and topic/accent rotation. Eligibility checks require approved non-demo audio, valid source/license provenance, unexpired playback rights, complete chronological sentence timing, and 3-8 fully evidenced questions with 2-6 choices and exactly one correct answer. Assignment writes are transactional and idempotent.
 - Added instrumentation coverage for advanced-first selection, repeat avoidance, stable same-day assignments, and the empty-catalog case where demo content must not become a formal assignment.
 - Expanded post-quiz review to retrieve the learner's selected option, the correct option, evidence sentence and explanation from the persisted attempt. The quiz option model remains answer-key-free; correctness is only queried for submission and post-attempt review. Added instrumentation coverage for wrong-answer persistence and review reconstruction.
+- Replaced the single-item placeholder in the listening library with a list of all installed approved lessons plus the separately labelled demo, including category, level, duration, bookmark state and a direct course entry.
