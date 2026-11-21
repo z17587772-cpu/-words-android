@@ -632,3 +632,16 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [x] Added instrumentation regression coverage for each score interval.
 - [ ] Verify repository SQL and UI flow in Android instrumentation on the latest head.
 - [ ] Extend from whole-course review to question-level and evidence-sentence-level targeting after event tracking is validated.
+
+
+## 29. Consolidated implementation audit (2026-11-21)
+
+- [x] Added and source-audited the strict unseen-only new-lesson planner, long-run 371-day regression test, and honest empty-pool UI.
+- [x] Added an independent whole-course review queue with score-based 1/3/7/14-day intervals, rights/approval filtering, home-screen entry, and protection against interrupting an unfinished attempt.
+- [x] Added a resumable full LibriVox catalog metadata bootstrap, five-page checkpoints, incremental three-day overlap, rate-limit retries, stable-ID deduplication, rights quarantine, and a daily scheduled content-inbox workflow.
+- [x] Added Python regression coverage for API normalization, rights/language quarantine, pagination, pacing, retry handling, idempotency, cursor safety, and bootstrap recovery.
+- [x] Added PR CI steps for Python unit tests, Kotlin compile-only tasks, and Android instrumentation tests without producing a distributable APK.
+- [x] Latest targeted source/configuration audit: 32/32 assertions passed.
+- [ ] No Actions run is associated with the current head yet. Python tests, full Android Gradle compilation, and emulator instrumentation are therefore not yet runtime-verified.
+- [ ] The scheduled discovery worker will begin running only after this workflow is present on the repository's default branch. The current Draft PR has intentionally not been merged.
+- [ ] No approved production human-recorded course packages exist yet; metadata discovery is not course creation. Rights review, transcript/translation/question production, editorial QA, signed catalog publishing, and Android background sync remain production gates.
