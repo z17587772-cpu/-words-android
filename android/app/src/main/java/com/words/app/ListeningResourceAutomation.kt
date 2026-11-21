@@ -105,6 +105,7 @@ class InternetArchiveDiscoveryWorker(
                     if (checkedAt.optLong(identifier, 0L) > checkedCutoff) continue
                     val license = InternetArchiveMetadataPolicy.normalizeLicense(doc.opt("licenseurl"))
                     if (license == null) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
                         checkedAt.put(identifier, now)
                         continue
                     }
@@ -123,7 +124,10 @@ class InternetArchiveDiscoveryWorker(
                     }
                     val metadata = detail.optJSONObject("metadata") ?: continue
                     val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.opt("licenseurl"))
-                    if (detailLicense != license) continue
+                    if (detailLicense != license) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val languageValue = metadata.opt("language") ?: doc.opt("language")
                     if (!InternetArchiveMetadataPolicy.isEnglish(languageValue)) continue
                     val title = metadata.optString("title").ifBlank { doc.optString("title") }.trim()
