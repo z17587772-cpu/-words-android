@@ -120,7 +120,8 @@ Exit: instrumented/fake-server tests prove pagination, restart recovery, duplica
 - [x] Immutable hash-versioned file publication and database pointer update after verification.
 - [x] 512 MiB storage quota; evict only unpinned downloads not played in the last 30 days; serialize transfers to prevent quota races.
 - [x] Reconcile missing local files, verify stored SHA-256 hashes, clean stale partial downloads and remove aged orphan MP3 files.
-- [ ] Dedicated storage-management screen and user-directed deletion controls.
+- [x] User-directed per-resource local-audio deletion with confirmation; metadata, favorites and playback progress remain, and shared bytes are retained.
+- [ ] Dedicated storage overview/bulk-management screen.
 
 Exit: network interruption, process death, duplicate broadcasts, bad checksum and insufficient storage tests leave no corrupt library rows and preserve prior valid files. **Pending runtime verification.**
 
@@ -128,7 +129,8 @@ Exit: network interruption, process death, duplicate broadcasts, bad checksum an
 - [x] Add separate “自动发现资源库” list with source, attribution, duration and download state.
 - [x] Add downloaded-only and favorites filters.
 - [x] Add title, creator and source search plus downloaded-only/favorites filters.
-- [ ] Add dedicated storage-management controls and user-directed deletion.
+- [x] Add confirmed per-resource local-audio deletion while preserving history and shared files.
+- [ ] Add dedicated storage overview/bulk-management screen.
 - [x] Play downloaded resources offline and resume saved position/speed.
 - [x] Display source and license attribution.
 - [x] Clearly distinguish raw recordings from formal courses.
