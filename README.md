@@ -4,13 +4,13 @@
 
 ## 当前版本
 
-- **应用版本：** 1.8.3
-- **versionCode：** 24
+- **应用版本：** 1.8.4
+- **versionCode：** 25
 - **Android applicationId：** `com.words.app`
-- **构建状态：** 当前听力开发 PR 的验证构建尚未通过完整编译与模拟器测试；不得将其视为正式发布包。
+- **构建状态：** 听力功能更新已通过 1.8.3 源码版本的 Android 编译与模拟器回归；1.8.4 版本号递增后的完整构建正在验证，完成前不将中间包视为最终安装包。
 - **唯一版本来源：** `android/app/build.gradle.kts` 中的 `versionName` 与 `versionCode`
 - **听力开发：** [PR #1（Draft，未合并）](https://github.com/z17587772-cpu/-words-android/pull/1)
-- **APK 下载：** 当前没有可核验的 v1.8.3 验证通过 APK 链接。
+- **APK 下载：** [查看最新 GitHub Actions 验证构建](https://github.com/z17587772-cpu/-words-android/actions)。1.8.4 专属 APK 需等待本次版本号更新后的构建通过。
 
 版本号以 Android 工程配置为准；Release tag 使用 `v${versionName}`。修改版本时必须同时递增 versionCode，并检查构建产物和 Release。
 
@@ -70,7 +70,7 @@ gradle --no-daemon clean assembleDebug
 
 ## 听力模块状态
 - 自动发现与本地资源下载已实现源码路径；Internet Archive 仅对明确许可的 CC0 / CC BY 4.0 / CC BY-SA 4.0 条目开放自动下载，LibriVox 候选仍处于权利隔离状态。
-- 本地资源库、离线播放、播放进度恢复、SHA-256 校验、存储配额和资源协调修复已有实现，但当前 PR 的 Android 编译、模拟器与真机验收尚未完成。
+- 本地资源库、离线播放、播放进度恢复、SHA-256 校验、存储配额和资源协调修复已有实现；本轮增加了下载中断状态恢复、失败下载可重试、终态失败不再阻塞后续队列、资源许可过滤和刷新页面复用。1.8.3 对应代码已通过 Android 编译与模拟器回归，1.8.4 新版本构建待验证。
 - 原始发现资源与正式课程、每日新课严格分离。自动元数据发现不等于正式课程生产。
 - 正式课程转录、句子时间轴、中文翻译、题目生成、人工审核、签名目录密钥配置和首批正式课程发布仍未闭环。
 - 详细验收状态以 `android/PROJECT_STATUS.txt` 和 `LISTENING_PRODUCT_ROADMAP.md` 为准。

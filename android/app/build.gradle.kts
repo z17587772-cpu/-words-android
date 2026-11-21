@@ -47,8 +47,8 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 24
-        versionName = "1.8.3"
+        versionCode = 25
+        versionName = "1.8.4"
         buildConfigField("String", "LISTENING_CATALOG_URL", buildConfigString(listeningCatalogUrl))
         buildConfigField("String", "LISTENING_CATALOG_PUBLIC_KEY", buildConfigString(listeningCatalogPublicKey))
     }
