@@ -198,7 +198,21 @@ jobs:
           assert ":app:compileDebugKotlin" in workflow and ":app:compileDebugAndroidTestKotlin" in workflow
           assert "99-kvm4all.rules" in workflow
           assert 'echo "ANDROID_I_WANT_MY_TCG=yes" >> "$GITHUB_ENV"' in workflow
-          print("Package validation, audio integrity, background playback, emulator fallback and no-APK PR boundaries passed.")
+          discovery = Path("tools/content_pipeline/discover_librivox.py").read_text(encoding="utf-8")
+          discovery_workflow = Path(".github/workflows/listening-content-discovery.yml").read_text(encoding="utf-8")
+          assert 'API_URL = "https://librivox.org/api/feed/audiobooks"' in discovery
+          assert "PAGE_SIZE = 500" in discovery and "REQUEST_DELAY_SECONDS = 3.0" in discovery
+          assert "OVERLAP_DAYS = 3" in discovery
+          assert '"offline_download_cleared": False' in discovery
+          assert '"in_app_playback_cleared": False' in discovery
+          assert '"status": "REQUIRED"' in discovery
+          assert "QUARANTINED_NON_ENGLISH" in discovery
+          assert "atomic_write_json(state_path" in discovery
+          assert "if not records:" not in discovery
+          assert "workflow_dispatch:" in discovery_workflow and "17 3 * * *" in discovery_workflow
+          assert "content-inbox" in discovery_workflow
+          assert "test_discover_librivox" in (Path("tools/content_pipeline/test_discover_librivox.py").read_text(encoding="utf-8"))
+          print("Package, playback, strict no-repeat, and metadata-only continuous discovery guards passed.")
           PY
 
       - name: Compile app and instrumentation sources without packaging an APK
