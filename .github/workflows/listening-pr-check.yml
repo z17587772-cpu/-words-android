@@ -111,6 +111,8 @@ jobs:
           assert "fun getSentencesForAttempt" in repository
           assert "fun getEpisodeForAttempt" in repository
           assert "attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows" in migration_test
+          assert "upgradingV7BackfillsSnapshotsAndPinsExistingAttempts" in migration_test
+          assert "getEpisodeForAttempt" in activity and "getQuestionsForAttempt" in activity
           assert "episode.playbackRevision(audioUri) != itemRevision" in service
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6AddsAudioRevisionWithoutLosingSavedPlayback" in migration_test
