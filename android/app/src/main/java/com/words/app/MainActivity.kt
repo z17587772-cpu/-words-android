@@ -50,6 +50,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningSubmitted = false
     private var listeningCurrentCorrect: Boolean? = null
     private var listeningCorrectCount = 0
+    private val listeningPlaybackHandler = Handler(Looper.getMainLooper())
+    private var listeningSegmentStopRunnable: Runnable? = null
     private lateinit var prefs: android.content.SharedPreferences
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
@@ -214,6 +216,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (::tts.isInitialized) tts.shutdown()
         toneGenerator?.release()
         toneGenerator = null
+        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningSegmentStopRunnable = null
         listeningControllerFuture?.let { MediaController.releaseFuture(it) }
         listeningControllerFuture = null
         listeningMediaController = null
@@ -1864,6 +1868,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun playListeningAudio(url: String) {
+        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningSegmentStopRunnable = null
         val controller = listeningMediaController
         if (controller == null) {
             Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
@@ -1875,6 +1881,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun pauseListeningAudio() {
+        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningSegmentStopRunnable = null
         listeningMediaController?.pause()
     }
 
@@ -1907,19 +1915,31 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
                 return
             }
+            listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
             controller.setMediaItem(MediaItem.fromUri(audioUrl), sentence.startMs)
             controller.prepare()
             controller.play()
             val segmentEnd = sentence.endMs
-            Handler(Looper.getMainLooper()).postDelayed(object : Runnable {
+            val stopRunnable = object : Runnable {
                 override fun run() {
-                    if (controller.isPlaying && controller.currentPosition >= segmentEnd) {
-                        controller.pause()
-                    } else if (controller.isPlaying) {
-                        Handler(Looper.getMainLooper()).postDelayed(this, 80L)
+                    val activeController = listeningMediaController ?: return
+                    val activeUri = activeController.currentMediaItem?.localConfiguration?.uri?.toString()
+                    if (activeUri != audioUrl) {
+                        listeningSegmentStopRunnable = null
+                        return
+                    }
+                    if (activeController.isPlaying && activeController.currentPosition >= segmentEnd) {
+                        activeController.pause()
+                        listeningSegmentStopRunnable = null
+                    } else if (activeController.isPlaying) {
+                        listeningPlaybackHandler.postDelayed(this, 80L)
+                    } else {
+                        listeningSegmentStopRunnable = null
                     }
                 }
-            }, 80L)
+            }
+            listeningSegmentStopRunnable = stopRunnable
+            listeningPlaybackHandler.postDelayed(stopRunnable, 80L)
         } else if (ttsReady) {
             tts.speak(sentence.english, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-sentence-\${sentence.id}")
         } else {
