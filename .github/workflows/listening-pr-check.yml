@@ -311,6 +311,10 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_2
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data
+          disable-linux-hw-accel: true
           disable-animations: true
+          disable-spellchecker: true
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
