@@ -12,6 +12,11 @@ import android.database.sqlite.SQLiteOpenHelper
 class ListeningDatabase(context: Context) :
     SQLiteOpenHelper(context, "words_listening.db", null, 1) {
 
+    override fun onConfigure(db: SQLiteDatabase) {
+        super.onConfigure(db)
+        db.setForeignKeyConstraintsEnabled(true)
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE listening_items (
@@ -89,9 +94,12 @@ class ListeningDatabase(context: Context) :
                     put("published_at", item.publishedAt)
                     put("is_active", if (item.isActive) 1 else 0)
                 }
+                // Avoid SQLite REPLACE: it deletes the old row first and can
+                // cascade-delete saved playback progress.
                 db.insertWithOnConflict(
-                    "listening_items", null, values, SQLiteDatabase.CONFLICT_REPLACE
+                    "listening_items", null, values, SQLiteDatabase.CONFLICT_IGNORE
                 )
+                db.update("listening_items", values, "id=?", arrayOf(item.id))
             }
             db.setTransactionSuccessful()
         } finally {
