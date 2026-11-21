@@ -49,6 +49,12 @@ data class ListeningDownloadCandidate(
     val status: String
 )
 
+data class ListeningResourceEvictionCandidate(
+    val id: String,
+    val localFilePath: String,
+    val expectedSizeBytes: Long
+)
+
 data class ListeningResourcePlayback(
     val resourceId: String,
     val positionMs: Long,
@@ -232,6 +238,57 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                 )
             }
         }
+    }
+
+    fun downloadedStorageBytes(): Long =
+        helper.readableDatabase.rawQuery(
+            "SELECT COALESCE(SUM(expected_size_bytes),0) FROM listening_discovered_resources WHERE status='downloaded'",
+            null
+        ).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+
+    fun getEvictionCandidates(limit: Int = 200): List<ListeningResourceEvictionCandidate> {
+        val safeLimit = limit.coerceIn(1, 500)
+        return helper.readableDatabase.rawQuery(
+            "SELECT id,local_file_path,expected_size_bytes FROM listening_discovered_resources WHERE status='downloaded' AND pinned=0 AND last_played_at IS NULL ORDER BY downloaded_at ASC LIMIT ?",
+            arrayOf(safeLimit.toString())
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) add(
+                    ListeningResourceEvictionCandidate(c.getString(0), c.getString(1), c.getLong(2))
+                )
+            }
+        }
+    }
+
+    fun markLocalFileEvicted(resourceId: String, path: String): Boolean =
+        db.update(
+            "listening_discovered_resources",
+            ContentValues().apply {
+                put("local_file_path", "")
+                put("content_sha256", "")
+                put("status", "expired")
+            },
+            "id=? AND local_file_path=? AND status='downloaded' AND pinned=0 AND last_played_at IS NULL",
+            arrayOf(resourceId, path)
+        ) == 1
+
+    fun requeueExpiredDownload(resourceId: String): Boolean {
+        val allowed = helper.readableDatabase.rawQuery(
+            "SELECT rights_status,allowed_actions,status FROM listening_discovered_resources WHERE id=?",
+            arrayOf(resourceId)
+        ).use { c ->
+            if (!c.moveToFirst()) return false
+            c.getString(0) == "cleared" &&
+                c.getString(1).split(',').containsAll(listOf("in_app_playback", "offline_download")) &&
+                c.getString(2) == "expired"
+        }
+        if (!allowed) return false
+        return db.update(
+            "listening_discovered_resources",
+            ContentValues().apply { put("status", "queued") },
+            "id=? AND status='expired' AND rights_status='cleared'",
+            arrayOf(resourceId)
+        ) == 1
     }
 
     fun setPinned(resourceId: String, pinned: Boolean) {
