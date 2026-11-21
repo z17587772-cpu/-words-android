@@ -664,6 +664,7 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [x] Added archive checksum verification, safe extraction preflight, manifest/catalog identity matching, and integration with the existing revision-safe package importer.
 - [x] Added an Ed25519 catalog signing tool that reads the private key only from a protected runtime file, plus Python regression tests.
 - [x] Added CI guards for the Android sync trust boundary and Python signing tests.
+- [x] Added API 35 instrumentation tests for Ed25519 signature verification/tamper rejection, same-host HTTPS enforcement, duplicate package rejection, and minimum app-version compatibility.
 - [ ] Configure production catalog endpoint and pinned public key; keep matching private key only in publisher secrets.
 - [ ] Build and run Kotlin compilation plus API 35 emulator instrumentation on the latest PR head; fix all failures.
 - [ ] Add injected failure tests for DownloadManager completion loss, interrupted installs, digest mismatch, and storage exhaustion.
