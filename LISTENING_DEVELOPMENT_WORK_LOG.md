@@ -139,3 +139,10 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - Added instrumentation coverage for orphan/partial accounting, missing roots, and an optional external symlink.
 - Added optional persistent APK signing support through GitHub Actions secrets: WORDS_SIGNING_KEYSTORE_BASE64, WORDS_SIGNING_STORE_PASSWORD, WORDS_SIGNING_KEY_ALIAS, WORDS_SIGNING_KEY_PASSWORD. No keystore or password is stored in source control. If these are absent, the CI APK uses the runner's normal debug signing key.
 - The validation workflow assembles and uploads the APK only after compile and emulator tests succeed. A successful workflow run and artifact are still not visible in the current GitHub status data.
+
+
+## 2026-11-21 — Final CI workflow self-check
+- Corrected the workflow's own ordering assertion so it searches for the actual YAML step anchors (newline + step name), not the explanatory strings inside the Python assertion itself.
+- Rechecked the actual YAML ordering: emulator instrumentation step precedes APK assembly, which precedes artifact upload.
+- Rechecked Gradle version 1.8.3 / versionCode 24 and optional persistent signing configuration.
+- Current-head Actions status is still empty through the available GitHub status/run views; the compile, emulator suite and APK artifact have not been observed. This is explicitly not recorded as a successful build.
