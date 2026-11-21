@@ -408,7 +408,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 PRIMARY KEY(package_id, episode_id),
                 FOREIGN KEY(package_id) REFERENCES listening_content_packages(package_id) ON DELETE RESTRICT,
                 FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE RESTRICT,
-                FOREIGN KEY(revision_id) REFERENCES listening_episode_revisions(revision_id) ON DELETE RESTRICT
+                FOREIGN KEY(episode_id,revision_id) REFERENCES listening_episode_revisions(episode_id,revision_id) ON DELETE RESTRICT
             )
         """.trimIndent())
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_package_active ON listening_package_episodes(package_id,is_active)")
