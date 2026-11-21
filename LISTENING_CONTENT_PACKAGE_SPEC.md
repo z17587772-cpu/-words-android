@@ -116,7 +116,7 @@ The app should not implement its own HTTP Range/resume engine for large course Z
 
 Use WorkManager for the durable post-download steps (verify archive size/SHA-256, invoke the importer, clean staging files, and retry recoverable local failures) and for deferrable catalog refresh. Do not make WorkManager the 1.1 GB network transport: on Android 16, long-running foreground workers can consume job quota. The system download service is a better transport boundary.
 
-Persist each request's DownloadManager ID, package ID/version, expected archive size and SHA-256, destination, state, and timestamps in a dedicated download table. A non-exported completion receiver schedules uniquely named install work. App-start reconciliation must query persisted DownloadManager IDs and recover completed downloads if the completion broadcast was missed. Cancellation must remove the system request and mark the local record cancelled. Progress should come from DownloadManager queries rather than frequent SQLite writes.
+Persist each request's DownloadManager ID, package ID/version, expected archive size and SHA-256, destination, and catalog host in namespaced SharedPreferences for this first implementation slice. A non-exported completion receiver schedules uniquely named install work. App-start reconciliation queries persisted DownloadManager IDs and recovers completed downloads if the completion broadcast was missed; failed or stale requests are cleaned. A dedicated download-history table, user cancellation controls, and visible in-app progress UI remain follow-up work. When progress UI is added, read progress from DownloadManager queries rather than writing every progress tick to SQLite.
 
 Before remote download is enabled, introduce a signed catalog index. Its Ed25519 signature, verified using a public key pinned in the app, must bind package ID/version, HTTPS archive URL, expected size, and SHA-256. The package's own rights/provenance fields are not a cryptographic trust anchor. The importer must compare its computed archive digest and manifest identity with the verified catalog entry. Until that trust chain and a real catalog endpoint exist, keep remote installation unavailable to learners.
 
@@ -163,3 +163,11 @@ Deployment contract:
 - The first production course still requires an approved manifest and ZIP under `content-inbox`; the workflow intentionally fails closed if the unsigned catalog or private-key secret is absent.
 
 This gives the app a stable catalog endpoint. After the one-time app build containing the pinned public key is installed, later approved course additions can be published to the branch without rebuilding the APK.
+
+
+## Current repository setup state
+
+- The `content-inbox` branch has been created from `main` as the long-lived static content branch.
+- The Android build defaults to the raw-content catalog URL on that branch, but the pinned public key is intentionally blank. Therefore the current app build does not perform network catalog requests until the public key is configured.
+- The publisher workflow is manual and fails closed until both the approved unsigned catalog/package assets and the protected signing secret exist.
+- A one-time APK update is required to install this sync client and pinned public key. After that, publishing new signed course packages does not require an APK update.
