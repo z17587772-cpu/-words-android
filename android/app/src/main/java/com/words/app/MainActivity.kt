@@ -2104,29 +2104,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(pillButton("重新播放", false) {
             playListeningEpisode(episode)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        if (!episode.isDemo && !episode.audioUrl.isNullOrBlank()) {
-            c.addView(vSpace(12))
-            c.addView(text("播放速度", 11f, secondary, true))
-            c.addView(vSpace(6))
-            val speedRow = row()
-            val currentSpeed = listeningPlaybackCoordinator.currentSpeed(listeningMediaController, episode)
-            listOf(0.8f, 1.0f, 1.25f, 1.5f).forEach { speed ->
-                val label = when (speed) {
-                    0.8f -> "0.8×"
-                    1.0f -> "1.0×"
-                    1.25f -> "1.25×"
-                    else -> "1.5×"
-                }
-                speedRow.addView(
-                    pillButton(label, kotlin.math.abs(currentSpeed - speed) < 0.01f) {
-                        listeningPlaybackCoordinator.setSpeed(listeningMediaController, episode, speed)
-                        renderPage()
-                    },
-                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                )
-            }
-            c.addView(speedRow)
-        }
+        addListeningSpeedControls(c, episode)
         c.addView(vSpace(14))
         c.addView(text("盲听阶段不会显示英文原文和中文翻译。播放完成后再进入理解测试。", 11f, secondary))
         c.addView(vSpace(13))
@@ -2240,6 +2218,31 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(progress)
     }
 
+    private fun addListeningSpeedControls(parent: LinearLayout, episode: ListeningEpisode) {
+        if (episode.isDemo || episode.audioUrl.isNullOrBlank()) return
+        parent.addView(vSpace(12))
+        parent.addView(text("播放速度", 11f, secondary, true))
+        parent.addView(vSpace(6))
+        val speedRow = row()
+        val currentSpeed = listeningPlaybackCoordinator.currentSpeed(listeningMediaController, episode)
+        listOf(0.8f, 1.0f, 1.25f, 1.5f).forEach { speed ->
+            val label = when (speed) {
+                0.8f -> "0.8×"
+                1.0f -> "1.0×"
+                1.25f -> "1.25×"
+                else -> "1.5×"
+            }
+            speedRow.addView(
+                pillButton(label, kotlin.math.abs(currentSpeed - speed) < 0.01f) {
+                    listeningPlaybackCoordinator.setSpeed(listeningMediaController, episode, speed)
+                    renderPage()
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+        }
+        parent.addView(speedRow)
+    }
+
     private fun renderListeningReview(parent: LinearLayout) {
         val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
         val sentences = listeningRepository.getSentences(episode.id)
@@ -2259,6 +2262,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(15))
 
         addSectionTitle(parent, "逐句精听", "逐句播放，先听声音，再核对意思")
+        addListeningSpeedControls(parent, episode)
         sentences.forEachIndexed { index, sentence ->
             parent.addView(vSpace(8))
             val sentenceCard = card(14)
