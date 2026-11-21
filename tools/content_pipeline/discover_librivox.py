@@ -57,7 +57,7 @@ def extract_records(payload: Any) -> list[dict[str, Any]]:
 
 
 def fetch_page(
-    since_epoch: int,
+    since_epoch: int | None,
     offset: int,
     opener=urllib.request.urlopen,
     sleeper=time.sleep,
@@ -65,16 +65,17 @@ def fetch_page(
 ) -> list[dict[str, Any]]:
     import random
 
-    params = urllib.parse.urlencode({
+    query = {
         "format": "json",
-        "extended": "1",
+        "extended": "0",
         "limit": str(PAGE_SIZE),
         "offset": str(offset),
-        "since": str(since_epoch),
         "sort_order": "asc",
-    })
+    }
+    if since_epoch is not None:
+        query["since"] = str(since_epoch)
     request = urllib.request.Request(
-        API_URL + "?" + params,
+        API_URL + "?" + urllib.parse.urlencode(query),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
     )
     jitter = jitter or random.uniform
@@ -108,7 +109,6 @@ def fetch_page(
         return extract_records(json.loads(raw.decode("utf-8")))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise RuntimeError("LibriVox API returned invalid JSON") from exc
-
 
 def normalize_record(raw: dict[str, Any], discovered_at: str) -> dict[str, Any] | None:
     raw_id = raw.get("id")
@@ -189,7 +189,7 @@ def atomic_write_json(path: Path, value: Any) -> None:
     temporary.replace(path)
 
 
-def discover(root: Path, now: datetime | None = None, fetcher=fetch_page, sleep=time.sleep) -> dict[str, int]:
+def discover(root: Path, now: datetime | None = None, fetcher=fetch_page, sleep=time.sleep) -> dict[str, Any]:
     now = (now or utc_now()).astimezone(timezone.utc)
     state_path = root / "state" / "librivox.json"
     inbox_path = root / "inbox" / "librivox_candidates.json"
@@ -198,59 +198,115 @@ def discover(root: Path, now: datetime | None = None, fetcher=fetch_page, sleep=
     if inbox.get("schema_version") != 1 or not isinstance(inbox.get("candidates"), list):
         raise ValueError("Candidate inbox schema is invalid")
 
-    last_success = state.get("last_success_utc")
-    if last_success:
-        lower_bound = parse_utc(last_success) - timedelta(days=OVERLAP_DAYS)
-    else:
-        bootstrap_days = int(os.environ.get("LIBRIVOX_BOOTSTRAP_DAYS", "30"))
-        if not 1 <= bootstrap_days <= 365:
-            raise ValueError("LIBRIVOX_BOOTSTRAP_DAYS must be between 1 and 365")
-        lower_bound = now - timedelta(days=bootstrap_days)
-    # LibriVox compares the 'since' filter at UTC-day granularity.
-    lower_bound = lower_bound.replace(hour=0, minute=0, second=0, microsecond=0)
-    since_epoch = int(lower_bound.timestamp())
-
-    existing = {str(item.get("candidate_id")): item for item in inbox["candidates"] if isinstance(item, dict)}
+    existing = {
+        str(item.get("candidate_id")): item
+        for item in inbox["candidates"]
+        if isinstance(item, dict) and item.get("candidate_id")
+    }
     discovered_at = iso_utc(now)
-    offset = 0
+    bootstrap_complete = state.get("bootstrap_complete", bool(state.get("last_success_utc")))
     pages = 0
     fetched = 0
-    while True:
-        records = fetcher(since_epoch, offset)
-        pages += 1
-        fetched += len(records)
+
+    def merge(records: list[dict[str, Any]]) -> None:
         for raw in records:
             candidate = normalize_record(raw, discovered_at)
             if candidate is None:
                 continue
             key = candidate["candidate_id"]
             if key in existing:
-                # Preserve all editorial and rights decisions on repeated discovery.
+                # Preserve editorial decisions when an item is rediscovered.
                 prior = existing[key]
                 candidate["editorial"] = prior.get("editorial", candidate["editorial"])
                 candidate["rights_review"] = prior.get("rights_review", candidate["rights_review"])
                 candidate["triage"] = prior.get("triage", candidate["triage"])
                 candidate["discovered_at"] = prior.get("discovered_at", discovered_at)
             existing[key] = candidate
+
+    def save_inbox() -> int:
+        ordered = sorted(
+            existing.values(),
+            key=lambda item: (item.get("catalog_date", ""), int(item["provider_item_id"])),
+        )
+        atomic_write_json(inbox_path, {"schema_version": 1, "candidates": ordered})
+        return len(ordered)
+
+    if not bootstrap_complete:
+        # First run backfills the complete catalog. Checkpoint every five pages;
+        # on failure the next run resumes from the last inbox+cursor checkpoint.
+        offset = int(state.get("bootstrap_offset", 0))
+        if offset < 0 or offset % PAGE_SIZE != 0:
+            raise ValueError("Invalid persisted LibriVox bootstrap offset")
+        candidate_count = len(existing)
+        while True:
+            records = fetcher(None, offset)
+            pages += 1
+            fetched += len(records)
+            merge(records)
+            next_offset = offset + len(records)
+            finished = len(records) < PAGE_SIZE
+            if pages % 5 == 0 or finished:
+                candidate_count = save_inbox()
+                atomic_write_json(state_path, {
+                    "schema_version": 1,
+                    "provider": "librivox",
+                    "bootstrap_complete": finished,
+                    "bootstrap_offset": 0 if finished else next_offset,
+                    "last_success_utc": iso_utc(now) if finished else None,
+                    "last_run_pages": pages,
+                    "last_run_records": fetched,
+                    "candidate_count": candidate_count,
+                })
+            if finished:
+                break
+            offset = next_offset
+            sleep(REQUEST_DELAY_SECONDS)
+        return {
+            "mode": "full_bootstrap",
+            "pages": pages,
+            "records": fetched,
+            "candidate_count": candidate_count,
+            "since_epoch": None,
+        }
+
+    last_success = state.get("last_success_utc")
+    if not last_success:
+        raise ValueError("Incremental sync state is missing last_success_utc")
+    lower_bound = parse_utc(last_success) - timedelta(days=OVERLAP_DAYS)
+    # LibriVox compares 'since' at UTC-day granularity.
+    lower_bound = lower_bound.replace(hour=0, minute=0, second=0, microsecond=0)
+    since_epoch = int(lower_bound.timestamp())
+    offset = 0
+    while True:
+        records = fetcher(since_epoch, offset)
+        pages += 1
+        fetched += len(records)
+        merge(records)
         if len(records) < PAGE_SIZE:
             break
         offset += PAGE_SIZE
         sleep(REQUEST_DELAY_SECONDS)
 
-    ordered = sorted(existing.values(), key=lambda item: (item.get("catalog_date", ""), int(item["provider_item_id"])))
-    atomic_write_json(inbox_path, {"schema_version": 1, "candidates": ordered})
-    # Cursor advances only after every page was fetched and the inbox was atomically saved.
+    candidate_count = save_inbox()
+    # Advance the incremental cursor only after all pages and inbox are saved.
     atomic_write_json(state_path, {
         "schema_version": 1,
         "provider": "librivox",
+        "bootstrap_complete": True,
+        "bootstrap_offset": 0,
         "last_success_utc": iso_utc(now),
         "last_since_epoch": since_epoch,
         "last_run_pages": pages,
         "last_run_records": fetched,
-        "candidate_count": len(ordered),
+        "candidate_count": candidate_count,
     })
-    return {"pages": pages, "records": fetched, "candidate_count": len(ordered), "since_epoch": since_epoch}
-
+    return {
+        "mode": "incremental",
+        "pages": pages,
+        "records": fetched,
+        "candidate_count": candidate_count,
+        "since_epoch": since_epoch,
+    }
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
