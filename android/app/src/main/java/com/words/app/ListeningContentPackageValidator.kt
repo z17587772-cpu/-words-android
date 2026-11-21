@@ -154,7 +154,7 @@ object ListeningContentPackageValidator {
             segments.none { it.isBlank() || it == "." || it == ".." }
         ) { "$path.path must be a safe relative path" }
         val size = json.requiredLong("size_bytes", path)
-        require(size > 0L) { "$path.size_bytes must be positive" }
+        require(size in 1L..MAX_AUDIO_SIZE_BYTES) { "$path.size_bytes is outside the supported range" }
         val checksum = json.requiredString("sha256", path)
         require(sha256Pattern.matches(checksum)) { "$path.sha256 must be a 64-character hex digest" }
         val mime = json.requiredString("mime_type", path)
@@ -173,14 +173,19 @@ object ListeningContentPackageValidator {
         } else null
         val checkedAt = json.requiredLong("checked_at", path)
         require(checkedAt > 0L) { "$path.checked_at must be positive" }
+        val sourceId = json.requiredString("source_id", path)
+        val licenseId = json.requiredString("license_id", path)
+        require(idPattern.matches(sourceId)) { "$path.source_id is invalid" }
+        require(idPattern.matches(licenseId)) { "$path.license_id is invalid" }
+        require(expiry == null || expiry > checkedAt) { "$path.expires_at must be later than checked_at" }
         return ListeningPackageRights(
-            sourceId = json.requiredString("source_id", path),
+            sourceId = sourceId,
             sourceTitle = json.requiredString("source_title", path),
             sourceUrl = json.optString("source_url", ""),
             rightsHolder = json.requiredString("rights_holder", path),
             attribution = json.requiredString("attribution", path),
             checkedAt = checkedAt,
-            licenseId = json.requiredString("license_id", path),
+            licenseId = licenseId,
             licenseName = json.requiredString("license_name", path),
             licenseUrl = json.optString("license_url", ""),
             allowedActions = actions,
@@ -197,6 +202,7 @@ object ListeningContentPackageValidator {
         require(array.length() > 0) { "$path must not be empty" }
         val ids = mutableSetOf<String>()
         var previousStart = -1L
+        var previousEnd = -1L
         return (0 until array.length()).map { index ->
             val itemPath = "$path[$index]"
             val item = array.getJSONObject(index)
@@ -209,8 +215,11 @@ object ListeningContentPackageValidator {
             require(start >= 0L && end > start && end <= durationMs) {
                 "$itemPath timestamps must satisfy 0 <= start < end <= duration"
             }
-            require(start >= previousStart) { "$itemPath.start_ms must be chronological" }
+            require(start >= previousStart && end >= previousEnd) {
+                "$itemPath timestamps must be chronological"
+            }
             previousStart = start
+            previousEnd = end
             ListeningPackageSentence(
                 id, ordinal, start, end,
                 item.requiredString("english", itemPath),
@@ -251,6 +260,9 @@ object ListeningContentPackageValidator {
                     choice.getBoolean("is_correct")
                 )
             }
+            require(choices.map { it.content.trim().lowercase() }.toSet().size == choices.size) {
+                "$itemPath.choices must not contain duplicates"
+            }
             require(choices.count { it.isCorrect } == 1) {
                 "$itemPath must contain exactly one correct choice"
             }
@@ -286,4 +298,5 @@ object ListeningContentPackageValidator {
     }
 
     const val SUPPORTED_SCHEMA_VERSION = 1
+    private const val MAX_AUDIO_SIZE_BYTES = 512L * 1024L * 1024L
 }
