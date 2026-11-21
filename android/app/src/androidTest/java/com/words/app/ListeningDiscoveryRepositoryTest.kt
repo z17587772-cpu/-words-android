@@ -87,6 +87,12 @@ class ListeningDiscoveryRepositoryTest {
         assertTrue(listed.pinned)
         assertFalse(repository.markLocalFileEvicted(id, "/private/example.mp3"))
         repository.setPinned(id, false)
+        helper.writableDatabase.update(
+            "listening_discovered_resources",
+            ContentValues().apply { putNull("last_played_at") },
+            "id=?",
+            arrayOf(id)
+        )
         assertTrue(repository.markLocalFileEvicted(id, "/private/example.mp3"))
         assertTrue(repository.requeueExpiredDownload(id))
         helper.close()
