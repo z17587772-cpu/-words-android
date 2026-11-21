@@ -80,6 +80,43 @@ class DiscoveryTests(unittest.TestCase):
             self.assertEqual("REVIEW_REQUIRED", updated[0]["editorial"]["status"])
             self.assertEqual("Editor note", updated[0]["editorial"]["notes"])
 
+    def test_full_pages_are_rate_limited_and_offset_paginated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            offsets = []
+            delays = []
+            def fetcher(since, offset):
+                offsets.append(offset)
+                if offset == 0:
+                    return [{"id": index + 1, "title": f"Book {index + 1}", "language": "English"} for index in range(500)]
+                return [{"id": 500, "title": "Book 500", "language": "English"},
+                        {"id": 501, "title": "Book 501", "language": "English"}]
+            result = discover(
+                Path(tmp),
+                now=datetime(2026, 11, 21, tzinfo=timezone.utc),
+                fetcher=fetcher,
+                sleep=delays.append,
+            )
+            self.assertEqual([0, 500], offsets)
+            self.assertEqual([3.0], delays)
+            self.assertEqual(501, result["candidate_count"])
+            self.assertEqual(502, result["records"])
+
+    def test_incremental_cursor_uses_three_day_overlap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = datetime(2026, 11, 21, 12, tzinfo=timezone.utc)
+            discover(root, now=first, fetcher=lambda *_: [], sleep=lambda _: None)
+            observed = []
+            second = datetime(2026, 11, 22, 12, tzinfo=timezone.utc)
+            result = discover(
+                root, now=second,
+                fetcher=lambda since, offset: observed.append((since, offset)) or [],
+                sleep=lambda _: None,
+            )
+            expected = int(datetime(2026, 11, 18, tzinfo=timezone.utc).timestamp())
+            self.assertEqual(expected, result["since_epoch"])
+            self.assertEqual([(expected, 0)], observed)
+
     def test_failed_page_does_not_advance_cursor_or_overwrite_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
