@@ -25,6 +25,8 @@ data class ListeningEpisode(
             else -> "综合听力"
         }
 
+    fun playbackRevision(uri: String): String = "$updatedAt:$uri"
+
     val durationLabel: String
         get() = if (durationMs <= 0L) "时长待定" else "约 ${(durationMs + 59_999L) / 60_000L} 分钟"
 }
@@ -71,7 +73,8 @@ data class ListeningQuestion(
 data class ListeningPlaybackState(
     val episodeId: String,
     val positionMs: Long,
-    val speed: Float
+    val speed: Float,
+    val audioRevision: String = ""
 )
 
 data class ListeningAnswerReview(
