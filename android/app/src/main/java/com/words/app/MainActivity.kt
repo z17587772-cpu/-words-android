@@ -2247,6 +2247,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
         val sentences = listeningRepository.getSentences(episode.id)
         val questions = listeningRepository.getQuestions(episode.id)
+        val answerReviews = listeningRepository.getAttemptAnswerReviews(listeningAttemptId).associateBy { it.questionId }
         val score = if (questions.isEmpty()) 0 else (listeningCorrectCount * 100 / questions.size)
         addSectionTitle(parent, "训练复盘", "把没听出来的内容真正听明白")
         parent.addView(vSpace(12))
@@ -2290,7 +2291,30 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             answerCard.addView(text("第 ${index + 1} 题 · ${question.typeLabel}", 11f, accent, true))
             answerCard.addView(vSpace(4))
             answerCard.addView(text(question.prompt, 13f, ink, true))
-            answerCard.addView(vSpace(4))
+            answerCard.addView(vSpace(6))
+            val answer = answerReviews[question.id]
+            if (answer == null || answer.selectedContent.isNullOrBlank()) {
+                answerCard.addView(text("本题未记录作答", 11f, secondary))
+            } else {
+                answerCard.addView(
+                    text(
+                        "你的选择：${answer.selectedContent}",
+                        11f,
+                        if (answer.isCorrect) accent else secondary,
+                        answer.isCorrect
+                    )
+                )
+                if (!answer.isCorrect) {
+                    answerCard.addView(vSpace(3))
+                    answerCard.addView(text("正确答案：${answer.correctContent}", 11f, accent, true))
+                }
+            }
+            val evidence = sentences.firstOrNull { it.id == question.evidenceSentenceId }
+            if (evidence != null) {
+                answerCard.addView(vSpace(6))
+                answerCard.addView(text("音频依据：${evidence.english}", 11f, ink, true))
+            }
+            answerCard.addView(vSpace(6))
             answerCard.addView(text(question.explanation, 11f, secondary))
             parent.addView(vSpace(7))
             parent.addView(answerCard)
