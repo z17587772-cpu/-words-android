@@ -29,7 +29,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(6, upgraded.version)
+        assertEquals(7, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
@@ -67,16 +67,18 @@ class WordsDatabaseMigrationTest {
             scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='${episodeId}'")
         )
         assertEquals(null, repository.getPlayback(episodeId))
-        repository.savePlayback(episodeId, -500L, Float.NaN)
+        repository.savePlayback(episodeId, -500L, Float.NaN, "rev-1")
         val first = repository.getPlayback(episodeId)
         assertEquals(0L, first?.positionMs)
         assertEquals(1.0f, first?.speed ?: 0f, 0.001f)
 
-        repository.savePlayback(episodeId, 42_500L, 1.5f)
-        val restored = repository.getPlayback(episodeId)
+        repository.savePlayback(episodeId, 42_500L, 1.5f, "rev-1")
+        val restored = repository.getPlayback(episodeId, "rev-1")
         assertEquals(episodeId, restored?.episodeId)
         assertEquals(42_500L, restored?.positionMs)
         assertEquals(1.5f, restored?.speed ?: 0f, 0.001f)
+        assertEquals(0L, repository.getPlayback(episodeId, "rev-2")?.positionMs)
+        assertEquals(1.5f, repository.getPlayback(episodeId, "rev-2")?.speed ?: 0f, 0.001f)
 
         assertEquals(
             0,
@@ -256,7 +258,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(6, database.version)
+        assertEquals(7, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
