@@ -105,3 +105,12 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - Added title/creator/provider search in the resource library, alongside downloaded-only and favorites filters. The UI also exposes source and license pages.
 
 - Final metadata polish: source title/creator/description values are normalized from scalar or array fields and HTML tags are stripped before display. The age-appropriate filter checks title, description and subject fields.
+
+
+## 2026-11-21 — Storage eviction correction, manual cleanup and motion polish
+- Fixed a real storage-eviction predicate mismatch: resources played more than 30 days ago were returned as eviction candidates but rejected by the final SQL update. The update now uses the same 30-day cutoff and still protects pinned/recently played items.
+- Changed eviction ordering so the database row is detached before physical deletion. A concurrent play/pin update can no longer leave a downloaded row pointing to a file already removed. Failed physical deletion is left for the orphan reconciler and is not counted as freed quota.
+- Added user-directed local-audio deletion in the discovered library. It validates the canonical app-private path, confirms before deletion, preserves metadata/favorite/playback history, and keeps shared audio bytes while another provider record references them.
+- Added repository regression coverage for 31-day eviction and manual deletion with shared-file/history preservation.
+- Refined the vocabulary card flip from 520 ms to 430 ms and slightly lengthened swipe settle/commit timing to reduce abruptness while retaining the existing easing curve.
+- Runtime compilation/instrumentation is still required; no APK was built.
