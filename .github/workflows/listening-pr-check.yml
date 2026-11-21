@@ -113,6 +113,7 @@ jobs:
           discovery_repository_test = Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
           resource_automation = (root / "ListeningResourceAutomation.kt").read_text(encoding="utf-8")
           resource_policy_test = Path("android/app/src/androidTest/java/com/words/app/InternetArchiveMetadataPolicyTest.kt").read_text(encoding="utf-8")
+          resource_reconcile = (root / "ListeningResourceReconciliation.kt").read_text(encoding="utf-8")
           assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
           assert "evidence_sentence_id" in validator and "in_app_playback" in validator
           assert "offline_download" in validator
@@ -224,6 +225,11 @@ jobs:
           assert "pinned=0 AND (last_played_at IS NULL OR last_played_at<?)" in discovery_repository
           assert "markLocalFileEvicted" in discovery_repository
           assert "requeueExpiredDownload" in discovery_repository
+          assert "ListeningResourceReconciliationScheduler.schedule(this)" in activity
+          assert "class ListeningResourceReconcileWorker" in resource_reconcile
+          assert "listDownloadedLocalFiles" in resource_reconcile
+          assert "STALE_PART_AGE_MS" in resource_reconcile and "ORPHAN_GRACE_MS" in resource_reconcile
+          assert "markMissingLocalFile" in discovery_repository
           assert "本地音频因空间管理已清理" in activity
           assert "markLocalFileEvicted" in Path("android/app/src/androidTest/java/com/words/app/ListeningDiscoveryRepositoryTest.kt").read_text(encoding="utf-8")
           assert "normalizesEnglishLibriVoxMetadataWithoutGrantingDownloadRights" in discovery_test
