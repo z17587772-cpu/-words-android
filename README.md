@@ -4,13 +4,13 @@
 
 ## 当前版本
 
-- **版本：** 1.8.0
-- **versionCode：** 21
+- **应用版本：** 1.8.3
+- **versionCode：** 24
 - **Android applicationId：** `com.words.app`
-- **当前发布包：** debug 签名测试 APK
+- **构建状态：** 当前听力开发 PR 的验证构建尚未通过完整编译与模拟器测试；不得将其视为正式发布包。
 - **唯一版本来源：** `android/app/build.gradle.kts` 中的 `versionName` 与 `versionCode`
-- **GitHub Release：** [v1.8.0](https://github.com/z17587772-cpu/-words-android/releases/tag/v1.8.0)
-- **APK 下载：** [words.apk](https://github.com/z17587772-cpu/-words-android/releases/download/v1.8.0/words.apk)
+- **听力开发：** [PR #1（Draft，未合并）](https://github.com/z17587772-cpu/-words-android/pull/1)
+- **APK 下载：** 当前没有可核验的 v1.8.3 验证通过 APK 链接。
 
 版本号以 Android 工程配置为准；Release tag 使用 `v${versionName}`。修改版本时必须同时递增 versionCode，并检查构建产物和 Release。
 
@@ -59,7 +59,7 @@ PROJECT_PLAN.md       版本规划与实施记录
 android/PROJECT_STATUS.txt  当前实现与验证状态
 ```
 
-环境：JDK 17、Android SDK 35 / Build Tools 35.0.0、Gradle 8.9。
+环境：JDK 17、Android SDK Platform 36、Build Tools 35.0.0、Gradle 8.13（以听力 PR CI 配置为准）。
 
 ```bash
 cd android
@@ -67,6 +67,13 @@ gradle --no-daemon clean assembleDebug
 ```
 
 输出：`app/build/outputs/apk/debug/app-debug.apk`。
+
+## 听力模块状态
+- 自动发现与本地资源下载已实现源码路径；Internet Archive 仅对明确许可的 CC0 / CC BY 4.0 / CC BY-SA 4.0 条目开放自动下载，LibriVox 候选仍处于权利隔离状态。
+- 本地资源库、离线播放、播放进度恢复、SHA-256 校验、存储配额和资源协调修复已有实现，但当前 PR 的 Android 编译、模拟器与真机验收尚未完成。
+- 原始发现资源与正式课程、每日新课严格分离。自动元数据发现不等于正式课程生产。
+- 正式课程转录、句子时间轴、中文翻译、题目生成、人工审核、签名目录密钥配置和首批正式课程发布仍未闭环。
+- 详细验收状态以 `android/PROJECT_STATUS.txt` 和 `LISTENING_PRODUCT_ROADMAP.md` 为准。
 
 ## 版本管理与发布约定
 1. `android/app/build.gradle.kts` 是版本号唯一事实来源。
