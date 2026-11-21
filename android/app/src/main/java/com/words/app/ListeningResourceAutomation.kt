@@ -660,6 +660,8 @@ class ListeningResourceDownloadWorker(
 
     companion object {
         const val KEY_RESOURCE_ID = "resource_id"
+        private const val MIN_FREE_SPACE_BYTES = 50L * 1024L * 1024L
+        private const val MAX_LIBRARY_BYTES = 512L * 1024L * 1024L
         private const val USER_AGENT = "WordsAndroidListeningLibrary/1.0"
         private const val CONNECT_TIMEOUT_MS = 20_000
         private const val READ_TIMEOUT_MS = 60_000
