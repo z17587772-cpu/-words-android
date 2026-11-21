@@ -15,9 +15,9 @@ The scheduled GitHub Actions workflow runs daily at 03:17 UTC and stores its per
 
 ## Reliability behavior
 
-- Uses LibriVox's documented `since`, `limit`, `offset`, `extended`, and JSON API parameters.
+- First run backfills the full catalog with offset pagination (500 records/page); later runs use the documented `since`, `limit`, `offset`, and JSON API parameters. The bootstrap requests compact metadata and defers extended section detail until a candidate is selected.
 - Never requests more than 500 records per page and waits at least three seconds between full pages.
-- Uses a three-day overlap because LibriVox compares `since` at UTC-day granularity.
+- Full bootstrap checkpoints every five pages and resumes from the last persisted offset after failure. Incremental sync uses a three-day overlap because LibriVox compares `since` at UTC-day granularity.
 - Deduplicates by stable provider ID and preserves editorial, rights-review, and triage decisions on rediscovery.
 - Writes candidate inbox first and advances the cursor only after all pages are fetched successfully.
 - A network/API failure exits non-zero and does not advance the cursor.
