@@ -55,6 +55,6 @@ class ListeningDiscoveryTest {
     @Test
     fun extractsKnownLibriVoxResponseShapes() {
         assertEquals(1, LibriVoxMetadataParser.extractRecords(JSONObject().put("books", JSONArray().put(JSONObject().put("id", 1)))).size)
-        assertEquals(1, worker.extractRecords(JSONObject().put("book", JSONObject().put("id", 2))).size)
+        assertEquals(1, LibriVoxMetadataParser.extractRecords(JSONObject().put("book", JSONObject().put("id", 2))).size)
     }
 }
