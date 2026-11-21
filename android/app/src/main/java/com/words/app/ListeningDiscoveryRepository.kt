@@ -303,32 +303,6 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
             )
         }
 
-    fun listResources(limit: Int = 100, downloadedOnly: Boolean = false): List<DiscoveredListeningResource> {
-        val safeLimit = limit.coerceIn(1, 500)
-        val where = if (downloadedOnly) "WHERE status='downloaded'" else ""
-        return helper.readableDatabase.rawQuery(
-            "SELECT provider,provider_item_id,canonical_url,media_url,title,description,language,duration_ms,creator,license_name,license_url,rights_status,allowed_actions,attribution,territory,mime_type,expected_size_bytes,expected_sha256,etag FROM listening_discovered_resources $where ORDER BY discovered_at DESC LIMIT ?",
-            arrayOf(safeLimit.toString())
-        ).use { c ->
-            buildList {
-                while (c.moveToNext()) add(
-                    DiscoveredListeningResource(
-                        provider = c.getString(0), providerItemId = c.getString(1),
-                        canonicalUrl = c.getString(2), mediaUrl = c.getString(3),
-                        title = c.getString(4), description = c.getString(5),
-                        language = c.getString(6), durationMs = c.getLong(7),
-                        creator = c.getString(8), licenseName = c.getString(9),
-                        licenseUrl = c.getString(10), rightsStatus = c.getString(11),
-                        allowedActions = c.getString(12).split(',').filter { it.isNotBlank() }.toSet(),
-                        attribution = c.getString(13), territory = c.getString(14),
-                        mimeType = c.getString(15), expectedSizeBytes = c.getLong(16),
-                        expectedSha256 = c.getString(17), etag = c.getString(18)
-                    )
-                )
-            }
-        }
-    }
-
     private fun isHttpsUrl(value: String): Boolean = runCatching {
         val uri = java.net.URI(value)
         uri.scheme.equals("https", ignoreCase = true) &&
