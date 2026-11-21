@@ -685,7 +685,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             var settled = false
             android.animation.AnimatorSet().apply {
                 playTogether(animations)
-                duration = 190L
+                duration = 210L
                 interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
                 addListener(object : android.animation.AnimatorListenerAdapter() {
                     private fun finishOnce() {
@@ -762,7 +762,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
             android.animation.AnimatorSet().apply {
                 playTogether(animations)
-                duration = 260L
+                duration = 285L
                 interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
                 addListener(object : android.animation.AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: android.animation.Animator) = finishTransition()
@@ -861,7 +861,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         val to = if (browseCardFlipped) 0f else 180f
                         browseCardFlipped = !browseCardFlipped
                         android.animation.ValueAnimator.ofFloat(from, to).apply {
-                            duration = 520L
+                            // A slightly shorter, ease-out turn feels immediate without
+                            // making the card appear to pause at its edge.
+                            duration = 430L
                             interpolator = android.view.animation.PathInterpolator(0.22f, 0.72f, 0.18f, 1f)
                             addUpdateListener { animator ->
                                 val angle = animator.animatedValue as Float
