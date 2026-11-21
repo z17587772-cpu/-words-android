@@ -125,8 +125,8 @@ object ListeningCatalogSync {
             require(shaPattern.matcher(digest).matches()) { "Package SHA-256 is invalid" }
             PackageEntry(id, packageVersion, minimumAppVersion, url, size, digest.lowercase())
         }
-        require(entries.map { it.id to it.version }.toSet().size == entries.size) {
-            "Catalog contains duplicate package versions"
+        require(entries.map { it.id }.toSet().size == entries.size) {
+            "Catalog contains more than one version for a package ID"
         }
         return version to entries
     }
@@ -140,11 +140,8 @@ object ListeningCatalogSync {
             }) return
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadDirectory = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir,
-            "listening"
-        )
-        require(downloadDirectory.exists() || downloadDirectory.mkdirs()) { "Cannot create download directory" }
+        val downloadDirectory = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            ?: throw java.io.IOException("App-specific download storage is unavailable")
         require(downloadDirectory.usableSpace >= entry.sizeBytes + STORAGE_RESERVE_BYTES) {
             "Insufficient free space for listening package"
         }
@@ -156,7 +153,9 @@ object ListeningCatalogSync {
             .setAllowedOverMetered(false)
             .setAllowedOverRoaming(false)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-            .setDestinationUri(Uri.fromFile(archive))
+            .setDestinationInExternalFilesDir(
+                context, Environment.DIRECTORY_DOWNLOADS, archive.name
+            )
         val downloadId = downloadManager.enqueue(request)
         val record = JSONObject().apply {
             put("package_id", entry.id)
@@ -169,6 +168,9 @@ object ListeningCatalogSync {
             put("catalog_host", catalogHost)
         }
         prefs.edit().putString("download_$downloadId", record.toString()).apply()
+        // Close the tiny race where DownloadManager completes before the
+        // completion broadcast receiver observes the persisted record.
+        reconcileCompletedDownloads(context)
     }
 
     internal fun reconcileCompletedDownloads(context: Context) {
@@ -290,7 +292,7 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
         val record = ListeningCatalogSync.getDownloadRecord(applicationContext, downloadId) ?: return Result.success()
         val manager = applicationContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val cursor = manager.query(DownloadManager.Query().setFilterById(downloadId)) ?: return Result.retry()
-        val status: Int
+        var status = -1
         cursor.use {
             if (!it.moveToFirst()) return Result.retry()
             status = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
