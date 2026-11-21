@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 object ListeningResourceReconciliationScheduler {
@@ -63,7 +64,8 @@ class ListeningResourceReconcileWorker(
                     }
                     continue
                 }
-                val valid = file.isFile && file.length() == resource.expectedSizeBytes
+                val valid = file.isFile && file.length() == resource.expectedSizeBytes &&
+                    resource.contentSha256.matches(Regex("[a-fA-F0-9]{64}")) && sha256(file) == resource.contentSha256
                 if (!valid) {
                     if (file.exists()) file.delete()
                     repository.markMissingLocalFile(resource.id, rawPath)
@@ -92,6 +94,19 @@ class ListeningResourceReconcileWorker(
         } finally {
             helper.close()
         }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(32 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                if (count > 0) digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     companion object {
