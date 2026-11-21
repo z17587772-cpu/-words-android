@@ -82,6 +82,9 @@ object ListeningContentPackageValidator {
         "main_idea", "detail", "inference", "attitude",
         "pronunciation", "dictation", "connected_speech", "note_taking", "shadowing"
     )
+    private val categories = setOf(
+        "daily", "news", "science", "story", "interview", "exam", "pronunciation", "general"
+    )
 
     fun validate(json: String, appVersionCode: Int): ListeningContentPackage {
         require(appVersionCode > 0) { "appVersionCode must be positive" }
@@ -113,6 +116,8 @@ object ListeningContentPackageValidator {
 
             val level = episode.requiredString("level", path)
             require(level in setOf("L1", "L2", "L3", "L4")) { "$path.level must be L1-L4" }
+            val category = episode.requiredString("category", path)
+            require(category in categories) { "$path.category is unsupported" }
             val duration = episode.requiredLong("duration_ms", path)
             require(duration > 0L) { "$path.duration_ms must be positive" }
 
@@ -126,7 +131,7 @@ object ListeningContentPackageValidator {
                 id = id,
                 title = episode.requiredString("title", path),
                 description = episode.optString("description", ""),
-                category = episode.requiredString("category", path),
+                category = category,
                 level = level,
                 durationMs = duration,
                 accent = episode.requiredString("accent", path),
