@@ -23,6 +23,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
 import java.security.KeyFactory
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
@@ -182,16 +184,20 @@ object ListeningCatalogSync {
         prefs.all.forEach { (key, value) ->
             if (!key.startsWith("download_") || value !is String) return@forEach
             val id = key.removePrefix("download_").toLongOrNull() ?: return@forEach
-            val cursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: return@forEach
+            val cursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: run {
+                deleteDownloadArchive(context, id)
+                removeDownloadRecord(context, id)
+                return@forEach
+            }
             cursor.use {
                 if (!it.moveToFirst()) {
+                    deleteDownloadArchive(context, id)
                     removeDownloadRecord(context, id)
                 } else {
                     when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
                         DownloadManager.STATUS_SUCCESSFUL -> enqueueInstall(context, id)
                         DownloadManager.STATUS_FAILED -> {
-                            getDownloadRecord(context, id)?.optString("file_path")?.takeIf { it.isNotBlank() }
-                                ?.let { path -> File(path).delete() }
+                            deleteDownloadArchive(context, id)
                             manager.remove(id)
                             removeDownloadRecord(context, id)
                         }
@@ -217,6 +223,11 @@ object ListeningCatalogSync {
 
     internal fun removeDownloadRecord(context: Context, id: Long) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("download_$id").apply()
+    }
+
+    internal fun deleteDownloadArchive(context: Context, id: Long) {
+        getDownloadRecord(context, id)?.optString("file_path")?.takeIf { it.isNotBlank() }
+            ?.let { path -> File(path).delete() }
     }
 
     internal fun markInstalled(context: Context, id: String, version: Int) {
@@ -305,10 +316,9 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
         val record = ListeningCatalogSync.getDownloadRecord(applicationContext, downloadId) ?: return Result.success()
         val manager = applicationContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val cursor = manager.query(DownloadManager.Query().setFilterById(downloadId)) ?: return Result.retry()
-        var status = -1
-        cursor.use {
+        val status = cursor.use {
             if (!it.moveToFirst()) return Result.retry()
-            status = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
         }
         if (status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING ||
             status == DownloadManager.STATUS_PAUSED
@@ -335,32 +345,17 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
             val actual = digest.digest().joinToString("") { "%02x".format(it) }
             require(actual.equals(record.getString("sha256"), true)) { "Downloaded package digest mismatch" }
 
-            val staging = File(applicationContext.cacheDir, "listening-preflight-$downloadId")
-            if (staging.exists()) staging.deleteRecursively()
-            try {
-                val extracted = ListeningPackageArchive.extractSafely(
-                    FileInputStream(archive), staging, 64L * 1024L * 1024L
-                )
-                val manifest = extracted.manifestFile.readText(Charsets.UTF_8)
-                val packageData = ListeningContentPackageValidator.validate(
-                    manifest, record.getInt("minimum_app_version_code").let { required ->
-                        val current = if (Build.VERSION.SDK_INT >= 28) {
-                            @Suppress("DEPRECATION")
-                            applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).longVersionCode.toInt()
-                        } else {
-                            @Suppress("DEPRECATION")
-                            applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).versionCode
-                        }
-                        require(current >= required) { "Package requires a newer app version" }
-                        current
-                    }
-                )
-                require(packageData.packageId == record.getString("package_id") &&
-                    packageData.packageVersion == record.getInt("package_version")
-                ) { "Signed catalog entry does not match package manifest" }
-            } finally {
-                staging.deleteRecursively()
-            }
+            val manifest = readManifestFromArchive(archive)
+            val packageData = ListeningContentPackageValidator.validate(
+                manifest, record.getInt("minimum_app_version_code").let { required ->
+                    val current = currentAppVersionCode(applicationContext)
+                    require(current >= required) { "Package requires a newer app version" }
+                    current
+                }
+            )
+            require(packageData.packageId == record.getString("package_id") &&
+                packageData.packageVersion == record.getInt("package_version")
+            ) { "Signed catalog entry does not match package manifest" }
 
             val root = File(applicationContext.filesDir, "listening-content")
             val importer = ListeningContentPackageImporter(
@@ -386,6 +381,37 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
             archive.delete()
             manager.remove(downloadId)
             Result.failure()
+        }
+    }
+
+    private fun readManifestFromArchive(archive: File): String {
+        ZipFile(archive).use { zip ->
+            var manifestEntry: ZipEntry? = null
+            val entries = zip.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                if (entry.name == "manifest.json") {
+                    require(manifestEntry == null) { "Package contains duplicate manifest.json entries" }
+                    manifestEntry = entry
+                }
+            }
+            val entry = requireNotNull(manifestEntry) { "Package manifest.json is missing" }
+            require(!entry.isDirectory && entry.size in 1L..(1L * 1024L * 1024L)) {
+                "Package manifest size is invalid"
+            }
+            return zip.getInputStream(entry).use { input ->
+                val output = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                    require(output.size() <= 1L * 1024L * 1024L) {
+                        "Package manifest exceeds the supported size"
+                    }
+                }
+                output.toString(Charsets.UTF_8.name())
+            }
         }
     }
 
