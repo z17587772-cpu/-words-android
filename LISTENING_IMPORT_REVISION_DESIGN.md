@@ -214,3 +214,10 @@ Stage changes now use a short, restrained content transition (115 ms exit / 220 
 The playback service now validates a checkpoint against the immutable revision row identified by the media item's `episodeId`, `audio_url`, and `updated_at:audio_url` revision token. It no longer rejects an older, still-playing audio item merely because the catalog's current episode row points to a newer revision. The checkpoint is stored with the media item's own revision token, so it cannot be mistaken for progress on the new audio. Unknown, demo, and out-of-duration revision checkpoints are rejected.
 
 The single-row playback table still stores one latest checkpoint per episode; switching revisions intentionally ignores a checkpoint whose token does not match the requested revision. Multi-revision playback history is not yet a separate feature.
+
+
+## 14. Import snapshot and concurrency
+
+The selected archive is copied into a unique private staging directory while its SHA-256 is computed. Extraction uses that exact private snapshot, not the original external file, eliminating a source-file mutation race between hashing and extraction. The importer caps compressed archive size at 1.1 GB in addition to ZIP entry-count, total decompressed-size, and manifest-size limits.
+
+Import and orphan recovery share a process-wide lock. This prevents recovery from classifying a just-installed, not-yet-published revision file as an orphan while its import transaction is still in progress. The staging directory is cleaned even when the private archive snapshot itself fails.
