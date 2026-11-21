@@ -203,3 +203,11 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Tightened player identity checks to include episode ID, URI and catalog revision. Media metadata now carries the loaded audio revision; the service refuses to persist a checkpoint if the database catalog revision no longer matches the media item currently loaded.
 - Added CI source guards for audio revision checks, v6→v7 migration coverage and immutable completed scores. This does not replace Android runtime tests; the latest commit still needs a successful CI run.
 - Final source review caught and fixed a nullable MediaItem checkpoint guard and ensured speed controls also verify the active episode/catalog revision before changing playback state.
+
+
+## 9. Import implementation handoff — 2026-11-21
+
+- Added [`LISTENING_IMPORT_REVISION_DESIGN.md`](LISTENING_IMPORT_REVISION_DESIGN.md) before implementing the importer. The current mutable episode/question rows are not sufficient to preserve historical attempts during content updates; a DB transaction alone does not solve that semantic-versioning problem.
+- Proposed next schema step: v8 immutable episode-revision snapshots, attempt-to-revision pinning, revision-scoped verified audio paths, and a staged-file / atomic-DB-publication protocol.
+- Importer UI and WorkManager download orchestration remain blocked on revision snapshot migration, repository reads, and rollback/history tests.
+- No APK was built, no branch was merged or rebased, and no production content was added in this pass.
