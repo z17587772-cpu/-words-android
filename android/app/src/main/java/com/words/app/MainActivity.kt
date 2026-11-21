@@ -2115,7 +2115,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderListeningBlind(parent: LinearLayout) {
-        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val episode = listeningRepository.getEpisodeForAttempt(listeningAttemptId) ?: return
         val sentences = listeningRepository.getSentencesForAttempt(listeningAttemptId)
         addSectionTitle(parent, "第一遍 · 盲听", "先完整听，不看原文")
         parent.addView(vSpace(12))
@@ -2157,7 +2157,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderListeningQuiz(parent: LinearLayout) {
-        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val episode = listeningRepository.getEpisodeForAttempt(listeningAttemptId) ?: return
         val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
         val question = questions.getOrNull(listeningQuestionIndex) ?: run {
             listeningStage = "review"
@@ -2272,7 +2272,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderListeningReview(parent: LinearLayout) {
-        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val episode = listeningRepository.getEpisodeForAttempt(listeningAttemptId) ?: return
         val sentences = listeningRepository.getSentencesForAttempt(listeningAttemptId)
         val questions = listeningRepository.getQuestionsForAttempt(listeningAttemptId)
         val answerReviews = listeningRepository.getAttemptAnswerReviews(listeningAttemptId).associateBy { it.questionId }
