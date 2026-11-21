@@ -85,6 +85,22 @@ class ListeningDiscoveryRepositoryTest {
         assertEquals("downloaded", listed.status)
         assertEquals("/private/example.mp3", listed.localFilePath)
         assertTrue(listed.pinned)
+        val duplicate = DiscoveredListeningResource(
+            provider = "internet_archive",
+            providerItemId = "same-audio#chapter.mp3",
+            canonicalUrl = "https://archive.org/details/same-audio",
+            mediaUrl = "https://archive.org/download/same-audio/chapter.mp3",
+            title = "Duplicate recording",
+            rightsStatus = "cleared",
+            allowedActions = setOf("in_app_playback", "offline_download"),
+            expectedSizeBytes = 100L
+        )
+        val duplicateId = repository.upsertCandidate(duplicate)
+        assertTrue(repository.queueDownload(duplicateId))
+        repository.updateDownloadStatus(duplicateId, "downloading")
+        repository.saveLocalFile(duplicateId, "/private/example.mp3", "a".repeat(64), 120_000L)
+        assertEquals("/private/example.mp3", repository.findDownloadedFileByHash("a".repeat(64)))
+        assertTrue(repository.isLocalPathShared(id, "/private/example.mp3"))
         assertFalse(repository.markLocalFileEvicted(id, "/private/example.mp3"))
         repository.setPinned(id, false)
         helper.writableDatabase.update(
