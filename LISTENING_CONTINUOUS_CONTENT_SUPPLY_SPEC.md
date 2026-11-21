@@ -138,7 +138,7 @@ New-lesson eligibility is based on stable episode identity and whether the episo
 - If no unseen published lesson exists, show an honest empty/new-content-unavailable state and offer review work. Never disguise review as a new lesson.
 - Assignment history is checked across all dates, so device clock changes or backdated requests cannot recycle an already-assigned episode.
 
-Review scheduling initially uses transparent, explainable rules from wrong answers, weak sentence segments, and elapsed time. A more complex scheduler such as FSRS is considered only after event data and calibration tests are available.
+Current implementation uses the latest completed overall score and elapsed time in a separate review queue: below 40% -> 1 day; below 60% -> 3 days; below 80% -> 7 days; otherwise -> 14 days. Only approved, non-demo, offline-eligible lessons with a completed attempt can enter this queue. The home screen surfaces the most overdue/weak review candidate without creating a daily new-lesson assignment. Question-level weak-sentence targeting and richer event-based scheduling remain future work. A more complex scheduler such as FSRS is considered only after event data and calibration tests are available.
 
 ## 9. Reserve and operations policy
 
