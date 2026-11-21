@@ -27,8 +27,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.animation.AccelerateInterpolator
-import android.view.animation.DecelerateInterpolator
+import android.view.animation.PathInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -323,7 +322,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             .alpha(0f)
             .translationY(-dp(4).toFloat())
             .setDuration(115L)
-            .setInterpolator(AccelerateInterpolator())
+            .setInterpolator(PathInterpolator(0.4f, 0f, 1f, 1f))
+            .withLayer()
             .withEndAction {
                 if (isFinishing || isDestroyed) {
                     listeningStageTransitioning = false
@@ -339,7 +339,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     .alpha(1f)
                     .translationY(0f)
                     .setDuration(220L)
-                    .setInterpolator(DecelerateInterpolator())
+                    .setInterpolator(PathInterpolator(0.16f, 1f, 0.3f, 1f))
+                    .withLayer()
                     .withEndAction { listeningStageTransitioning = false }
                     .start()
             }
