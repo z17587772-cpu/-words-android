@@ -311,3 +311,10 @@ Additional implementation on `feature/listening-mvp`:
 - Listening stage changes use a restrained two-phase transition: 115 ms exit and 220 ms entrance, cubic easing, a small vertical offset, and hardware-layer rendering. The bottom navigation remains stationary; ordinary option selection rerenders stay immediate to avoid unnecessary motion.
 
 These changes have source guards and instrumentation assertions, but the Android tests remain unexecuted. Animation timing and gesture feel still require emulator and physical-device review; do not label the motion system final until that review is complete.
+
+
+## 14. Playback revision continuity
+
+A further edge case was closed: background playback checkpoints no longer compare only against the episode's latest mutable catalog row. The playback service now validates the media item's revision token against any matching immutable revision row, then persists the checkpoint under that token. This allows an already-playing older revision to checkpoint safely after a newer package revision is published, without attributing its position to the new audio.
+
+A regression assertion covers recognition of both the old and new revision audio and rejection of an unknown URI. This remains source/test coverage pending Android execution.
