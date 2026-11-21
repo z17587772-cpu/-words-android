@@ -84,6 +84,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var bottomBar: LinearLayout
     private lateinit var browseActionBar: LinearLayout
     private var selectedTab = TAB_BROWSE
+    private var lastRenderedTab = TAB_BROWSE
     private var currentBookId: String = WordsDatabase.BUILTIN_BOOK_ID
     private var queue: MutableList<Long> = mutableListOf()
     private var queueIndex = 0
@@ -349,9 +350,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderPage() {
-        listeningStageTransitioning = false
         val preserveStudyPosition = selectedTab == TAB_STUDY && quizShowExplanation
-        val previousStudyScrollY = if (preserveStudyPosition) (pageHost.getChildAt(0) as? ScrollView)?.scrollY ?: 0 else 0
+        val preserveListeningPosition = selectedTab == TAB_LISTENING &&
+            lastRenderedTab == TAB_LISTENING && !listeningStageTransitioning
+        val previousScrollY = if (preserveStudyPosition || preserveListeningPosition) {
+            (pageHost.getChildAt(0) as? ScrollView)?.scrollY ?: 0
+        } else 0
+        listeningStageTransitioning = false
         // Rebuild the page without fading the entire screen. The old global fade
         // combined with per-card entrance animations and caused a visible double flash.
         pageHost.animate().cancel()
@@ -409,12 +414,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 }
             })
         }
-        if (preserveStudyPosition) {
+        if (preserveStudyPosition || preserveListeningPosition) {
             scroll.post {
                 val maxScroll = (content.height - scroll.height).coerceAtLeast(0)
-                scroll.scrollTo(0, previousStudyScrollY.coerceAtMost(maxScroll))
+                scroll.scrollTo(0, previousScrollY.coerceAtMost(maxScroll))
             }
         }
+        lastRenderedTab = selectedTab
         pageHost.alpha = 1f
     }
 
