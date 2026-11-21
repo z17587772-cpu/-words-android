@@ -104,10 +104,13 @@ class InternetArchiveDiscoveryWorker(
                     val identifier = doc.optString("identifier").trim()
                     if (!identifier.matches(Regex("[A-Za-z0-9._-]{1,120}"))) continue
                     if (checkedAt.optLong(identifier, 0L) > checkedCutoff) continue
-                    checkedAt.put(identifier, now)
                     val license = InternetArchiveMetadataPolicy.normalizeLicense(doc.opt("licenseurl"))
-                    if (license == null) continue
+                    if (license == null) {
+                        checkedAt.put(identifier, now)
+                        continue
+                    }
                     if (detailLookups >= MAX_METADATA_LOOKUPS_PER_RUN) break
+                    checkedAt.put(identifier, now)
                     detailLookups++
                     val detail = fetchMetadata(identifier)
                     val metadata = detail.optJSONObject("metadata") ?: continue
