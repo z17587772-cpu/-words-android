@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -134,6 +135,37 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun packageArchiveExtractsOnlySafeEntriesAndCleansFailedStaging() {
+        val validRoot = java.io.File(context.cacheDir, "listening-archive-valid-${System.nanoTime()}")
+        val archive = createZip(
+            "manifest.json" to "{}".toByteArray(),
+            "audio/lesson.mp3" to "audio-bytes".toByteArray()
+        )
+        val extracted = ListeningPackageArchive.extractSafely(
+            java.io.ByteArrayInputStream(archive),
+            validRoot
+        )
+        assertTrue(extracted.manifestFile.isFile)
+        assertEquals("{}", extracted.manifestFile.readText())
+        assertEquals(2, extracted.files.size)
+        assertEquals("audio-bytes", java.io.File(validRoot, "audio/lesson.mp3").readText())
+        validRoot.deleteRecursively()
+
+        val maliciousRoot = java.io.File(context.cacheDir, "listening-archive-bad-${System.nanoTime()}")
+        val outside = java.io.File(context.cacheDir, "escape-${System.nanoTime()}.txt")
+        try {
+            ListeningPackageArchive.extractSafely(
+                java.io.ByteArrayInputStream(createZip("../${outside.name}" to "nope".toByteArray())),
+                maliciousRoot
+            )
+            throw AssertionError("Path traversal archive was accepted")
+        } catch (_: IllegalArgumentException) {
+            assertFalse(maliciousRoot.exists())
+            assertFalse(outside.exists())
+        }
+    }
+
+    @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
@@ -145,6 +177,18 @@ class WordsDatabaseMigrationTest {
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
 
         helper.close()
+    }
+
+    private fun createZip(vararg entries: Pair<String, ByteArray>): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(output).use { zip ->
+            entries.forEach { (name, bytes) ->
+                zip.putNextEntry(java.util.zip.ZipEntry(name))
+                zip.write(bytes)
+                zip.closeEntry()
+            }
+        }
+        return output.toByteArray()
     }
 
     private fun assertInvalid(json: String) {
