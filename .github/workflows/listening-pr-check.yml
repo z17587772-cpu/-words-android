@@ -246,6 +246,10 @@ jobs:
           assert "work-runtime-ktx:2.10.1" in gradle and "buildConfig = true" in gradle
           assert "ListeningDownloadCompletedReceiver" in manifest
           assert "LISTENING_CATALOG_PRIVATE_KEY_FILE" in signer
+          sync_test = Path("android/app/src/androidTest/java/com/words/app/ListeningCatalogSyncTest.kt").read_text(encoding="utf-8")
+          assert "verifiesEd25519EnvelopeAndRejectsPayloadTampering" in sync_test
+          assert "parsesOnlySameHostHttpsPackages" in sync_test
+          assert "rejectsDuplicatePackageIdsAndNewerAppRequirements" in sync_test
           print("Package, playback, strict no-repeat, discovery, and signed offline-sync guards passed.")
           PY
 
