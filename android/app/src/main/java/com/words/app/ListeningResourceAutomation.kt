@@ -116,28 +116,50 @@ class InternetArchiveDiscoveryWorker(
                     val detail = try {
                         fetchMetadata(identifier)
                     } catch (_: IllegalArgumentException) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
                         continue
                     } catch (_: org.json.JSONException) {
                         continue
                     } finally {
                         Thread.sleep(DETAIL_DELAY_MS)
                     }
-                    val metadata = detail.optJSONObject("metadata") ?: continue
+                    val metadata = detail.optJSONObject("metadata")
+                    if (metadata == null) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.opt("licenseurl"))
                     if (detailLicense != license) {
                         repository.revokeProviderItem(PROVIDER, "$identifier#")
                         continue
                     }
                     val languageValue = metadata.opt("language") ?: doc.opt("language")
-                    if (!InternetArchiveMetadataPolicy.isEnglish(languageValue)) continue
+                    if (!InternetArchiveMetadataPolicy.isEnglish(languageValue)) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val title = metadata.optString("title").ifBlank { doc.optString("title") }.trim()
-                    if (title.isBlank()) continue
-                    val files = detail.optJSONArray("files") ?: continue
+                    if (title.isBlank()) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
+                    val files = detail.optJSONArray("files")
+                    if (files == null) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val selected = selectAudioFiles(files)
-                    val file = selected.firstOrNull() ?: continue
+                    val file = selected.firstOrNull()
+                    if (file == null) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val fileName = file.optString("name")
                     val size = file.optString("size").toLongOrNull() ?: 0L
-                    if (fileName.isBlank() || size !in MIN_FILE_BYTES..MAX_FILE_BYTES) continue
+                    if (fileName.isBlank() || size !in MIN_FILE_BYTES..MAX_FILE_BYTES) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val encodedName = Uri.encode(fileName)
                     val mediaUrl = "https://archive.org/download/$identifier/$encodedName"
                     val creator = metadata.optString("creator").take(500)
