@@ -25,7 +25,7 @@ object ListeningDailyPlanner {
         val accentCounts = recentHistory.groupingBy { it.accent.lowercase() }.eachCount()
         val levelCounts = recentHistory.groupingBy { it.level }.eachCount()
         val catalogRevision = candidates
-            .map { "${it.id}:${it.audioUrl.orEmpty()}" }
+            .map { "${it.id}:${it.updatedAt}:${it.audioUrl.orEmpty()}" }
             .sorted()
             .joinToString("|")
         val seed = "$assignmentDate|$catalogRevision"
