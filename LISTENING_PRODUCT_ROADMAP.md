@@ -581,3 +581,13 @@ This section supersedes the older full-catalog repeat policy and any earlier roa
 Added an instrumentation regression simulation that introduces seven distinct lesson IDs every week, assigns one unseen lesson per day for 371 days, asserts every assigned ID is unique, and verifies the planner returns `null` once all 371 lessons have been assigned. The PR CI source guard now requires this test to remain present.
 
 This test is authored but has not yet run on an Android emulator. It must pass in CI before the strict no-repeat implementation is considered runtime-verified.
+
+
+## 24. Latest targeted validation after history-query cleanup (2026-11-21)
+
+- The standalone Kotlin compilation of the current planner implementation passed against a minimal `ListeningEpisode` model stub. This validates the planner source's Kotlin syntax/type use in isolation, not the full Android app.
+- The 371-day weekly-growth simulation passed: 371 unique episode IDs were assigned once, the exhausted catalog returned `null`, and a title/audio/revision metadata change did not make an assigned episode new again.
+- The exact assignment-history SQL was executed against an in-memory SQLite fixture. It returned per-episode assignment counts and latest immutable revision metadata, and it included assignments on all dates other than the currently resolved date.
+- A repository-wide scan of the 16 Kotlin files under `android/app/src` found no remaining `lastAssignedDate` references after simplifying the history model and cursor mapping.
+- PR CI guards were updated to reject stale history fields and require the long-run regression test.
+- Full Android Gradle compilation, instrumentation tests, and physical-device tests remain unverified because there is no Actions run for the current head. Do not treat the isolated planner compile or SQLite fixture as a full app build.
