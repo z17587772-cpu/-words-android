@@ -118,7 +118,7 @@ class ListeningContentPackageImporter(
                         "An existing immutable revision audio file failed integrity verification"
                     }
                 } else {
-                    ListeningAudioIntegrity.copyAndVerify(
+                    ListeningAudioIntegrity.copyAndVerifyNew(
                         FileInputStream(audioSources.getValue(episode.id)),
                         destination,
                         episode.audio
