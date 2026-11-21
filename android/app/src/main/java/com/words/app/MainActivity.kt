@@ -2173,9 +2173,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         val daily = card(19)
-        daily.addView(text(if (episode.isDemo) "DEMO LESSON" else "TODAY'S LISTENING", 10f, accent, true))
+        daily.addView(text(if (episode.isDemo) "NO NEW COURSE" else "TODAY'S LISTENING", 10f, accent, true))
         daily.addView(vSpace(8))
-        daily.addView(text(if (episode.isDemo) "体验课程" else "今日听力", 14f, secondary, true))
+        daily.addView(text(if (episode.isDemo) "暂无正式新课" else "今日新课", 14f, secondary, true))
         daily.addView(vSpace(5))
         daily.addView(text(episode.title, 21f, ink, true))
         daily.addView(vSpace(6))
