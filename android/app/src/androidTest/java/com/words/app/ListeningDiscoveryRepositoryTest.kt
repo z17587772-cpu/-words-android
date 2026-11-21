@@ -156,9 +156,10 @@ class ListeningDiscoveryRepositoryTest {
             "SELECT status FROM listening_discovered_resources WHERE id=?",
             arrayOf(id)
         ).use { c -> if (c.moveToFirst()) c.getString(0) else "" })
+        assertEquals(1, repository.listDownloadedLocalFiles().size)
         assertTrue(repository.markMissingLocalFile(id, "/private/sample.mp3"))
         assertTrue(repository.queueDownload(id))
-        assertEquals(1, repository.listDownloadedLocalFiles().size.coerceAtMost(1))
+        assertTrue(repository.listDownloadedLocalFiles().isEmpty())
         helper.close()
     }
 }
