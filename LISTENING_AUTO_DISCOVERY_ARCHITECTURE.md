@@ -118,7 +118,8 @@ Exit: instrumented/fake-server tests prove pagination, restart recovery, duplica
 - [x] SHA-256, exact provider byte-size, MP3 container/duration validation.
 - [x] Immutable hash-versioned file publication and database pointer update after verification.
 - [x] 512 MiB storage quota; evict only unpinned downloads not played in the last 30 days; serialize transfers to prevent quota races.
-- [ ] Orphan-file reconciliation and a dedicated storage-management screen.
+- [x] Reconcile missing local files, clean stale partial downloads and remove aged orphan MP3 files.
+- [ ] Dedicated storage-management screen and user-directed deletion controls.
 
 Exit: network interruption, process death, duplicate broadcasts, bad checksum and insufficient storage tests leave no corrupt library rows and preserve prior valid files. **Pending runtime verification.**
 
