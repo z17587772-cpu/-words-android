@@ -102,6 +102,8 @@ class ListeningDiscoveryRepositoryTest {
         repository.saveLocalFile(duplicateId, "/private/example.mp3", "a".repeat(64), 120_000L)
         assertEquals("/private/example.mp3", repository.findDownloadedFileByHash("a".repeat(64)))
         assertTrue(repository.isLocalPathShared(id, "/private/example.mp3"))
+        assertEquals(100L, repository.downloadedStorageBytes())
+        assertEquals("a".repeat(64), repository.listDownloadedLocalFiles().first { it.id == duplicateId }.contentSha256)
         assertFalse(repository.markLocalFileEvicted(id, "/private/example.mp3"))
         repository.setPinned(id, false)
         helper.writableDatabase.update(
