@@ -74,7 +74,7 @@ The app's managed local audio and SQLite metadata are the source of truth for of
 Implemented:
 - JSON manifest validation for schema v1, IDs, levels, timing, references, choices, rights, audio metadata, and app compatibility.
 - Canonical-root path resolution.
-- Audio copy with size and SHA-256 verification, temporary staging, and atomic replacement.
+- Audio copy with size and SHA-256 verification, temporary staging, and immutable revision-specific installation for package imports.
 - ZIP extraction is limited to manifest/audio entries, rejects traversal/absolute/duplicate paths and caps entry count plus decompressed size; ZipInputStream materializes entries as regular files rather than filesystem symlinks.
 - Instrumentation tests for malformed manifests, unsafe paths, checksum mismatch, preservation of the previous destination file on failure, and archive traversal rejection.
 
