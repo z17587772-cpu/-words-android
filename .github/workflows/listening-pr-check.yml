@@ -92,6 +92,7 @@ jobs:
           service = (root / "ListeningPlaybackService.kt").read_text(encoding="utf-8")
           coordinator = (root / "ListeningPlaybackCoordinator.kt").read_text(encoding="utf-8")
           database = (root / "WordsDatabase.kt").read_text(encoding="utf-8")
+          importer = (root / "ListeningContentPackageImporter.kt").read_text(encoding="utf-8")
           migration_test = Path("android/app/src/androidTest/java/com/words/app/WordsDatabaseMigrationTest.kt").read_text(encoding="utf-8")
           assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
           assert "evidence_sentence_id" in validator and "in_app_playback" in validator
@@ -106,12 +107,19 @@ jobs:
           assert "content_revision_id" in database
           assert "listening_episode_revisions" in database
           assert "listening_revision_questions" in repository
+          assert "listening_content_packages" in database and "listening_package_episodes" in database
+          assert "class ListeningContentPackageImporter" in importer
+          assert "copyAndVerifyNew" in importer and "recoverOrphanedAudioFiles" in importer
+          assert "Package version already exists with a different archive digest" in importer
+          assert "Package downgrade rejected" in importer
+          assert "listening_package_episodes" in repository
           assert "attempt.content_revision_id" in repository
           assert "fun getQuestionsForAttempt" in repository
           assert "fun getSentencesForAttempt" in repository
           assert "fun getEpisodeForAttempt" in repository
           assert "attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows" in migration_test
           assert "upgradingV7BackfillsSnapshotsAndPinsExistingAttempts" in migration_test
+          assert "packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision" in migration_test
           assert "getEpisodeForAttempt" in activity and "getQuestionsForAttempt" in activity
           assert "episode.playbackRevision(audioUri) != itemRevision" in service
           assert "currentItem.mediaId != id" in coordinator
