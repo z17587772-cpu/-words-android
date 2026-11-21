@@ -2132,7 +2132,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun renderListeningHome(parent: LinearLayout) {
         addSectionTitle(parent, "听力", "每日训练 · 听力库 · 专项精听")
         parent.addView(vSpace(16))
-        val episode = listeningRepository.getEpisode(listeningDailyEpisodeId)
+        val episode = listeningRepository.getEpisodeForDailyAssignment(java.time.LocalDate.now().toString(), listeningDailyEpisodeId)
+            ?: listeningRepository.getEpisode(listeningDailyEpisodeId)
         if (episode == null) {
             val empty = card(18)
             empty.addView(text("听力课程暂不可用", 16f, ink, true))
@@ -2262,7 +2263,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun renderListeningIntro(parent: LinearLayout) {
-        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val episode = listeningRepository.getEpisodeForDailyAssignment(java.time.LocalDate.now().toString(), listeningEpisodeId)
+            ?: listeningRepository.getEpisode(listeningEpisodeId)
+            ?: return
         addSectionTitle(parent, "课程导入", "先了解场景，不提前展示原文")
         parent.addView(vSpace(14))
         val c = card(19)
