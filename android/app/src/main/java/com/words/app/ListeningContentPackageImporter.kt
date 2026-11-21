@@ -41,11 +41,15 @@ class ListeningContentPackageImporter(
 
     private fun importArchiveLocked(archive: File, nowMs: Long): ListeningPackageImportResult {
         require(archive.isFile && archive.canRead()) { "Package archive is not readable" }
-        require(archive.length() in 1L..MAX_ARCHIVE_BYTES) { "Package archive exceeds the supported size" }
+        val archiveBytes = archive.length()
+        require(archiveBytes in 1L..MAX_ARCHIVE_BYTES) { "Package archive exceeds the supported size" }
         require(appVersionCode > 0) { "appVersionCode must be positive" }
         require(nowMs > 0L) { "nowMs must be positive" }
 
         require(stagingRoot.exists() || stagingRoot.mkdirs()) { "Cannot create package staging root" }
+        require(stagingRoot.usableSpace >= archiveBytes + STORAGE_RESERVE_BYTES) {
+            "Not enough free storage to snapshot the package archive safely"
+        }
         val staging = File(stagingRoot, "import-${UUID.randomUUID()}")
         require(staging.mkdirs()) { "Cannot create unique package staging directory" }
         val archiveSnapshot = File(staging, "package.zip")
@@ -56,7 +60,7 @@ class ListeningContentPackageImporter(
         try {
             val packageDigest = snapshotArchive(archive, archiveSnapshot)
             val extracted = FileInputStream(archiveSnapshot).use { input ->
-                ListeningPackageArchive.extractSafely(input, extractedRoot)
+                ListeningPackageArchive.extractSafely(input, extractedRoot, STORAGE_RESERVE_BYTES)
             }
             require(extracted.manifestFile.length() in 2L..MAX_MANIFEST_BYTES) {
                 "Package manifest exceeds the supported size"
