@@ -543,3 +543,34 @@ This section supersedes earlier roadmap statements where implementation status h
 ### PR and build policy
 
 PR #1 remains Draft and unmerged. Keep the feature branch isolated. Do not build a distributable APK during this implementation phase. Compile-only Kotlin tasks and test APK installation inside CI are validation steps, not a user-facing release APK; report them separately. A final distributable APK is deferred until all feature work, audit, and release checks are complete.
+
+
+## 22. Strict no-repeat correction — supersedes rotation behavior (2026-11-21)
+
+The earlier "complete catalog pass, then repeat the oldest lesson" rule has been rejected because it still repeats old content. The final product rule is stricter:
+
+- A stable episode ID may be assigned to the daily new-lesson queue at most once.
+- Existing episode revisions, retitled courses, changed translations, changed questions, or re-encoded audio do not reset new-lesson eligibility.
+- All prior assignment dates are considered; backdated device dates cannot make an old episode appear new.
+- Newly published episode IDs immediately enter the unseen pool.
+- When the unseen pool is empty, the planner returns `null`. The app must show an honest no-new-lesson state and offer the separate review queue; it must not silently recycle old content.
+- A skipped assignment remains accessible as a pending/previous lesson, but is not assigned again as a new lesson.
+
+### Current implementation changes
+
+- [x] Fixed the unresolved planner variable found in source audit.
+- [x] Changed planner selection to filter out every episode ID already present in assignment history.
+- [x] Changed history aggregation to include assignments on all dates except the date currently being resolved.
+- [x] Added regression coverage for initial one-time assignments, backdated requests, new-course replenishment, empty unseen pool, and same episode ID with changed revision metadata.
+- [x] Updated PR CI source guards to enforce the strict no-repeat behavior and updated regression-test names.
+- [x] Updated the continuous content supply specification to make stable episode identity and one-time assignment explicit.
+
+### Remaining work / validation gates
+
+- [ ] Recheck the app UI when planner returns `null`; demo preview must remain clearly labelled as demo and must not be presented as a new lesson.
+- [ ] Preserve access to an assigned-but-not-started lesson so skipping a day does not lose it.
+- [ ] Run Kotlin compilation and Android instrumentation against the latest head; no current-head CI pass is claimed.
+- [ ] Implement the independent review queue.
+- [ ] Implement candidate ingestion, source cursors, rights quarantine, editorial review, signed publisher, and Android remote sync.
+
+This section supersedes the older full-catalog repeat policy and any earlier roadmap wording that implies an episode is eventually recycled as a daily new lesson.
