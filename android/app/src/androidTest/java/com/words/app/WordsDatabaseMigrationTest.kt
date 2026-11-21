@@ -304,6 +304,19 @@ class WordsDatabaseMigrationTest {
             assertFalse(maliciousRoot.exists())
             assertFalse(outside.exists())
         }
+
+        val longPathRoot = java.io.File(context.cacheDir, "listening-archive-long-${System.nanoTime()}")
+        try {
+            ListeningPackageArchive.extractSafely(
+                java.io.ByteArrayInputStream(
+                    createZip("manifest.json" to "{}".toByteArray(), "audio/${"x".repeat(181)}.mp3" to byteArrayOf(1))
+                ),
+                longPathRoot
+            )
+            throw AssertionError("Overlong archive path was accepted")
+        } catch (_: IllegalArgumentException) {
+            assertFalse(longPathRoot.exists())
+        }
     }
 
     @Test
