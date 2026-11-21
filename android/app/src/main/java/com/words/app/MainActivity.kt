@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import java.util.concurrent.Executor
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import android.net.Uri
@@ -1929,6 +1930,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val sentenceMediaItem = MediaItem.Builder()
                 .setMediaId(episode.id)
                 .setUri(audioUrl)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(episode.title)
+                        .setArtist("Words · 听力训练")
+                        .build()
+                )
                 .build()
             controller.setMediaItem(sentenceMediaItem, sentence.startMs)
             controller.prepare()
