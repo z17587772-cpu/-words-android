@@ -2615,12 +2615,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     "audio/flac", "audio/x-flac" -> "flac"
                     else -> extensionFromName ?: "audio"
                 }
-                destination = java.io.File(directory, "$id.$extension")
+                val targetFile = java.io.File(directory, "$id.$extension")
+                destination = targetFile
                 val input = contentResolver.openInputStream(uri)
                     ?: throw java.io.IOException("无法读取所选音频")
                 var copied = 0L
                 input.use { source ->
-                    java.io.FileOutputStream(destination).use { output ->
+                    java.io.FileOutputStream(targetFile).use { output ->
                         val buffer = ByteArray(32 * 1024)
                         while (true) {
                             val count = source.read(buffer)
@@ -2636,7 +2637,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 require(copied > 0L) { "音频文件为空" }
                 val retriever = android.media.MediaMetadataRetriever()
                 val durationMs = try {
-                    retriever.setDataSource(destination.absolutePath)
+                    retriever.setDataSource(targetFile.absolutePath)
                     retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
                         ?.toLongOrNull() ?: 0L
                 } finally {
@@ -2669,7 +2670,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                             records.put(JSONObject().apply {
                                 put("id", id)
                                 put("title", title)
-                                put("path", destination?.absolutePath.orEmpty())
+                                put("path", targetFile.absolutePath)
                                 put("mime", mime)
                                 put("size", copied)
                                 put("duration_ms", durationMs)
