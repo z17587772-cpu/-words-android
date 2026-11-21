@@ -338,6 +338,7 @@ class WordsDatabaseMigrationTest {
 
             val assignmentDate = java.time.LocalDate.now().toString()
             assertEquals(episodeId, repository.assignDailyEpisode(assignmentDate, nowMs))
+            assertEquals("A Small Change", repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.title)
             val attemptId = repository.startAttempt(episodeId)
             assertEquals("blind", repository.getAttemptProgress(attemptId)?.stage)
             repository.updateAttemptStage(attemptId, "quiz")
@@ -373,6 +374,7 @@ class WordsDatabaseMigrationTest {
             try {
                 assertTrue(importer.importArchive(archiveV2, nowMs) is ListeningPackageImportResult.Installed)
                 assertEquals("A Small Change", repository.getEpisodeForAttempt(attemptId)?.title)
+                assertEquals("A Small Change", repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.title)
                 val currentEpisode = repository.getEpisode(episodeId)!!
                 assertEquals("A Better Small Change", currentEpisode.title)
                 assertTrue(repository.isKnownPlaybackRevision(
