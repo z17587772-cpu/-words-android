@@ -82,7 +82,7 @@ class WordsDatabaseMigrationTest {
 
         assertInvalid(validPackageManifest().replace("audio/lesson-01.mp3", "../outside.mp3"))
         assertInvalid(validPackageManifest().replace("a".repeat(64), "not-a-checksum"))
-        assertInvalid(validPackageManifest().replace("sentence-01", "missing-sentence"))
+        assertInvalid(validPackageManifest().replace("\\"evidence_sentence_id\\": \\"sentence-01\\"", "\\"evidence_sentence_id\\": \\"missing-sentence\\""))
         assertInvalid(validPackageManifest().replace("\"in_app_playback\"", "\"streaming_only\""))
         assertInvalid(validPackageManifest().replace("\"schema_version\": 1", "\"schema_version\": 99"))
     }
