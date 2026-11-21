@@ -129,12 +129,14 @@ A package is never overwritten in place. Rollback publishes a new catalog revisi
 
 ## 8. New-lesson and review scheduling
 
-New-lesson eligibility is based on stable episode identity and first-start state, not on the number of package revisions.
-- `PUBLISHED + never started` -> new-lesson queue.
-- `started` or `completed` -> never again eligible as a new lesson.
+New-lesson eligibility is based on stable episode identity and whether the episode has ever been assigned as a daily new lesson, not on package revision count or a rolling time window.
+- `PUBLISHED + never assigned` -> new-lesson queue.
+- Once an episode ID has appeared in any daily assignment, it is permanently excluded from the new-lesson queue, even if the learner skipped it. The original assignment remains accessible as a pending/previous lesson.
+- A revision update keeps the same episode ID and never resets this exclusion.
 - Started/completed content can be recommended only by the independent review planner.
-- New content inserted during a catalog pass is eligible before any already-assigned lesson is repeated.
+- Newly published episode IDs immediately replenish the unseen pool.
 - If no unseen published lesson exists, show an honest empty/new-content-unavailable state and offer review work. Never disguise review as a new lesson.
+- Assignment history is checked across all dates, so device clock changes or backdated requests cannot recycle an already-assigned episode.
 
 Review scheduling initially uses transparent, explainable rules from wrong answers, weak sentence segments, and elapsed time. A more complex scheduler such as FSRS is considered only after event data and calibration tests are available.
 
