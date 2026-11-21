@@ -149,7 +149,7 @@ jobs:
           assert "packageImporterCannotPromoteTheSystemTtsDemoToFormalContent" in migration_test
           assert 'SQLiteOpenHelper(context, "words_local.db", null, 11)' in database
           planner = (root / "ListeningDailyPlanner.kt").read_text(encoding="utf-8")
-          assert "assignDailyEpisode" in repository and "e.status='approved' AND e.is_demo=0" in repository
+          assert "assignDailyEpisode" in repository and "status='approved' AND is_demo=0" in repository and "e.status='approved' AND r.is_demo=0" in repository
           assert "fun getAttemptAnswerReviews" in repository
           assert "Completed attempt has no persisted score" in repository
           assert "post-completion-question" in migration_test
