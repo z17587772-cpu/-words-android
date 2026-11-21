@@ -211,3 +211,32 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Proposed next schema step: v8 immutable episode-revision snapshots, attempt-to-revision pinning, revision-scoped verified audio paths, and a staged-file / atomic-DB-publication protocol.
 - Importer UI and WorkManager download orchestration remain blocked on revision snapshot migration, repository reads, and rollback/history tests.
 - No APK was built, no branch was merged or rebased, and no production content was added in this pass.
+
+
+## 10. Revision-safety implementation update — 2026-11-21
+
+Implemented on `feature/listening-mvp` (schema v10; not yet runtime-verified):
+
+- Added immutable `listening_episode_revisions`, `listening_revision_sentences`, `listening_revision_questions`, and `listening_revision_choices` tables.
+- Added episode current-revision pointer, attempt-pinned `content_revision_id`, and daily-assignment-pinned `content_revision_id`.
+- v7→v8 migration snapshots the existing episode metadata, transcript, questions, choices and answer keys, then binds existing attempts to their legacy revision. v8→v9 pins existing daily assignments. v9→v10 adds immutable episode metadata/audio URI fields and backfills existing revisions.
+- Attempt creation now pins the active daily assignment revision when applicable; otherwise it pins the episode's current revision.
+- Added attempt-scoped reads for lesson metadata, transcript, questions, options and correct answers. Quiz submission validation, scoring and completed review now query the attempt revision rather than mutable catalog content.
+- MainActivity's blind-listening, quiz and review stages now request episode/transcript/question data through the active attempt ID.
+- Added regression coverage that mutates mutable episode/question/choice rows after an attempt and asserts the pinned attempt still reads its original metadata, transcript, questions, choices, answer key and score.
+- Added guards for partial legacy schemas used by the v6 migration fixture; no missing optional listening table should make the playback-column upgrade fail.
+
+### Remaining before importer can be enabled
+
+- The package importer is still not implemented. The manifest validator, safe ZIP staging and audio integrity helpers remain building blocks only.
+- Import must create a new immutable revision and its snapshots, verify and durably stage revision-scoped audio, then atomically publish the revision pointer. It must not update or delete historical snapshots.
+- The importer must preserve old mutable question parent rows while answers still have a foreign key to `listening_questions`; if a package removes a question, the catalog needs an explicit active/tombstone policy and planner queries must use the active published revision.
+- Audio playback currently snapshots the episode audio URI and metadata for attempt display, but there is no package-import publication journal, no persisted package identity/digest table, and no crash-recovery worker yet.
+- Daily assignment version pinning is stored and used by `startAttempt`; verify the device-local date semantics on device and add a direct assignment-to-attempt test.
+- Android compilation, migration instrumentation, emulator playback and physical-device playback have not been run in this pass. Do not mark these gates green until a fresh workflow run succeeds.
+
+### Verification record
+
+- Source-level inspection completed for database migration, repository query paths and MainActivity call sites.
+- GitHub PR workflow file includes Android emulator migration tests and static safety checks, but no workflow run was returned for the latest code commits. A passing CI result is therefore not established.
+- No APK was built; no merge or rebase was performed.
