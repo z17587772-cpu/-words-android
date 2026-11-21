@@ -49,6 +49,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningSelectedChoiceId: Long? = null
     private var listeningSubmitted = false
     private var listeningCurrentCorrect: Boolean? = null
+    private var listeningCorrectChoiceId: Long? = null
     private var listeningCorrectCount = 0
     private val listeningPlaybackHandler = Handler(Looper.getMainLooper())
     private var listeningSegmentStopRunnable: Runnable? = null
@@ -2052,6 +2053,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             listeningSelectedChoiceId = null
             listeningSubmitted = false
             listeningCurrentCorrect = null
+            listeningCorrectChoiceId = null
             listeningStage = "blind"
             renderPage()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -2121,13 +2123,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         progress.addView(vSpace(14))
         question.options.forEach { option ->
             val selected = listeningSelectedChoiceId == option.id
-            val backgroundColor = if (listeningSubmitted && option.isCorrect) softAccent else if (selected) 0xFFF1F3F7.toInt() else white
-            val borderColor = if (listeningSubmitted && option.isCorrect) accent else if (selected) 0xFFB9C2D6.toInt() else line
+            val backgroundColor = if (listeningSubmitted && listeningCorrectChoiceId == option.id) softAccent else if (selected) 0xFFF1F3F7.toInt() else white
+            val borderColor = if (listeningSubmitted && listeningCorrectChoiceId == option.id) accent else if (selected) 0xFFB9C2D6.toInt() else line
             val optionView = text(
                 option.content,
                 13f,
-                if (listeningSubmitted && option.isCorrect) accent else ink,
-                selected || (listeningSubmitted && option.isCorrect)
+                if (listeningSubmitted && listeningCorrectChoiceId == option.id) accent else ink,
+                selected || (listeningSubmitted && listeningCorrectChoiceId == option.id)
             ).apply {
                 setPadding(dp(13), dp(14), dp(13), dp(14))
                 background = rounded(backgroundColor, borderColor, 13)
@@ -2150,9 +2152,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 } else {
                     val selected = question.options.firstOrNull { it.id == selectedId }
                     if (selected != null) {
-                        listeningCurrentCorrect = selected.isCorrect
-                        if (selected.isCorrect) listeningCorrectCount += 1
-                        listeningRepository.recordAnswer(listeningAttemptId, question.id, selected.id, selected.isCorrect)
+                        listeningCurrentCorrect = listeningRepository.recordAnswer(
+                            listeningAttemptId, question.id, selected.id
+                        )
+                        if (listeningCurrentCorrect == true) listeningCorrectCount += 1
+                        listeningCorrectChoiceId = listeningRepository.getCorrectChoiceId(question.id)
                         listeningSubmitted = true
                         renderPage()
                     }
@@ -2185,6 +2189,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     listeningSelectedChoiceId = null
                     listeningSubmitted = false
                     listeningCurrentCorrect = null
+            listeningCorrectChoiceId = null
                 }
                 renderPage()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -2251,6 +2256,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             listeningSelectedChoiceId = null
             listeningSubmitted = false
             listeningCurrentCorrect = null
+            listeningCorrectChoiceId = null
             listeningStage = "blind"
             renderPage()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
