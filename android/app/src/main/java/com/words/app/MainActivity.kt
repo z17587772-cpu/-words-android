@@ -2582,87 +2582,116 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun saveUserListeningUpload(uri: Uri) {
-        val mime = contentResolver.getType(uri).orEmpty()
-        if (mime.isNotBlank() && !mime.startsWith("audio/")) {
+        // Copying and probing a user-selected file can take seconds (or minutes
+        // for a large document provider stream). Never do this work on the UI thread.
+        val mime = runCatching { contentResolver.getType(uri).orEmpty() }.getOrDefault("")
+        if (mime.isNotBlank() && !mime.startsWith("audio/", ignoreCase = true)) {
             Toast.makeText(this, "请选择音频文件", Toast.LENGTH_SHORT).show()
             return
         }
-        val directory = java.io.File(filesDir, "user-listening")
-        if (!directory.exists() && !directory.mkdirs()) {
-            Toast.makeText(this, "无法创建本地听力目录", Toast.LENGTH_SHORT).show()
-            return
-        }
+        Toast.makeText(this, "正在导入音频，请稍候…", Toast.LENGTH_SHORT).show()
         val id = java.util.UUID.randomUUID().toString()
-        val extension = when (mime.lowercase()) {
-            "audio/mpeg" -> "mp3"
-            "audio/mp4", "audio/m4a" -> "m4a"
-            "audio/aac" -> "aac"
-            "audio/ogg", "audio/opus" -> "ogg"
-            "audio/wav", "audio/x-wav" -> "wav"
-            "audio/flac" -> "flac"
-            else -> "audio"
-        }
-        val destination = java.io.File(directory, "$id.$extension")
-        try {
-            val input = contentResolver.openInputStream(uri) ?: throw java.io.IOException("无法读取所选音频")
-            var copied = 0L
-            input.use { source ->
-                java.io.FileOutputStream(destination).use { output ->
-                    val buffer = ByteArray(32 * 1024)
-                    while (true) {
-                        val count = source.read(buffer)
-                        if (count < 0) break
-                        if (count == 0) continue
-                        copied += count
-                        require(copied <= MAX_USER_AUDIO_BYTES) { "音频文件不能超过 100 MB" }
-                        output.write(buffer, 0, count)
+        val directory = java.io.File(filesDir, "user-listening")
+        val worker = Thread({
+            var destination: java.io.File? = null
+            try {
+                if (!directory.exists() && !directory.mkdirs()) {
+                    throw java.io.IOException("无法创建本地听力目录")
+                }
+                val displayName = runCatching {
+                    contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                        ?.use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else ""
+                        }.orEmpty()
+                }.getOrDefault("")
+                val extensionFromName = displayName.substringAfterLast('.', "").lowercase()
+                    .takeIf { it.matches(Regex("[a-z0-9]{1,8}")) }
+                val extension = when (mime.lowercase()) {
+                    "audio/mpeg" -> "mp3"
+                    "audio/mp4", "audio/m4a", "audio/x-m4a" -> "m4a"
+                    "audio/aac" -> "aac"
+                    "audio/ogg", "audio/opus" -> "ogg"
+                    "audio/wav", "audio/x-wav", "audio/vnd.wave" -> "wav"
+                    "audio/flac", "audio/x-flac" -> "flac"
+                    else -> extensionFromName ?: "audio"
+                }
+                destination = java.io.File(directory, "$id.$extension")
+                val input = contentResolver.openInputStream(uri)
+                    ?: throw java.io.IOException("无法读取所选音频")
+                var copied = 0L
+                input.use { source ->
+                    java.io.FileOutputStream(destination).use { output ->
+                        val buffer = ByteArray(32 * 1024)
+                        while (true) {
+                            val count = source.read(buffer)
+                            if (count < 0) break
+                            if (count == 0) continue
+                            copied += count
+                            require(copied <= MAX_USER_AUDIO_BYTES) { "音频文件不能超过 100 MB" }
+                            output.write(buffer, 0, count)
+                        }
+                        output.fd.sync()
                     }
-                    output.fd.sync()
+                }
+                require(copied > 0L) { "音频文件为空" }
+                val retriever = android.media.MediaMetadataRetriever()
+                val durationMs = try {
+                    retriever.setDataSource(destination.absolutePath)
+                    retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                        ?.toLongOrNull() ?: 0L
+                } finally {
+                    retriever.release()
+                }
+                require(durationMs > 0L) { "无法识别音频格式或音频时长" }
+                val suggestedTitle = displayName.ifBlank { uri.lastPathSegment.orEmpty() }
+                    .substringAfterLast('/').substringAfterLast(':')
+                    .ifBlank { "我的听力音频" }
+                    .substringBeforeLast('.', displayName.ifBlank { "我的听力音频" })
+                listeningPlaybackHandler.post {
+                    if (isFinishing || isDestroyed) {
+                        destination?.delete()
+                        return@post
+                    }
+                    val titleInput = EditText(this).apply {
+                        setSingleLine(true)
+                        setText(suggestedTitle)
+                        hint = "给这段听力起个名称"
+                    }
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle("保存听力内容")
+                        .setMessage("音频已完成校验并复制到本地。你可以为它设置一个便于查找的名称。")
+                        .setView(titleInput)
+                        .setNegativeButton("取消") { _, _ -> destination?.delete() }
+                        .setPositiveButton("保存") { _, _ ->
+                            val title = titleInput.text.toString().trim().ifBlank { "我的听力音频" }.take(100)
+                            val records = readUserListeningUploads()
+                            records.put(JSONObject().apply {
+                                put("id", id)
+                                put("title", title)
+                                put("path", destination?.absolutePath.orEmpty())
+                                put("mime", mime)
+                                put("size", copied)
+                                put("duration_ms", durationMs)
+                                put("added_at", System.currentTimeMillis())
+                            })
+                            prefs.edit().putString(KEY_USER_LISTENING_UPLOADS, records.toString()).apply()
+                            Toast.makeText(this, "已加入我的听力库", Toast.LENGTH_SHORT).show()
+                            renderPage()
+                        }
+                        .setOnCancelListener { destination?.delete() }
+                        .show()
+                }
+            } catch (error: Exception) {
+                destination?.delete()
+                listeningPlaybackHandler.post {
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(this, "导入失败：${error.message ?: "文件无法读取"}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
-            require(copied > 0L) { "音频文件为空" }
-            val retriever = android.media.MediaMetadataRetriever()
-            val durationMs = try {
-                retriever.setDataSource(destination.absolutePath)
-                retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull() ?: 0L
-            } finally {
-                retriever.release()
-            }
-            require(durationMs > 0L) { "无法识别音频格式或音频时长" }
-            val guessedName = uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':')
-                ?.takeIf { it.isNotBlank() } ?: "我的听力音频"
-            val titleInput = EditText(this).apply {
-                setSingleLine(true)
-                setText(guessedName.substringBeforeLast('.', guessedName))
-                hint = "给这段听力起个名称"
-            }
-            android.app.AlertDialog.Builder(this)
-                .setTitle("保存听力内容")
-                .setMessage("音频已复制到应用本地目录。你可以为它设置一个便于查找的名称。")
-                .setView(titleInput)
-                .setNegativeButton("取消") { _, _ -> destination.delete() }
-                .setPositiveButton("保存") { _, _ ->
-                    val title = titleInput.text.toString().trim().ifBlank { "我的听力音频" }.take(100)
-                    val records = readUserListeningUploads()
-                    records.put(JSONObject().apply {
-                        put("id", id)
-                        put("title", title)
-                        put("path", destination.absolutePath)
-                        put("mime", mime)
-                        put("size", copied)
-                        put("added_at", System.currentTimeMillis())
-                    })
-                    prefs.edit().putString(KEY_USER_LISTENING_UPLOADS, records.toString()).apply()
-                    Toast.makeText(this, "已加入我的听力库", Toast.LENGTH_SHORT).show()
-                    renderPage()
-                }
-                .setOnCancelListener { destination.delete() }
-                .show()
-        } catch (error: Exception) {
-            destination.delete()
-            Toast.makeText(this, "导入失败：${error.message ?: "文件无法读取"}", Toast.LENGTH_LONG).show()
-        }
+        }, "words-audio-import")
+        worker.isDaemon = true
+        worker.start()
     }
 
     private fun readUserListeningUploads(): JSONArray = runCatching {
