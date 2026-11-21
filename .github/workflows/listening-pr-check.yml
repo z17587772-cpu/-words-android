@@ -112,6 +112,9 @@ jobs:
           assert "listening_content_packages" in database and "listening_package_episodes" in database
           assert "class ListeningContentPackageImporter" in importer
           assert "snapshotArchive" in importer and "MAX_ARCHIVE_BYTES" in importer
+          assert "stagingRoot.usableSpace >= archiveBytes + STORAGE_RESERVE_BYTES" in importer
+          assert "extractSafely(input, extractedRoot, STORAGE_RESERVE_BYTES)" in importer
+          assert "minimumFreeBytes <= root.usableSpace - read.toLong()" in archive
           assert "usableSpace >= requiredAudioBytes + STORAGE_RESERVE_BYTES" in importer
           assert "synchronized(CONTENT_LOCK)" in importer
           assert "copyAndVerifyNew" in importer and "recoverOrphanedAudioFiles" in importer
@@ -137,6 +140,7 @@ jobs:
           assert "attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows" in migration_test
           assert "upgradingV7ToV11BackfillsSnapshotsAndPinsExistingAttempts" in migration_test
           assert "packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision" in migration_test
+          assert "packageArchivePreservesConfiguredFreeSpaceReserve" in migration_test
           assert "getEpisodeForAttempt" in activity and "getQuestionsForAttempt" in activity
           quiz_screen = activity.split("private fun renderListeningQuiz", 1)[1].split("private fun addListeningSpeedControls", 1)[0]
           assert "getSentencesForAttempt(listeningAttemptId)" in quiz_screen
