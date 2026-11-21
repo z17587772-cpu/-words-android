@@ -2,7 +2,6 @@ package com.words.app
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
-import java.time.LocalDate
 
 class ListeningRepository(private val helper: WordsDatabase) {
     private val database: SQLiteDatabase
