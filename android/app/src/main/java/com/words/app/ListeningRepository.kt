@@ -318,12 +318,6 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
         }
 
-    private fun isCorrectChoice(questionId: String, choiceId: Long): Boolean =
-        helper.readableDatabase.rawQuery(
-            "SELECT is_correct FROM listening_choices WHERE question_id=? AND id=? LIMIT 1",
-            arrayOf(questionId, choiceId.toString())
-        ).use { cursor -> cursor.moveToFirst() && cursor.getInt(0) == 1 }
-
     fun getCorrectChoiceId(questionId: String): Long? =
         helper.readableDatabase.rawQuery(
             "SELECT id FROM listening_choices WHERE question_id=? AND is_correct=1 LIMIT 1",
@@ -368,8 +362,28 @@ class ListeningRepository(private val helper: WordsDatabase) {
     )
 
     fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean {
-        val correct = isCorrectChoice(questionId, choiceId)
-        database.insertWithOnConflict("listening_answers", null, ContentValues().apply {
+        val existing = helper.readableDatabase.rawQuery(
+            "SELECT is_correct FROM listening_answers WHERE attempt_id=? AND question_id=? AND attempt_no=1 LIMIT 1",
+            arrayOf(attemptId.toString(), questionId)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) == 1 else null }
+        if (existing != null) return existing
+
+        val correct = helper.readableDatabase.rawQuery(
+            """SELECT choice.is_correct
+               FROM listening_choices choice
+               JOIN listening_questions question ON question.id=choice.question_id
+               JOIN listening_attempts attempt ON attempt.episode_id=question.episode_id
+               WHERE attempt.id=? AND question.id=? AND choice.id=?
+               LIMIT 1""",
+            arrayOf(attemptId.toString(), questionId, choiceId.toString())
+        ).use { cursor ->
+            require(cursor.moveToFirst()) {
+                "The selected choice does not belong to this question and attempt"
+            }
+            cursor.getInt(0) == 1
+        }
+
+        val inserted = database.insertWithOnConflict("listening_answers", null, ContentValues().apply {
             put("attempt_id", attemptId)
             put("question_id", questionId)
             put("selected_choice_id", choiceId)
@@ -377,7 +391,12 @@ class ListeningRepository(private val helper: WordsDatabase) {
             put("attempt_no", 1)
             put("answered_at", System.currentTimeMillis())
         }, SQLiteDatabase.CONFLICT_IGNORE)
-        return correct
+        if (inserted != -1L) return correct
+
+        return helper.readableDatabase.rawQuery(
+            "SELECT is_correct FROM listening_answers WHERE attempt_id=? AND question_id=? AND attempt_no=1 LIMIT 1",
+            arrayOf(attemptId.toString(), questionId)
+        ).use { cursor -> cursor.moveToFirst() && cursor.getInt(0) == 1 }
     }
 
     fun finishAttempt(attemptId: Long, score: Float) {
