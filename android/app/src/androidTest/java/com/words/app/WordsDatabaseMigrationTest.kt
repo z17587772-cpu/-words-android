@@ -29,7 +29,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(10, upgraded.version)
+        assertEquals(11, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
@@ -45,6 +45,8 @@ class WordsDatabaseMigrationTest {
         assertTrue(tableExists(upgraded, "listening_revision_sentences"))
         assertTrue(tableExists(upgraded, "listening_revision_questions"))
         assertTrue(tableExists(upgraded, "listening_revision_choices"))
+        assertTrue(tableExists(upgraded, "listening_content_packages"))
+        assertTrue(tableExists(upgraded, "listening_package_episodes"))
         assertTrue(columnExists(upgraded, "listening_episodes", "current_revision_id"))
         assertTrue(columnExists(upgraded, "listening_attempts", "content_revision_id"))
         assertTrue(columnExists(upgraded, "listening_episode_revisions", "title"))
@@ -288,6 +290,100 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        val contentRoot = java.io.File(context.filesDir, "listening-import-test-${System.nanoTime()}")
+        val stagingRoot = java.io.File(context.cacheDir, "listening-import-stage-${System.nanoTime()}")
+        val archiveFile = java.io.File(context.cacheDir, "listening-package-v1-${System.nanoTime()}.zip")
+        val importer = ListeningContentPackageImporter(helper, contentRoot, stagingRoot, 22)
+        val nowMs = 1_795_300_000_000L
+        val audioV1 = ByteArray(1024) { 0x2A.toByte() }
+        val digestV1 = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(audioV1).joinToString("") { "%02x".format(it) }
+        val manifestV1 = validPackageManifest().replace("a".repeat(64), digestV1)
+        archiveFile.writeBytes(createZip(
+            "manifest.json" to manifestV1.toByteArray(Charsets.UTF_8),
+            "audio/lesson-01.mp3" to audioV1
+        ))
+
+        try {
+            val first = importer.importArchive(archiveFile, nowMs)
+            assertTrue(first is ListeningPackageImportResult.Installed)
+            assertTrue(importer.importArchive(archiveFile, nowMs) is ListeningPackageImportResult.AlreadyInstalled)
+
+            val episodeId = "lesson-01"
+            assertEquals(1, scalar(helper.readableDatabase,
+                "SELECT COUNT(*) FROM listening_package_episodes WHERE episode_id='lesson-01' AND is_active=1"))
+            assertEquals(1, scalar(helper.readableDatabase,
+                "SELECT COUNT(*) FROM listening_revision_questions WHERE revision_id=(SELECT current_revision_id FROM listening_episodes WHERE id='lesson-01')"))
+
+            val assignmentDate = java.time.LocalDate.now().toString()
+            assertEquals(episodeId, repository.assignDailyEpisode(assignmentDate, nowMs))
+            val attemptId = repository.startAttempt(episodeId)
+            val oldEpisode = repository.getEpisodeForAttempt(attemptId)!!
+            val oldAudioUri = oldEpisode.audioUrl!!
+            val oldAudioFile = java.io.File(java.net.URI(oldAudioUri))
+            assertTrue(oldAudioFile.isFile)
+
+            val audioV2 = ByteArray(1024) { 0x3B.toByte() }
+            val digestV2 = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(audioV2).joinToString("") { "%02x".format(it) }
+            val manifestV2 = manifestV1
+                .replace("\"package_version\": 1", "\"package_version\": 2")
+                .replace("2026-11-core-01", "2026-11-core-02")
+                .replace("A Small Change", "A Better Small Change")
+                .replace(digestV1, digestV2)
+            val archiveV2 = java.io.File(context.cacheDir, "listening-package-v2-${System.nanoTime()}.zip")
+            archiveV2.writeBytes(createZip(
+                "manifest.json" to manifestV2.toByteArray(Charsets.UTF_8),
+                "audio/lesson-01.mp3" to audioV2
+            ))
+            try {
+                assertTrue(importer.importArchive(archiveV2, nowMs) is ListeningPackageImportResult.Installed)
+                assertEquals("A Small Change", repository.getEpisodeForAttempt(attemptId)?.title)
+                assertEquals("A Better Small Change", repository.getEpisode(episodeId)?.title)
+                assertTrue("Historical revision audio must remain available", oldAudioFile.isFile)
+                assertEquals(2, scalar(helper.readableDatabase,
+                    "SELECT package_version FROM listening_content_packages WHERE package_id='words-listening-core'"))
+
+                val conflictingManifest = manifestV2.replace("A Better Small Change", "Conflicting same-version content")
+                val conflictingArchive = java.io.File(context.cacheDir, "listening-package-conflict-${System.nanoTime()}.zip")
+                conflictingArchive.writeBytes(createZip(
+                    "manifest.json" to conflictingManifest.toByteArray(Charsets.UTF_8),
+                    "audio/lesson-01.mp3" to audioV2
+                ))
+                try {
+                    try {
+                        importer.importArchive(conflictingArchive, nowMs)
+                        throw AssertionError("Same-version package with a different digest was accepted")
+                    } catch (_: IllegalArgumentException) {
+                        assertEquals(2, scalar(helper.readableDatabase,
+                            "SELECT package_version FROM listening_content_packages WHERE package_id='words-listening-core'"))
+                    }
+                } finally {
+                    conflictingArchive.delete()
+                }
+
+                try {
+                    importer.importArchive(archiveFile, nowMs)
+                    throw AssertionError("Package downgrade was accepted")
+                } catch (_: IllegalArgumentException) {
+                    assertEquals("A Better Small Change", repository.getEpisode(episodeId)?.title)
+                }
+            } finally {
+                archiveV2.delete()
+            }
+        } finally {
+            archiveFile.delete()
+            contentRoot.deleteRecursively()
+            stagingRoot.deleteRecursively()
+            helper.close()
+        }
+    }
+
+    @Test
     fun dailyPlannerPrefersAdvancedContentThenAvoidsRecentRepeats() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
@@ -422,7 +518,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(10, database.version)
+        assertEquals(11, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
