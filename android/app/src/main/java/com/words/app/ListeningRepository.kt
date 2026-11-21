@@ -348,6 +348,27 @@ class ListeningRepository(private val helper: WordsDatabase) {
         )
     }
 
+    fun getEpisodeForDailyAssignment(assignmentDate: String, episodeId: String): ListeningEpisode? =
+        helper.readableDatabase.rawQuery(
+            """SELECT revision.episode_id,revision.title,revision.description,revision.category,
+                      revision.level,revision.duration_ms,revision.accent,revision.speech_rate,
+                      revision.audio_url,revision.is_demo,revision.updated_at
+               FROM listening_daily_assignments assignment
+               JOIN listening_episode_revisions revision
+                 ON revision.revision_id=assignment.content_revision_id
+                AND revision.episode_id=assignment.episode_id
+               WHERE assignment.assignment_date=? AND assignment.episode_id=? LIMIT 1""",
+            arrayOf(assignmentDate, episodeId)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else ListeningEpisode(
+                id = cursor.getString(0), title = cursor.getString(1), description = cursor.getString(2),
+                category = cursor.getString(3), level = cursor.getString(4), durationMs = cursor.getLong(5),
+                accent = cursor.getString(6), speechRate = cursor.getFloat(7),
+                audioUrl = if (cursor.isNull(8)) null else cursor.getString(8),
+                isDemo = cursor.getInt(9) == 1, updatedAt = cursor.getLong(10)
+            )
+        }
+
     fun getEpisodeForAttempt(attemptId: Long): ListeningEpisode? =
         helper.readableDatabase.rawQuery(
             """SELECT revision.episode_id,revision.title,revision.description,revision.category,
