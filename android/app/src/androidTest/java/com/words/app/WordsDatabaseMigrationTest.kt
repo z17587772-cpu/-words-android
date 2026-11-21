@@ -801,6 +801,41 @@ class WordsDatabaseMigrationTest {
 
 
     @Test
+    fun dailyArchiveReplaysTheAssignedHistoricalRevision() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        val episodeId = "archive-revision-test"
+        val db = helper.writableDatabase
+        insertApprovedLesson(db, episodeId, "L2", "daily", "American")
+
+        val originalAttempt = repository.startAttempt(episodeId)
+        val originalRevision = db.rawQuery(
+            "SELECT content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(originalAttempt.toString())
+        ).use { cursor -> assertTrue(cursor.moveToFirst()); cursor.getString(0) }
+        val assignmentDate = "2026-10-01"
+        db.insertOrThrow("listening_daily_assignments", null, android.content.ContentValues().apply {
+            put("assignment_date", assignmentDate)
+            put("episode_id", episodeId)
+            put("content_revision_id", originalRevision)
+            put("created_at", 1_798_800_000_000L)
+        })
+        db.execSQL("UPDATE listening_episodes SET title='Changed title' WHERE id=?", arrayOf(episodeId))
+
+        assertEquals(episodeId, repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.id)
+        assertEquals(episodeId, repository.getEpisodeForDailyAssignment(assignmentDate, episodeId)?.let { it.id })
+        val historicalAttempt = repository.startAttempt(episodeId, assignmentDate)
+        val pinnedRevision = db.rawQuery(
+            "SELECT content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(historicalAttempt.toString())
+        ).use { cursor -> assertTrue(cursor.moveToFirst()); cursor.getString(0) }
+        assertEquals(originalRevision, pinnedRevision)
+        assertEquals("archive-revision-test", repository.getEpisodeForAttempt(historicalAttempt)?.title)
+        helper.close()
+    }
+
+    @Test
     fun upgradingV7ToV11BackfillsSnapshotsAndPinsExistingAttempts() {
         context.deleteDatabase(DATABASE_NAME)
         val originalHelper = WordsDatabase(context)

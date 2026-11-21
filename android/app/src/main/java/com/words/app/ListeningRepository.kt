@@ -656,14 +656,14 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
         }
 
-    fun startAttempt(episodeId: String): Long {
+    fun startAttempt(episodeId: String, assignmentDate: String? = null): Long {
         val db = database
         db.beginTransaction()
         try {
             val assignedRevision = db.rawQuery(
                 """SELECT content_revision_id FROM listening_daily_assignments
                    WHERE assignment_date=? AND episode_id=? LIMIT 1""",
-                arrayOf(LocalDate.now().toString(), episodeId)
+                arrayOf(assignmentDate ?: LocalDate.now().toString(), episodeId)
             ).use { cursor ->
                 if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
             }

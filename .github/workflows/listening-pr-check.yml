@@ -165,6 +165,9 @@ jobs:
           assert "fun getEpisodeForAttempt" in repository
           assert "fun getEpisodeForDailyAssignment" in repository
           assert "getEpisodeForDailyAssignment(java.time.LocalDate.now().toString()" in activity
+          assert "JOIN listening_episode_revisions r" in activity
+          assert "listeningArchiveAssignmentDate = date" in activity
+          assert "fun startAttempt(episodeId: String, assignmentDate: String? = null)" in repository
           assert "NO NEW COURSE" in activity and "暂无正式新课" in activity
           assert "体验课说明" in activity and "演示课程" in activity
           assert "fun getAttemptProgress" in repository and "fun getAttemptAnswer" in repository

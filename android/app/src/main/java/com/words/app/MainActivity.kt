@@ -55,6 +55,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningDailyEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningAttemptId = -1L
+    private var listeningArchiveAssignmentDate: String? = null
     private var listeningQuestionIndex = 0
     private var listeningSelectedChoiceId: Long? = null
     private var listeningSubmitted = false
@@ -2322,10 +2323,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun renderDailyListeningArchive(parent: LinearLayout) {
         val today = java.time.LocalDate.now().toString()
         val entries = db.readableDatabase.rawQuery(
-            """SELECT d.assignment_date,e.id,e.title,e.level,e.category
+            """SELECT d.assignment_date,r.episode_id,r.title,r.level,r.category
                FROM listening_daily_assignments d
-               JOIN listening_episodes e ON e.id=d.episode_id
-               WHERE d.assignment_date < ?
+               JOIN listening_episode_revisions r
+                 ON r.revision_id=d.content_revision_id
+                AND r.episode_id=d.episode_id
+               WHERE d.assignment_date < ? AND d.content_revision_id IS NOT NULL
                ORDER BY d.assignment_date DESC LIMIT 30""",
             arrayOf(today)
         ).use { cursor ->
@@ -2358,6 +2361,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 line.addView(quietButton("重听") {
                     transitionListeningStage("intro") {
                         listeningEpisodeId = episodeId
+                        listeningArchiveAssignmentDate = date
                         listeningQuestionIndex = 0
                         listeningSelectedChoiceId = null
                         listeningSubmitted = false
@@ -2788,7 +2792,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         listeningRepository.abandonAttempt(previousAttemptId)
                     }
                 }
-                listeningAttemptId = listeningRepository.startAttempt(episode.id)
+                listeningAttemptId = listeningRepository.startAttempt(episode.id, listeningArchiveAssignmentDate)
                 listeningQuestionIndex = 0
                 persistListeningAttemptUiState()
                 listeningCorrectCount = 0
@@ -3066,7 +3070,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(vSpace(15))
         parent.addView(pillButton("再练一次", true) {
             transitionListeningStage("blind") {
-                listeningAttemptId = listeningRepository.startAttempt(episode.id)
+                listeningAttemptId = listeningRepository.startAttempt(episode.id, listeningArchiveAssignmentDate)
                 listeningQuestionIndex = 0
                 persistListeningAttemptUiState()
                 listeningCorrectCount = 0
