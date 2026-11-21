@@ -672,8 +672,7 @@ class WordsDatabaseMigrationTest {
                 category = selected.category,
                 level = selected.level,
                 accent = selected.accent,
-                assignmentCount = 1,
-                lastAssignedDate = date
+                assignmentCount = 1
             )
         }
 
@@ -704,8 +703,7 @@ class WordsDatabaseMigrationTest {
                 category = original.category,
                 level = original.level,
                 accent = original.accent,
-                assignmentCount = 1,
-                lastAssignedDate = "2026-11-21"
+                assignmentCount = 1
             )
         )
 
