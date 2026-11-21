@@ -96,8 +96,12 @@ object ListeningCatalogSync {
         require(payload.isNotEmpty() && payload.size <= MAX_CATALOG_BYTES) { "Catalog payload size is invalid" }
         require(signatureBytes.size == 64) { "Catalog Ed25519 signature length is invalid" }
         val encodedKey = Base64.decode(encodedPublicKey, Base64.DEFAULT)
-        val publicKey = KeyFactory.getInstance("Ed25519").generatePublic(X509EncodedKeySpec(encodedKey))
-        val verifier = Signature.getInstance("Ed25519")
+        // Explicitly select the software provider. The default Android provider
+        // can route encoded public keys to AndroidKeyStore, which only accepts
+        // hardware-backed KeyGenParameterSpec keys rather than X.509 catalog keys.
+        val publicKey = KeyFactory.getInstance("Ed25519", "AndroidOpenSSL")
+            .generatePublic(X509EncodedKeySpec(encodedKey))
+        val verifier = Signature.getInstance("Ed25519", "AndroidOpenSSL")
         verifier.initVerify(publicKey)
         verifier.update(payload)
         require(verifier.verify(signatureBytes)) { "Catalog signature verification failed" }
