@@ -230,6 +230,10 @@ jobs:
           assert "playDiscoveredResource" in activity
           assert "allowsOnlyExplicitApprovedCreativeCommonsLicenses" in resource_policy_test
           assert "MAX_LIBRARY_BYTES = 512L * 1024L * 1024L" in resource_automation
+          assert "ListeningStorageAccounting.diskUsage(root)" in resource_automation
+          assert "canonical.path.startsWith(prefix)" in resource_automation
+          assert "storageAccountingIncludesOrphansAndPartialFilesButOnlyInsideLibraryRoot" in resource_policy_test
+          assert "ListeningStorageAccounting.diskUsage(java.io.File(filesDir, \"listening-library\"))" in activity
           assert "ExistingWorkPolicy.APPEND_OR_REPLACE" in resource_automation
           assert "getEvictionCandidates" in discovery_repository
           assert "pinned=0 AND (last_played_at IS NULL OR last_played_at<?)" in discovery_repository
