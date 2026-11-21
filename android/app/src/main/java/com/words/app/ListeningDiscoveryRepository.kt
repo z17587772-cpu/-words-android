@@ -169,8 +169,8 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                 put("local_file_path", "")
                 put("content_sha256", "")
             },
-            "provider=? AND provider_item_id LIKE ?",
-            arrayOf(provider, providerItemPrefix + "%")
+            "provider=? AND provider_item_id GLOB ?",
+            arrayOf(provider, providerItemPrefix + "*")
         )
 
     fun queueDownload(resourceId: String): Boolean {
