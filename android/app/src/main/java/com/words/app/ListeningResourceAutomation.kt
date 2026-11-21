@@ -145,6 +145,11 @@ class InternetArchiveDiscoveryWorker(
                         repository.revokeProviderItem(PROVIDER, "$identifier#")
                         continue
                     }
+                    val description = metadata.optString("description")
+                    if (!InternetArchiveMetadataPolicy.isAgeAppropriateAudio(title, description, metadata.opt("subject"))) {
+                        repository.revokeProviderItem(PROVIDER, "$identifier#")
+                        continue
+                    }
                     val files = detail.optJSONArray("files")
                     if (files == null) {
                         repository.revokeProviderItem(PROVIDER, "$identifier#")
@@ -171,7 +176,7 @@ class InternetArchiveDiscoveryWorker(
                         canonicalUrl = "https://archive.org/details/$identifier",
                         mediaUrl = mediaUrl,
                         title = title.take(500),
-                        description = metadata.optString("description").take(3000),
+                        description = description.take(3000),
                         language = "English",
                         durationMs = 0L,
                         creator = creator,
@@ -258,6 +263,7 @@ class InternetArchiveDiscoveryWorker(
             .appendQueryParameter("fl[]", "creator")
             .appendQueryParameter("fl[]", "licenseurl")
             .appendQueryParameter("fl[]", "language")
+            .appendQueryParameter("fl[]", "subject")
             .appendQueryParameter("rows", PAGE_SIZE.toString())
             .appendQueryParameter("page", page.toString())
             .appendQueryParameter("sort[]", "publicdate desc")
@@ -363,6 +369,19 @@ internal object InternetArchiveMetadataPolicy {
             else -> value?.toString().orEmpty()
         }
         return Regex("(^|[^a-z])(eng|english|en)([^a-z]|$)", RegexOption.IGNORE_CASE).containsMatchIn(language)
+    }
+
+    fun isAgeAppropriateAudio(title: String, description: String, subjects: Any?): Boolean {
+        val subjectText = when (subjects) {
+            is JSONArray -> (0 until subjects.length()).joinToString(" ") { subjects.optString(it) }
+            else -> subjects?.toString().orEmpty()
+        }
+        val searchable = "$title $description $subjectText"
+        val blocked = Regex(
+            "\\b(erotica|erotic|pornography|porn|nsfw|adult[- ]only|explicit sexual|sexual content|fetish)\\b",
+            RegexOption.IGNORE_CASE
+        )
+        return !blocked.containsMatchIn(searchable)
     }
 
     fun normalizeLicense(value: Any?): Pair<String, String>? {
