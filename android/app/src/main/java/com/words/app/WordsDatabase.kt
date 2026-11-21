@@ -109,10 +109,18 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             db.execSQL("ALTER TABLE words ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
         }
         if (oldVersion < 6) createListeningTables(db)
-        if (oldVersion < 7) {
+        if (oldVersion < 7 && !hasColumn(db, "listening_playback", "audio_revision")) {
             db.execSQL("ALTER TABLE listening_playback ADD COLUMN audio_revision TEXT NOT NULL DEFAULT ''")
         }
     }
+
+    private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
+        db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndex("name")
+            var found = false
+            while (nameIndex >= 0 && cursor.moveToNext()) if (cursor.getString(nameIndex) == column) found = true
+            found
+        }
 
     private fun createListeningTables(db: SQLiteDatabase) {
         db.execSQL("""
