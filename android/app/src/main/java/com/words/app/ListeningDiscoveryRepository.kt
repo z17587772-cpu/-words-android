@@ -197,12 +197,19 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
 
     fun updateDownloadStatus(resourceId: String, status: String) {
         require(status in setOf("queued", "downloading", "failed", "expired", "rejected"))
+        val where = if (status == "expired" || status == "rejected") {
+            "id=?"
+        } else {
+            // A worker that was already running must not overwrite a concurrent
+            // rights revocation with queued/failed/downloading.
+            "id=? AND rights_status='cleared' AND status IN ('queued','downloading','failed')"
+        }
         db.update(
             "listening_discovered_resources",
             ContentValues().apply {
                 put("status", status)
             },
-            "id=?",
+            where,
             arrayOf(resourceId)
         )
     }
