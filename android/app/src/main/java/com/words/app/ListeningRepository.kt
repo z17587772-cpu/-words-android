@@ -13,14 +13,9 @@ class ListeningRepository(private val helper: WordsDatabase) {
             "SELECT 1 FROM listening_episodes WHERE id=?",
             arrayOf(DEMO_EPISODE_ID)
         ).use { it.moveToFirst() }
-        if (exists) {
-            database.insertWithOnConflict("listening_daily_assignments", null, ContentValues().apply {
-                put("assignment_date", LocalDate.now().toString())
-                put("episode_id", DEMO_EPISODE_ID)
-                put("created_at", System.currentTimeMillis())
-            }, SQLiteDatabase.CONFLICT_IGNORE)
-            return
-        }
+        // Demo material is a preview only. Never write it into the formal
+        // daily-assignment table; that table is reserved for approved courses.
+        if (exists) return
 
         val db = database
         db.beginTransaction()
@@ -109,11 +104,6 @@ class ListeningRepository(private val helper: WordsDatabase) {
                     })
                 }
             }
-            db.insertWithOnConflict("listening_daily_assignments", null, ContentValues().apply {
-                put("assignment_date", LocalDate.now().toString())
-                put("episode_id", DEMO_EPISODE_ID)
-                put("created_at", System.currentTimeMillis())
-            }, SQLiteDatabase.CONFLICT_IGNORE)
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
