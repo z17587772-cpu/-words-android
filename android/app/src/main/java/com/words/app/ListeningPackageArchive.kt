@@ -71,16 +71,18 @@ object ListeningPackageArchive {
                         require(parent.exists() || parent.mkdirs()) { "Cannot create package directory" }
                         FileOutputStream(target).use { output ->
                             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            var entryBytes = 0L
                             while (true) {
                                 val read = zip.read(buffer)
                                 if (read < 0) break
                                 if (read == 0) continue
+                                entryBytes += read
                                 totalBytes += read
+                                require(entryBytes <= MAX_ENTRY_BYTES) {
+                                    "Package entry exceeds the file size limit"
+                                }
                                 require(totalBytes <= MAX_TOTAL_UNCOMPRESSED_BYTES) {
                                     "Package exceeds the uncompressed size limit"
-                                }
-                                require(read <= MAX_ENTRY_BYTES && target.length() <= MAX_ENTRY_BYTES) {
-                                    "Package entry exceeds the file size limit"
                                 }
                                 output.write(buffer, 0, read)
                             }
