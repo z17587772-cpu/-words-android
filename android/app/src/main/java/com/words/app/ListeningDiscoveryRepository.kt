@@ -143,12 +143,11 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
     }
 
     fun updateDownloadStatus(resourceId: String, status: String) {
-        require(status in setOf("queued", "downloading", "downloaded", "failed", "expired", "rejected"))
+        require(status in setOf("queued", "downloading", "failed", "expired", "rejected"))
         db.update(
             "listening_discovered_resources",
             ContentValues().apply {
                 put("status", status)
-                if (status == "downloaded") put("downloaded_at", System.currentTimeMillis())
             },
             "id=?",
             arrayOf(resourceId)
