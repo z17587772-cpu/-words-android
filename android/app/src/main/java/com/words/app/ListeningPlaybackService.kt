@@ -59,6 +59,7 @@ class ListeningPlaybackService : MediaSessionService() {
         val item = activePlayer.currentMediaItem ?: return
         val episodeId = item.mediaId.takeIf { it.isNotBlank() } ?: return
         val audioUri = item.localConfiguration?.uri?.toString() ?: return
+        val itemRevision = item.mediaMetadata.extras?.getString("audio_revision") ?: return
         val position = activePlayer.currentPosition.coerceAtLeast(0L)
         val speed = activePlayer.playbackParameters.speed
 
@@ -70,6 +71,7 @@ class ListeningPlaybackService : MediaSessionService() {
                 }
                 val episode = store.getEpisode(episodeId) ?: return@execute
                 if (episode.isDemo || episode.audioUrl != audioUri) return@execute
+                if (episode.playbackRevision(audioUri) != itemRevision) return@execute
                 if (episode.durationMs > 0L && position >= episode.durationMs) return@execute
                 store.savePlayback(episodeId, position, speed, episode.playbackRevision(audioUri))
             } catch (error: Exception) {
