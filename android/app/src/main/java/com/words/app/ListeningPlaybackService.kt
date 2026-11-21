@@ -71,7 +71,7 @@ class ListeningPlaybackService : MediaSessionService() {
                 val episode = store.getEpisode(episodeId) ?: return@execute
                 if (episode.isDemo || episode.audioUrl != audioUri) return@execute
                 if (episode.durationMs > 0L && position >= episode.durationMs) return@execute
-                store.savePlayback(episodeId, position, speed)
+                store.savePlayback(episodeId, position, speed, episode.playbackRevision(audioUri))
             } catch (error: Exception) {
                 Log.w(TAG, "Unable to persist listening playback checkpoint", error)
             }
