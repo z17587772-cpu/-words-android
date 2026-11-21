@@ -2095,7 +2095,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(vSpace(7))
         c.addView(text("请先听完整段落，尝试抓住主题、人物目的和关键变化。不要急着逐词翻译。", 12f, secondary))
         c.addView(vSpace(15))
-        c.addView(text("系统英语语音 · 演示模式", 11f, accent, true))
+        c.addView(text(if (episode.isDemo) "系统英语语音 · 演示模式" else "课程音频 · 正式训练", 11f, accent, true))
         c.addView(vSpace(9))
         c.addView(pillButton("▶  播放完整音频", true) {
             playListeningEpisode(episode)
@@ -2104,6 +2104,29 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(pillButton("重新播放", false) {
             playListeningEpisode(episode)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        if (!episode.isDemo && !episode.audioUrl.isNullOrBlank()) {
+            c.addView(vSpace(12))
+            c.addView(text("播放速度", 11f, secondary, true))
+            c.addView(vSpace(6))
+            val speedRow = row()
+            val currentSpeed = listeningPlaybackCoordinator.currentSpeed(listeningMediaController, episode)
+            listOf(0.8f, 1.0f, 1.25f, 1.5f).forEach { speed ->
+                val label = when (speed) {
+                    0.8f -> "0.8×"
+                    1.0f -> "1.0×"
+                    1.25f -> "1.25×"
+                    else -> "1.5×"
+                }
+                speedRow.addView(
+                    pillButton(label, kotlin.math.abs(currentSpeed - speed) < 0.01f) {
+                        listeningPlaybackCoordinator.setSpeed(listeningMediaController, episode, speed)
+                        renderPage()
+                    },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+            }
+            c.addView(speedRow)
+        }
         c.addView(vSpace(14))
         c.addView(text("盲听阶段不会显示英文原文和中文翻译。播放完成后再进入理解测试。", 11f, secondary))
         c.addView(vSpace(13))
