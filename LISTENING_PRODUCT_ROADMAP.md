@@ -339,6 +339,15 @@ Static source assertions and an independent SQLite schema/foreign-key simulation
 ## 17. Low-storage protection
 
 ### Follow-up hardening — staging and extraction headroom
+### Offline rights and download architecture decision
+
+- Package import now requires both `in_app_playback` and `offline_download`. The formal daily planner independently enforces both rights, preventing a streaming-only lesson from entering the offline course workflow.
+- The next network layer should use Android's system `DownloadManager` for large archive transfer instead of hand-writing HTTP Range/resume logic. It already handles long-running HTTP downloads, retry across connectivity changes and reboot, and exposes durable status/progress.
+- Use WorkManager for the durable post-download pipeline (archive hash/size verification, package import, cleanup, retryable catalog refresh), not as the transport for a 1.1 GB transfer. Android 16 can impose job-quota pressure on long-running foreground workers; the OS download service avoids duplicating that transfer scheduler.
+- Persist the DownloadManager request ID plus package ID/version, expected archive size and SHA-256 in a new download table. A completion receiver should enqueue unique install work; app-start reconciliation must recover missed broadcasts. The worker must re-check the system download status, exact size and digest before invoking the existing importer.
+- Before exposing remote package downloads, add a signed catalog index (Ed25519 signature verified against an app-pinned public key) binding package ID/version, HTTPS URL, archive size and SHA-256. Rights fields inside a ZIP are publisher-supplied metadata, not cryptographic proof by themselves. Until signature verification and a trusted catalog endpoint exist, package import stays a development/internal capability.
+- This is the selected implementation direction, not yet shipped code. No download endpoint or production audio library has been configured.
+
 ### CI validation efficiency and emulator runner repair
 
 - Inspected the latest available failed PR validation run. Static checks completed successfully; the Android emulator never booted, so instrumentation did not start. The runner lacked accessible `/dev/kvm`; the action launched the newer emulator with `-accel off`, which that emulator version rejects unless TCG is explicitly enabled. This was an infrastructure startup failure, not a Kotlin compile error or failed test assertion.
