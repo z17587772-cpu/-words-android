@@ -24,14 +24,14 @@ class ListeningDiscoveryTest {
             .put("authors", JSONArray().put(JSONObject().put("first_name", "A").put("last_name", "Reader")))
 
         val candidate = LibriVoxMetadataParser.normalize(raw)
-        assertTrue(candidate != null)
-        assertEquals("librivox", candidate!!.provider)
-        assertEquals("123", candidate.providerItemId)
-        assertEquals(95_000L, candidate.durationMs)
-        assertEquals("A Reader", candidate.creator)
-        assertEquals("review_required", candidate.rightsStatus)
-        assertTrue(candidate.allowedActions.isEmpty())
-        assertEquals("application/zip", candidate.mimeType)
+        val found = candidate ?: throw AssertionError("Expected a normalized English candidate")
+        assertEquals("librivox", found.provider)
+        assertEquals("123", found.providerItemId)
+        assertEquals(95_000L, found.durationMs)
+        assertEquals("A Reader", found.creator)
+        assertEquals("review_required", found.rightsStatus)
+        assertTrue(found.allowedActions.isEmpty())
+        assertEquals("application/zip", found.mimeType)
     }
 
     @Test
@@ -47,9 +47,9 @@ class ListeningDiscoveryTest {
             .put("language", "English")
             .put("url_zip_file", "https://example.invalid/audio.zip")
         val candidate = LibriVoxMetadataParser.normalize(unsafe)
-        assertTrue(candidate != null)
-        assertEquals("", candidate!!.mediaUrl)
-        assertEquals("review_required", candidate.rightsStatus)
+        val found = candidate ?: throw AssertionError("Expected candidate metadata despite untrusted media URL")
+        assertEquals("", found.mediaUrl)
+        assertEquals("review_required", found.rightsStatus)
     }
 
     @Test
