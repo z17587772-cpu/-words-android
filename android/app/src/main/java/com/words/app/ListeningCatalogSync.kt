@@ -376,10 +376,18 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
                 currentAppVersionCode(applicationContext)
             )
             val result = importer.importArchive(archive)
-            require(result.packageId == record.getString("package_id") &&
-                result.packageVersion == record.getInt("package_version")
+            val installedIdentity = when (result) {
+                is ListeningPackageImportResult.Installed ->
+                    result.packageId to result.packageVersion
+                is ListeningPackageImportResult.AlreadyInstalled ->
+                    result.packageId to result.packageVersion
+            }
+            require(installedIdentity.first == record.getString("package_id") &&
+                installedIdentity.second == record.getInt("package_version")
             ) { "Installed package identity mismatch" }
-            ListeningCatalogSync.markInstalled(applicationContext, result.packageId, result.packageVersion)
+            ListeningCatalogSync.markInstalled(
+                applicationContext, installedIdentity.first, installedIdentity.second
+            )
             ListeningCatalogSync.removeDownloadRecord(applicationContext, downloadId)
             archive.delete()
             manager.remove(downloadId)
