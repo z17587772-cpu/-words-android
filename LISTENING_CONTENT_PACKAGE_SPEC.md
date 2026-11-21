@@ -141,9 +141,10 @@ Publisher support:
 - `tools/content_pipeline/sign_catalog.py` validates the catalog shape and signs canonical JSON using an Ed25519 private key supplied only via `LISTENING_CATALOG_PRIVATE_KEY_FILE`.
 - The private key must remain in a protected publisher secret/store and must never be committed or packaged in the APK.
 - Python signing tests are included and the PR workflow installs the pinned-range cryptography dependency before running all pipeline tests.
+- API 35 instrumentation tests generate an ephemeral Ed25519 keypair and cover valid signatures, tampering, same-host HTTPS enforcement, duplicate package IDs, and minimum app-version checks.
 
 **Activation gate (not yet complete):**
 - No production catalog URL or public key is configured in the current build. Empty Gradle properties deliberately disable remote refresh.
 - No production signing key, publisher endpoint, approved human-recorded course package, or automated editorial pipeline has been deployed.
-- Configure `LISTENING_CATALOG_URL` and the Base64-encoded Ed25519 X.509 public key as Gradle properties for release builds; configure the matching private key only in the protected publisher environment.
+- Configure `LISTENING_CATALOG_URL` and the single-line Base64-encoded Ed25519 X.509 SubjectPublicKeyInfo public key as Gradle properties for release builds; configure the matching PEM private key only in the protected publisher environment.
 - Do not claim live auto-updates until a signed test catalog and a real course package have installed successfully on an Android device, including process-restart and offline tests.
