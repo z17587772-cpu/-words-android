@@ -103,3 +103,5 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 
 - Added age-appropriate metadata screening to the Internet Archive adapter. It checks title, description and subject metadata and excludes clearly adult/explicit material before download; this is a conservative metadata filter, not a guarantee that every source item is perfectly classified.
 - Added title/creator/provider search in the resource library, alongside downloaded-only and favorites filters. The UI also exposes source and license pages.
+
+- Final metadata polish: source title/creator/description values are normalized from scalar or array fields and HTML tags are stripped before display. The age-appropriate filter checks title, description and subject fields.
