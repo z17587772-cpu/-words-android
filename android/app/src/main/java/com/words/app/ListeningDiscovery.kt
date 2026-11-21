@@ -247,7 +247,7 @@ internal object LibriVoxMetadataParser {
 
     private fun isAllowedHttps(value: String, hosts: Set<String>): Boolean = runCatching {
         val uri = java.net.URI(value)
-        uri.scheme.equals("https", true) && uri.host?.lowercase() in hosts && uri.userInfo == null
+        uri.scheme.equals("https", true) && uri.host?.lowercase()?.let { it in hosts } == true && uri.userInfo == null
     }.getOrDefault(false)
 }
 
