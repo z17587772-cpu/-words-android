@@ -28,7 +28,7 @@ Confirmed product contract:
 - Preview build is versionCode 22 / versionName 1.8.1.
 
 ### Remaining issues confirmed by source inspection
-1. **Migration proof is missing.** The schema migration is additive, but there is no real v5 database fixture test proving books, words, favorites, reviews and history survive an upgrade.
+1. **Migration proof is now under CI validation.** An Android instrumentation test creates a representative schema-v5 database, upgrades it through the real SQLiteOpenHelper path, and checks books, words, favorites, reviews, history, caches and foreign-key integrity. The emulator run must pass before treating migration as verified.
 2. **Playback persistence is incomplete.** `listening_playback` and `savePlayback()` exist, but no complete read/restore path or lifecycle checkpoint path was found. Speed restoration is not wired to the MediaController.
 3. **The service is only a foundation.** `MediaSessionService` correctly owns ExoPlayer and MediaSession, but the Activity still lacks end-to-end playback state observation, persistence, error recovery and tested interruption handling.
 4. **TTS demo is not Media3 audio.** The demo uses Android TextToSpeech directly. It is acceptable as a clearly labelled preview, but cannot validate real recording, precise timestamps, lock-screen playback or sentence seeking.
@@ -36,7 +36,7 @@ Confirmed product contract:
 6. **The formal daily planner is not implemented.** The preview course must not be written into `listening_daily_assignments`. Future assignments must be created only from fully approved production content.
 7. **Content package import is not implemented.** There is no complete manifest validator, checksum verification, transactional package import, atomic audio install or rollback flow.
 8. **Course catalog is not production content.** There is one short system-TTS demo, not the agreed Advanced-first course library.
-9. **Test coverage is too thin.** Existing `android/core-tests` is a scheduler smoke test, not an Android database migration, repository, playback or UI-flow test suite.
+9. **Test coverage is still incomplete.** A v5→v6 Android instrumentation migration test has now been added and wired to an API 35 emulator CI step. Repository, content-import, playback lifecycle and UI-flow tests are still missing.
 10. **PR branch is divergent.** At this review the feature branch is 34 commits ahead and 8 behind main. Do not merge/rebase blindly; inspect the eight mainline commits, especially Gradle and CI toolchain changes, and integrate deliberately.
 
 ## 3. Execution plan — ordered by risk
@@ -44,8 +44,9 @@ Confirmed product contract:
 ### P0 — Protect existing users and make the preview honest
 - Keep PR #1 draft and keep stable main untouched.
 - Ensure demo seeding never creates a formal daily assignment.
-- Add a schema-v5 fixture with representative books, words, favorites, review rows and history.
-- Upgrade fixture through the actual SQLiteOpenHelper migration to v6; assert row counts, IDs, foreign keys and key values are unchanged.
+- [x] Add a schema-v5 fixture with representative books, words, favorites, review rows, history and cache rows.
+- [x] Upgrade fixture through the actual SQLiteOpenHelper migration to v6; assert IDs, values and foreign-key integrity.
+- [ ] Wait for the API 35 emulator instrumentation job to pass before calling the migration verified.
 - Test fresh install separately from upgrade.
 - Add a rollback test for a failed migration/import.
 - Keep demo transcript and answers hidden during blind listening; add a UI-flow regression test.
@@ -131,8 +132,8 @@ Validation/import:
 
 ## 5. Suggested implementation sequence
 
-1. Add v5→v6 migration fixture and preservation assertions.
-2. Remove demo assignment writes and add planner regression tests.
+1. [x] Add v5→v6 migration fixture and preservation assertions; [ ] pass emulator CI.
+2. [x] Remove demo assignment writes and add a CI regression guard.
 3. Implement playback state model + restore/save + MediaController listener.
 4. Add sentence timestamp validation and loop controller.
 5. Implement package manifest parser/validator and transactional importer.
