@@ -378,7 +378,7 @@ internal object InternetArchiveMetadataPolicy {
         }
         val searchable = "$title $description $subjectText"
         val blocked = Regex(
-            "\\b(erotica|erotic|pornography|porn|nsfw|adult[- ]only|explicit sexual|sexual content|fetish)\\b",
+            "\\b(erotica|erotic|pornography|porn|nsfw|adult[- ]only|explicit|sexual|fetish|xxx)\\b",
             RegexOption.IGNORE_CASE
         )
         return !blocked.containsMatchIn(searchable)
