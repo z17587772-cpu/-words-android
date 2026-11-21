@@ -654,3 +654,18 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [x] Recorded that Mozilla Common Voice datasets are listed as CC0 but current legal terms make datasets available exclusively through Mozilla Data Collective and ask users not to mirror or redistribute them elsewhere; do not bundle its audio into app courses under those terms.
 - [x] Clarified that short ASR speech clips are not complete 5–10 minute learning courses and cannot bypass transcript, translation, question, evidence, rights, and editorial gates.
 - [ ] Evaluate only coherent long-form sources with explicit redistribution rights for intended territories, or commissioned recordings with documented contributor releases.
+
+
+## 31. Android self-updating listening library — implementation slice (2026-11-21)
+
+- [x] Added WorkManager unique immediate + 24-hour periodic signed-catalog refresh scheduling, gated off unless endpoint and public key are configured.
+- [x] Added Ed25519 envelope verification, catalog schema/version checks, rollback rejection, HTTPS same-host package URL validation, package size/digest checks, and app-version compatibility checks.
+- [x] Added DownloadManager-based Wi-Fi-only package transfer, completion receiver, durable preference records, startup reconciliation, and unique install work.
+- [x] Added archive checksum verification, safe extraction preflight, manifest/catalog identity matching, and integration with the existing revision-safe package importer.
+- [x] Added an Ed25519 catalog signing tool that reads the private key only from a protected runtime file, plus Python regression tests.
+- [x] Added CI guards for the Android sync trust boundary and Python signing tests.
+- [ ] Configure production catalog endpoint and pinned public key; keep matching private key only in publisher secrets.
+- [ ] Build and run Kotlin compilation plus API 35 emulator instrumentation on the latest PR head; fix all failures.
+- [ ] Add injected failure tests for DownloadManager completion loss, interrupted installs, digest mismatch, and storage exhaustion.
+- [ ] Publish at least one approved human-recorded course package and verify end-to-end installation, playback, offline behavior, and no-repeat assignment on a physical device.
+- [ ] Deploy the signed catalog publisher and source/editorial pipeline. APK-free course updates remain disabled until these activation gates pass.
