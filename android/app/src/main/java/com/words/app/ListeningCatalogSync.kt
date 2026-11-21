@@ -109,7 +109,7 @@ object ListeningCatalogSync {
         require(version > 0L) { "Catalog version must be positive" }
         val array = root.getJSONArray("packages")
         require(array.length() <= 500) { "Catalog contains too many package entries" }
-        val entries = (0 until array.length()).map { index ->
+        val entries = (0 until array.length()).mapNotNull { index ->
             val item = array.getJSONObject(index)
             val id = item.getString("package_id")
             require(idPattern.matcher(id).matches()) { "Invalid package ID" }
@@ -126,6 +126,7 @@ object ListeningCatalogSync {
             ) { "Package URL must use the catalog HTTPS host" }
             require(size in 1L..MAX_ARCHIVE_BYTES) { "Package archive size is invalid" }
             require(shaPattern.matcher(digest).matches()) { "Package SHA-256 is invalid" }
+            if (minimumAppVersion > appVersionCode) return@mapNotNull null
             PackageEntry(id, packageVersion, minimumAppVersion, url, size, digest.lowercase())
         }
         require(entries.map { it.id }.toSet().size == entries.size) {
@@ -240,8 +241,8 @@ object ListeningCatalogSync {
             connection.readTimeout = 25_000
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("Accept", "application/json")
-            require(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Catalog request returned HTTP ${connection.responseCode}"
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw java.io.IOException("Catalog request returned HTTP ${connection.responseCode}")
             }
             val length = connection.contentLengthLong
             require(length < 0L || length <= MAX_CATALOG_BYTES) { "Catalog response is too large" }
