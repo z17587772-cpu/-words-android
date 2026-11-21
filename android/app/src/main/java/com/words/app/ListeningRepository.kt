@@ -312,7 +312,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
     }
 
     private fun getAssignmentHistory(
-        beforeDate: String
+        excludingDate: String
     ): List<ListeningAssignmentHistory> =
         helper.readableDatabase.rawQuery(
             """SELECT e.id,
@@ -343,10 +343,10 @@ class ListeningRepository(private val helper: WordsDatabase) {
                       COUNT(*),MAX(d.assignment_date)
                FROM listening_daily_assignments d
                JOIN listening_episodes e ON e.id=d.episode_id
-               WHERE d.assignment_date<?
+               WHERE d.assignment_date<>?
                GROUP BY e.id
                ORDER BY MAX(d.assignment_date) DESC""",
-            arrayOf(beforeDate)
+            arrayOf(excludingDate)
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(
