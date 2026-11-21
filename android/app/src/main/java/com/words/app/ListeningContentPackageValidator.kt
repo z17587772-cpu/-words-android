@@ -239,7 +239,7 @@ object ListeningContentPackageValidator {
         path: String,
         sentenceIds: Set<String>
     ): List<ListeningPackageQuestion> {
-        require(array.length() in 1..8) { "$path must contain 1-8 questions" }
+        require(array.length() in 3..8) { "$path must contain 3-8 questions" }
         val ids = mutableSetOf<String>()
         return (0 until array.length()).map { index ->
             val itemPath = "$path[$index]"
