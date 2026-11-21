@@ -54,12 +54,17 @@ class LibriVoxDiscoveryWorker(
     params: WorkerParameters
 ) : Worker(context, params) {
     override fun doWork(): Result {
-        val repository = ListeningDiscoveryRepository(WordsDatabase(applicationContext))
+        val helper = WordsDatabase(applicationContext)
+        val repository = ListeningDiscoveryRepository(helper)
         val now = System.currentTimeMillis()
         val state = repository.getProviderState(PROVIDER)
-        if (state != null && state.backoffUntil > now) return Result.retry()
+        if (state != null && state.backoffUntil > now) {
+            helper.close()
+            return Result.retry()
+        }
 
         val cursor = runCatching { JSONObject(state?.cursorJson ?: "{}") }.getOrElse {
+            helper.close()
             return Result.failure()
         }
         val previousSuccess = state?.lastSuccessAt ?: 0L
@@ -127,6 +132,8 @@ class LibriVoxDiscoveryWorker(
                 )
             )
             Result.retry()
+        } finally {
+            helper.close()
         }
     }
 
