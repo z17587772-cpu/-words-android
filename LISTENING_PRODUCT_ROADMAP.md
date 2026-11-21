@@ -334,3 +334,8 @@ Static source assertions and an independent SQLite schema/foreign-key simulation
 
 - Daily home and intro screens now resolve lesson metadata through the daily assignment's pinned revision, matching the revision that `startAttempt` will use even if the package catalog was updated after the assignment was created.
 - Ordinary quiz answer rerenders preserve the listening scroll offset; actual stage transitions intentionally reset to the top.
+
+
+## 17. Low-storage protection
+
+Before copying revision audio into the durable content directory, the importer now checks available storage against the package's total declared audio size plus a 64 MiB reserve. This avoids partially filling a device during an otherwise valid package install.
