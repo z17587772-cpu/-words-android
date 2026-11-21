@@ -31,9 +31,9 @@ object ListeningDailyPlanner {
         val historyById = assignmentHistory.associateBy { it.episodeId }
         val categoryCounts = assignmentHistory.groupingBy { it.category }
             .fold(0) { total, item -> total + item.assignmentCount }
-        val accentCounts = recentHistory.groupingBy { it.accent.lowercase() }
+        val accentCounts = assignmentHistory.groupingBy { it.accent.lowercase() }
             .fold(0) { total, item -> total + item.assignmentCount }
-        val levelCounts = recentHistory.groupingBy { it.level }
+        val levelCounts = assignmentHistory.groupingBy { it.level }
             .fold(0) { total, item -> total + item.assignmentCount }
         val catalogRevision = candidates
             .map { "${it.id}:${it.updatedAt}:${it.audioUrl.orEmpty()}" }
