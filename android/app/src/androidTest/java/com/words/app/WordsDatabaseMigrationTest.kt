@@ -166,6 +166,31 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun dailyPlannerPrefersAdvancedContentThenAvoidsRecentRepeats() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        repository.ensureDemoSeeded()
+        val db = helper.writableDatabase
+
+        insertApprovedLesson(db, "lesson-basic", "L2", "daily", "American")
+        insertApprovedLesson(db, "lesson-advanced", "L4", "science", "British")
+
+        val firstDay = repository.assignDailyEpisode("2026-11-21", 1_795_219_200_000L)
+        assertEquals("lesson-advanced", firstDay)
+        assertEquals(firstDay, repository.assignDailyEpisode("2026-11-21", 1_795_219_200_000L))
+
+        val secondDay = repository.assignDailyEpisode("2026-11-22", 1_795_305_600_000L)
+        assertEquals("lesson-basic", secondDay)
+        assertEquals(
+            0,
+            scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments WHERE episode_id='${ListeningRepository.DEMO_EPISODE_ID}'")
+        )
+        assertEquals(2, scalar(db, "SELECT COUNT(*) FROM listening_daily_assignments"))
+        helper.close()
+    }
+
+    @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
@@ -177,6 +202,76 @@ class WordsDatabaseMigrationTest {
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
 
         helper.close()
+    }
+
+    private fun insertApprovedLesson(
+        db: SQLiteDatabase,
+        id: String,
+        level: String,
+        category: String,
+        accent: String
+    ) {
+        val sourceId = "source-$id"
+        val licenseId = "license-$id"
+        db.insertOrThrow("listening_sources", null, android.content.ContentValues().apply {
+            put("id", sourceId)
+            put("title", "Original lesson source")
+            put("rights_holder", "Words Project")
+            put("attribution", "Original content")
+            put("checked_at", 1_795_219_200_000L)
+        })
+        db.insertOrThrow("listening_licenses", null, android.content.ContentValues().apply {
+            put("id", licenseId)
+            put("license_name", "Original content license")
+            put("allowed_actions", "in_app_playback,offline_download")
+            put("territory", "worldwide")
+        })
+        db.insertOrThrow("listening_episodes", null, android.content.ContentValues().apply {
+            put("id", id)
+            put("title", id)
+            put("description", "Validated test lesson")
+            put("category", category)
+            put("level", level)
+            put("duration_ms", 10_000L)
+            put("accent", accent)
+            put("speech_rate", 1.0f)
+            put("audio_url", "https://example.invalid/$id.mp3")
+            put("source_id", sourceId)
+            put("license_id", licenseId)
+            put("status", "approved")
+            put("is_demo", 0)
+            put("updated_at", 1_795_219_200_000L)
+        })
+        val sentenceId = "$id-sentence"
+        db.insertOrThrow("listening_sentences", null, android.content.ContentValues().apply {
+            put("id", sentenceId)
+            put("episode_id", id)
+            put("ordinal", 1)
+            put("start_ms", 0L)
+            put("end_ms", 9_000L)
+            put("english", "Small changes can matter.")
+            put("chinese", "微小的改变也很重要。")
+        })
+        repeat(3) { index ->
+            val questionId = "$id-question-$index"
+            db.insertOrThrow("listening_questions", null, android.content.ContentValues().apply {
+                put("id", questionId)
+                put("episode_id", id)
+                put("ordinal", index + 1)
+                put("question_type", "main_idea")
+                put("prompt", "What is the main idea?")
+                put("explanation", "The lesson is about small changes.")
+                put("evidence_sentence_id", sentenceId)
+            })
+            listOf(true, false).forEachIndexed { choiceIndex, correct ->
+                db.insertOrThrow("listening_choices", null, android.content.ContentValues().apply {
+                    put("question_id", questionId)
+                    put("ordinal", choiceIndex + 1)
+                    put("content", if (correct) "Small changes matter." else "Only large changes matter.")
+                    put("is_correct", if (correct) 1 else 0)
+                })
+            }
+        }
     }
 
     private fun createZip(vararg entries: Pair<String, ByteArray>): ByteArray {
