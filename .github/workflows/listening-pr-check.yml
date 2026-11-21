@@ -326,7 +326,8 @@ jobs:
           assert "if not records:" not in discovery
           assert "workflow_dispatch:" in discovery_workflow and "17 3 * * *" in discovery_workflow
           assert "content-inbox" in discovery_workflow
-          assert "test_discover_librivox" in (Path("tools/content_pipeline/test_discover_librivox.py").read_text(encoding="utf-8"))
+          discovery_unit_test = Path("tools/content_pipeline/test_discover_librivox.py").read_text(encoding="utf-8")
+          assert "class DiscoveryTests" in discovery_unit_test and "test_fetch_page_retries_rate_limit_and_then_succeeds" in discovery_unit_test
           sync = (root / "ListeningCatalogSync.kt").read_text(encoding="utf-8")
           gradle = Path("android/app/build.gradle.kts").read_text(encoding="utf-8")
           manifest = Path("android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
