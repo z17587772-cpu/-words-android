@@ -376,6 +376,21 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         )
     }
 
+    /** Removes only the local audio pointer; metadata, favorite state and playback progress remain. */
+    fun removeLocalCopy(resourceId: String, path: String): Boolean {
+        if (path.isBlank()) return false
+        return db.update(
+            "listening_discovered_resources",
+            ContentValues().apply {
+                put("local_file_path", "")
+                put("content_sha256", "")
+                put("status", "expired")
+            },
+            "id=? AND local_file_path=? AND status='downloaded'",
+            arrayOf(resourceId, path)
+        ) == 1
+    }
+
     fun saveResourcePlayback(resourceId: String, positionMs: Long, speed: Float) {
         require(positionMs >= 0L && speed.isFinite())
         val values = ContentValues().apply {
