@@ -1,0 +1,58 @@
+name: Discover listening content candidates
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: listening-content-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test discovery adapter
+        working-directory: tools/content_pipeline
+        run: python -m unittest -v
+
+      - name: Restore persistent content inbox branch
+        shell: bash
+        run: |
+          git fetch origin content-inbox || true
+          if git show-ref --verify --quiet refs/remotes/origin/content-inbox; then
+            git switch -C content-inbox origin/content-inbox
+          else
+            git switch -c content-inbox
+          fi
+
+      - name: Discover LibriVox metadata candidates
+        run: python tools/content_pipeline/discover_librivox.py --root content-pipeline
+
+      - name: Commit candidate inbox and cursor
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content-pipeline/state/librivox.json content-pipeline/inbox/librivox_candidates.json
+          if git diff --cached --quiet; then
+            echo "No candidate or cursor changes."
+            exit 0
+          fi
+          git commit -m "chore(content): refresh LibriVox candidate inbox"
+          git push origin content-inbox
