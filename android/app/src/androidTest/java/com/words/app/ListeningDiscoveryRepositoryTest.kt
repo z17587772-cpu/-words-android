@@ -51,6 +51,7 @@ class ListeningDiscoveryRepositoryTest {
                 put("pinned", 1)
                 put("status", "downloaded")
                 put("local_file_path", "/private/example.mp3")
+                put("content_sha256", "a".repeat(64))
             },
             "id=?",
             arrayOf(id)
