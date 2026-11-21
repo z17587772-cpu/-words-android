@@ -26,7 +26,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Test continuous content discovery pipeline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install content pipeline test dependencies
+        run: python -m pip install -r tools/content_pipeline/requirements.txt
+
+      - name: Test continuous content discovery and signed catalog publishing
         run: python -m unittest discover -s tools/content_pipeline -p 'test_*.py' -v
 
       - name: Set up JDK 17
@@ -225,7 +233,20 @@ jobs:
           assert "workflow_dispatch:" in discovery_workflow and "17 3 * * *" in discovery_workflow
           assert "content-inbox" in discovery_workflow
           assert "test_discover_librivox" in (Path("tools/content_pipeline/test_discover_librivox.py").read_text(encoding="utf-8"))
-          print("Package, playback, strict no-repeat, and metadata-only continuous discovery guards passed.")
+          sync = (root / "ListeningCatalogSync.kt").read_text(encoding="utf-8")
+          gradle = Path("android/app/build.gradle.kts").read_text(encoding="utf-8")
+          manifest = Path("android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+          signer = Path("tools/content_pipeline/sign_catalog.py").read_text(encoding="utf-8")
+          assert "Ed25519" in sync and "verifyEnvelope" in sync
+          assert "catalog_version" in sync and "Catalog rollback rejected" in sync
+          assert "setDestinationInExternalFilesDir" in sync and "DownloadManager.ACTION_DOWNLOAD_COMPLETE" in sync
+          assert "ListeningContentPackageImporter" in sync and "packageData.packageId" in sync
+          assert "reconcileCompletedDownloads" in sync and "ExistingPeriodicWorkPolicy.KEEP" in sync
+          assert "LISTENING_CATALOG_URL" in gradle and "LISTENING_CATALOG_PUBLIC_KEY" in gradle
+          assert "work-runtime-ktx:2.10.1" in gradle and "buildConfig = true" in gradle
+          assert "ListeningDownloadCompletedReceiver" in manifest
+          assert "LISTENING_CATALOG_PRIVATE_KEY_FILE" in signer
+          print("Package, playback, strict no-repeat, discovery, and signed offline-sync guards passed.")
           PY
 
       - name: Compile app and instrumentation sources without packaging an APK
