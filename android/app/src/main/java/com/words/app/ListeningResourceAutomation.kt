@@ -55,6 +55,7 @@ object ListeningResourceAutomation {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.UNMETERED)
             .setRequiresBatteryNotLow(true)
+            .setRequiresStorageNotLow(true)
             .build()
         val request = OneTimeWorkRequestBuilder<ListeningResourceDownloadWorker>()
             .setInputData(Data.Builder().putString(ListeningResourceDownloadWorker.KEY_RESOURCE_ID, resourceId).build())
