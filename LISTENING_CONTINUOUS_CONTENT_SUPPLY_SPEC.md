@@ -220,3 +220,18 @@ Scheduled automation must be idempotent and recoverable. Store run IDs, cursors,
 - Using TTS as a substitute for human-recorded production audio.
 - Building the APK for every course update.
 - Claiming a daily/weekly content quota before a real pipeline and editorial capacity prove it.
+
+
+## 14. Implementation correction — strict no-repeat policy (2026-11-21)
+
+The initial full-catalog rotation design would eventually repeat old episodes. That is not acceptable for the product requirement. The Android planner now uses a strict unseen-only policy: previously assigned stable episode IDs are excluded permanently from the new-lesson queue; when the unseen pool is empty it returns no new lesson. Review is explicitly separate. The repository history query includes assignments on all dates except the date being idempotently resolved, preventing backdated/future assignment edge cases from recycling a course.
+
+Regression coverage now verifies:
+- two initial lessons are assigned once;
+- a backdated request cannot repeat a later-assigned lesson;
+- a newly inserted episode is selected immediately;
+- exhaustion returns no new lesson;
+- another newly inserted episode replenishes the queue;
+- changing title/audio/revision metadata for the same episode ID does not make it new again.
+
+This is an assignment-level invariant. A separate UI/product pass must still ensure the empty state is presented honestly and that pending skipped assignments remain accessible without being re-labelled as new.
