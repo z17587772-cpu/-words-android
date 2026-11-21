@@ -670,3 +670,14 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [ ] Add injected failure tests for DownloadManager completion loss, interrupted installs, digest mismatch, and storage exhaustion.
 - [ ] Publish at least one approved human-recorded course package and verify end-to-end installation, playback, offline behavior, and no-repeat assignment on a physical device.
 - [ ] Deploy the signed catalog publisher and source/editorial pipeline. APK-free course updates remain disabled until these activation gates pass.
+
+
+## 32. Static catalog publisher deployment path (2026-11-21)
+
+- [x] Added a manual GitHub Actions publisher that checks out the approved `content-inbox` branch, signs only the reviewed unsigned catalog, and publishes the signed envelope back to the same branch.
+- [x] The publisher validates each package ZIP's presence, exact size, and SHA-256 before signing; it refuses paths outside the content-inbox asset root.
+- [x] Set the Android default catalog URL to the repository's raw content endpoint; remote sync remains disabled until the matching public key is pinned.
+- [ ] Add the Ed25519 PEM private key as the protected Actions secret `LISTENING_CATALOG_PRIVATE_KEY_PEM`.
+- [ ] Add the matching Base64 X.509 public key as Gradle property `LISTENING_CATALOG_PUBLIC_KEY` for the release build.
+- [ ] Prepare and approve the first production course package and unsigned catalog; do not publish candidate metadata as a course.
+- [ ] Run the publisher workflow and verify the signed catalog and package download/install end to end.
