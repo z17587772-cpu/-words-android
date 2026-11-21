@@ -1,0 +1,91 @@
+name: Validate listening module PR
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/listening-pr-check.yml'
+      - 'wordbooks/**'
+      - 'tools/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: listening-pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  listening-validation:
+    name: Validate listening module and database migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install Android SDK platform and build tools
+        run: sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Validate bundled wordbook assets
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("android/app/src/main/assets/books")
+          packs = sorted(root.glob("*.json"))
+          if not packs:
+              raise SystemExit("No bundled wordbook JSON files found")
+          for path in packs:
+              data = json.loads(path.read_text(encoding="utf-8"))
+              words = data.get("words", [])
+              if not words:
+                  raise SystemExit(f"{path.name}: empty word list")
+              if not all(item.get("word") and item.get("meaning") for item in words):
+                  raise SystemExit(f"{path.name}: missing word or meaning")
+          print(f"Validated {len(packs)} bundled wordbooks.")
+          PY
+
+      - name: Verify blind-listening answer-key boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          models = Path("android/app/src/main/java/com/words/app/ListeningModels.kt").read_text(encoding="utf-8")
+          repository = Path("android/app/src/main/java/com/words/app/ListeningRepository.kt").read_text(encoding="utf-8")
+          activity = Path("android/app/src/main/java/com/words/app/MainActivity.kt").read_text(encoding="utf-8")
+          option = models.split("data class ListeningOption(", 1)[1].split(")", 1)[0]
+          assert "isCorrect" not in option, "UI option model must not expose answer correctness"
+          assert '"SELECT id,content,is_correct FROM listening_choices' not in repository, "Option query leaks answer key"
+          assert "option.isCorrect" not in activity and "selected.isCorrect" not in activity, "Activity must not inspect answer keys"
+          assert "fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean" in repository
+          seed = repository.split("fun ensureDemoSeeded()", 1)[1].split("fun getTodayEpisodeId()", 1)[0]
+          assert "listening_daily_assignments" not in seed, "Demo content must not be written as a formal daily assignment"
+          print("Blind-listening answer-key and demo-assignment boundary checks passed.")
+          PY
+
+      - name: Run database migration tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
+

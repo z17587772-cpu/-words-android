@@ -2,6 +2,13 @@ package com.words.app
 
 import android.app.Activity
 import android.content.Intent
+import android.content.ComponentName
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executor
+import androidx.media3.common.MediaItem
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import android.net.Uri
 import android.graphics.Typeface
 import android.media.AudioManager
@@ -32,6 +39,24 @@ import kotlin.random.Random
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var db: WordsDatabase
+    private lateinit var listeningRepository: ListeningRepository
+    private var listeningMediaController: MediaController? = null
+    private var listeningControllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
+    private var listeningStage = "home"
+    private var listeningEpisodeId = ListeningRepository.DEMO_EPISODE_ID
+    private var listeningAttemptId = -1L
+    private var listeningQuestionIndex = 0
+    private var listeningSelectedChoiceId: Long? = null
+    private var listeningSubmitted = false
+    private var listeningCurrentCorrect: Boolean? = null
+    private var listeningCorrectChoiceId: Long? = null
+    private var listeningCorrectCount = 0
+    private val listeningPlaybackHandler = Handler(Looper.getMainLooper())
+    private var listeningSegmentStopRunnable: Runnable? = null
+    private var listeningCheckpointRunnable: Runnable? = null
+    private var listeningPlaybackEpisodeId: String? = null
+    private var listeningPlaybackUri: String? = null
+    private var listeningPlaybackDurationMs: Long = 0L
     private lateinit var prefs: android.content.SharedPreferences
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
@@ -105,6 +130,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
         db = WordsDatabase(this)
         db.seedBuiltInPack(this)
+        listeningRepository = ListeningRepository(db)
+        listeningRepository.ensureDemoSeeded()
+        listeningEpisodeId = listeningRepository.getTodayEpisodeId()
         prefs = getSharedPreferences("words_preferences", MODE_PRIVATE)
         currentBookId = prefs.getString(KEY_BOOK, WordsDatabase.BUILTIN_BOOK_ID) ?: WordsDatabase.BUILTIN_BOOK_ID
         // Move users of the original 115-word demo pack to the full curriculum pack.
@@ -115,6 +143,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         loadQueueFromPreferences()
         loadBrowseState()
         tts = TextToSpeech(this, this)
+        connectListeningPlayback()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -169,6 +198,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (::pageHost.isInitialized && selectedTab == TAB_SETTINGS) renderPage()
     }
 
+    override fun onPause() {
+        saveListeningPlaybackCheckpoint()
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
         // Re-check after returning from the Android system voice-data installer.
@@ -189,9 +223,17 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        saveListeningPlaybackCheckpoint()
+        listeningCheckpointRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningCheckpointRunnable = null
         if (::tts.isInitialized) tts.shutdown()
         toneGenerator?.release()
         toneGenerator = null
+        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningSegmentStopRunnable = null
+        listeningControllerFuture?.let { MediaController.releaseFuture(it) }
+        listeningControllerFuture = null
+        listeningMediaController = null
         super.onDestroy()
     }
 
@@ -290,6 +332,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 TAB_BROWSE -> renderBrowse(content)
                 TAB_STUDY -> renderStudy(content)
                 TAB_BOOKS -> renderBooks(content)
+                TAB_LISTENING -> renderListening(content)
                 TAB_STATS -> renderStats(content)
                 TAB_SETTINGS -> renderSettings(content)
             }
@@ -347,6 +390,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val tabs = listOf(
             TAB_BROWSE to "随刷",
             TAB_STUDY to "背词",
+            TAB_LISTENING to "听力",
             TAB_BOOKS to "词库",
             TAB_STATS to "统计",
             TAB_SETTINGS to "我的"
@@ -365,11 +409,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 }
             }
             item.addView(text(
-                when (tab) { TAB_BROWSE -> "∞"; TAB_STUDY -> "▱"; TAB_BOOKS -> "▤"; TAB_STATS -> "▥"; else -> "○" },
+                when (tab) {
+                    TAB_BROWSE -> "∞"
+                    TAB_STUDY -> "▱"
+                    TAB_LISTENING -> "♫"
+                    TAB_BOOKS -> "▤"
+                    TAB_STATS -> "▥"
+                    else -> "○"
+                },
                 20f, if (active) accent else secondary, true, Gravity.CENTER
             ))
             item.addView(vSpace(3))
-            item.addView(text(label, 10f, if (active) accent else secondary, active, Gravity.CENTER))
+            item.addView(text(label, 9.5f, if (active) accent else secondary, active, Gravity.CENTER))
             bottomBar.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
         }
     }
@@ -1815,6 +1866,462 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         parent.addView(formatCard)
     }
 
+
+    private fun connectListeningPlayback() {
+        val token = SessionToken(this, ComponentName(this, ListeningPlaybackService::class.java))
+        val future = MediaController.Builder(this, token).buildAsync()
+        listeningControllerFuture = future
+        future.addListener({
+            try {
+                listeningMediaController = future.get()
+            } catch (_: Exception) {
+                listeningMediaController = null
+            }
+        }, Executor { command -> Handler(Looper.getMainLooper()).post(command) })
+    }
+
+    private fun playListeningAudio(url: String, episode: ListeningEpisode) {
+        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningSegmentStopRunnable = null
+        val controller = listeningMediaController
+        if (controller == null) {
+            Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        listeningPlaybackEpisodeId = episode.id
+        listeningPlaybackUri = url
+        listeningPlaybackDurationMs = episode.durationMs
+        val currentUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
+        if (currentUri != url) {
+            val saved = listeningRepository.getPlayback(episode.id)
+            val duration = episode.durationMs
+            val savedPosition = saved?.positionMs ?: 0L
+            val restorePosition = if (duration > 0L && savedPosition >= duration - 2_000L) 0L
+                else savedPosition.coerceAtLeast(0L)
+            controller.setMediaItem(MediaItem.fromUri(url), restorePosition)
+            controller.prepare()
+            controller.setPlaybackSpeed(saved?.speed ?: 1.0f)
+        }
+        controller.play()
+        scheduleListeningPlaybackCheckpoint()
+    }
+
+    private fun pauseListeningAudio() {
+        saveListeningPlaybackCheckpoint()
+        listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        listeningSegmentStopRunnable = null
+        listeningMediaController?.pause()
+    }
+
+    private fun saveListeningPlaybackCheckpoint() {
+        val controller = listeningMediaController ?: return
+        val episodeId = listeningPlaybackEpisodeId ?: return
+        val expectedUri = listeningPlaybackUri ?: return
+        val actualUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
+        if (actualUri != expectedUri) return
+        val position = controller.currentPosition.coerceAtLeast(0L)
+        if (listeningPlaybackDurationMs > 0L && position >= listeningPlaybackDurationMs) return
+        listeningRepository.savePlayback(episodeId, position, controller.playbackParameters.speed)
+    }
+
+    private fun scheduleListeningPlaybackCheckpoint() {
+        listeningCheckpointRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+        val checkpoint = object : Runnable {
+            override fun run() {
+                val controller = listeningMediaController ?: return
+                if (controller.currentMediaItem?.localConfiguration?.uri?.toString() != listeningPlaybackUri) return
+                saveListeningPlaybackCheckpoint()
+                if (controller.isPlaying) listeningPlaybackHandler.postDelayed(this, 5_000L)
+                else listeningCheckpointRunnable = null
+            }
+        }
+        listeningCheckpointRunnable = checkpoint
+        listeningPlaybackHandler.postDelayed(checkpoint, 5_000L)
+    }
+
+    private fun playListeningEpisode(episode: ListeningEpisode) {
+        val audioUrl = episode.audioUrl
+        if (!audioUrl.isNullOrBlank()) {
+            tts.stop()
+            playListeningAudio(audioUrl, episode)
+            return
+        }
+        val sentences = listeningRepository.getSentences(episode.id)
+        if (!ttsReady) {
+            Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
+            return
+        }
+        pauseListeningAudio()
+        tts.setSpeechRate(episode.speechRate.coerceIn(0.75f, 1.15f))
+        tts.speak(
+            sentences.joinToString(" ") { it.english },
+            TextToSpeech.QUEUE_FLUSH,
+            Bundle(),
+            "listening-${System.currentTimeMillis()}"
+        )
+    }
+
+    private fun playListeningSentence(episode: ListeningEpisode, sentence: ListeningSentence) {
+        val audioUrl = episode.audioUrl
+        if (!audioUrl.isNullOrBlank() && sentence.endMs > sentence.startMs) {
+            val controller = listeningMediaController
+            if (controller == null) {
+                Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
+                return
+            }
+            listeningSegmentStopRunnable?.let { listeningPlaybackHandler.removeCallbacks(it) }
+            controller.setMediaItem(MediaItem.fromUri(audioUrl), sentence.startMs)
+            controller.prepare()
+            controller.play()
+            val segmentEnd = sentence.endMs
+            val stopRunnable = object : Runnable {
+                override fun run() {
+                    val activeController = listeningMediaController ?: return
+                    val activeUri = activeController.currentMediaItem?.localConfiguration?.uri?.toString()
+                    if (activeUri != audioUrl) {
+                        listeningSegmentStopRunnable = null
+                        return
+                    }
+                    if (activeController.isPlaying && activeController.currentPosition >= segmentEnd) {
+                        activeController.pause()
+                        listeningSegmentStopRunnable = null
+                    } else if (activeController.isPlaying) {
+                        listeningPlaybackHandler.postDelayed(this, 80L)
+                    } else {
+                        listeningSegmentStopRunnable = null
+                    }
+                }
+            }
+            listeningSegmentStopRunnable = stopRunnable
+            listeningPlaybackHandler.postDelayed(stopRunnable, 80L)
+        } else if (ttsReady) {
+            pauseListeningAudio()
+            tts.speak(sentence.english, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-sentence-${sentence.id}-${System.currentTimeMillis()}")
+        } else {
+            Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun renderListening(parent: LinearLayout) {
+        when (listeningStage) {
+            "intro" -> renderListeningIntro(parent)
+            "blind" -> renderListeningBlind(parent)
+            "quiz" -> renderListeningQuiz(parent)
+            "review" -> renderListeningReview(parent)
+            else -> renderListeningHome(parent)
+        }
+    }
+
+    private fun renderListeningHome(parent: LinearLayout) {
+        addSectionTitle(parent, "听力", "每日训练 · 听力库 · 专项精听")
+        parent.addView(vSpace(16))
+        val episode = listeningRepository.getEpisode(listeningEpisodeId)
+        if (episode == null) {
+            val empty = card(18)
+            empty.addView(text("听力课程暂不可用", 16f, ink, true))
+            empty.addView(vSpace(7))
+            empty.addView(text("课程数据尚未安装。后续内容包通过审核后会显示在这里。", 12f, secondary))
+            parent.addView(empty)
+            return
+        }
+
+        val daily = card(19)
+        daily.addView(text(if (episode.isDemo) "DEMO LESSON" else "TODAY'S LISTENING", 10f, accent, true))
+        daily.addView(vSpace(8))
+        daily.addView(text(if (episode.isDemo) "体验课程" else "今日听力", 14f, secondary, true))
+        daily.addView(vSpace(5))
+        daily.addView(text(episode.title, 21f, ink, true))
+        daily.addView(vSpace(6))
+        daily.addView(text(episode.description, 12f, secondary))
+        daily.addView(vSpace(12))
+        daily.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  ${episode.durationLabel}", 11f, secondary))
+        daily.addView(vSpace(13))
+        daily.addView(pillButton(if (episode.isDemo) "开始体验课  →" else "开始今日训练  →", true) {
+            listeningStage = "intro"
+            listeningQuestionIndex = 0
+            listeningSelectedChoiceId = null
+            listeningSubmitted = false
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        parent.addView(daily)
+        parent.addView(vSpace(10))
+
+        val note = card(15)
+        note.addView(text("体验课说明", 13f, ink, true))
+        note.addView(vSpace(5))
+        note.addView(text("当前课程是原创短版演示材料，使用手机系统英语语音，不是真人录音，也不计入正式 5–10 分钟课程库。正式课程会在音频来源、授权和教学质量审核通过后逐步加入。", 11f, secondary))
+        parent.addView(note)
+        parent.addView(vSpace(20))
+
+        addSectionTitle(parent, "听力库", "按主题与难度持续扩充")
+        parent.addView(vSpace(9))
+        val libraryCard = card(16)
+        val head = row()
+        head.addView(text(episode.title, 15f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val saved = listeningRepository.isBookmarked(episode.id)
+        head.addView(quietButton(if (saved) "已收藏" else "收藏") {
+            listeningRepository.setBookmarked(episode.id, !saved)
+            renderPage()
+        })
+        libraryCard.addView(head)
+        libraryCard.addView(vSpace(5))
+        libraryCard.addView(text("学习与习惯  ·  ${episode.level}  ·  演示课程", 11f, secondary))
+        libraryCard.addView(vSpace(9))
+        libraryCard.addView(pillButton("查看课程", false) {
+            listeningStage = "intro"
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        parent.addView(libraryCard)
+        parent.addView(vSpace(10))
+
+        val stats = card(15)
+        stats.addView(text("我的听力记录", 13f, ink, true))
+        stats.addView(vSpace(6))
+        stats.addView(text("已完成训练：${listeningRepository.completedAttemptCount()} 次", 12f, secondary))
+        stats.addView(vSpace(3))
+        stats.addView(text("保留每次答题记录，后续可用于分析主旨、细节、推断和语音辨识能力。", 11f, secondary))
+        parent.addView(stats)
+    }
+
+    private fun renderListeningIntro(parent: LinearLayout) {
+        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        addSectionTitle(parent, "课程导入", "先了解场景，不提前展示原文")
+        parent.addView(vSpace(14))
+        val c = card(19)
+        c.addView(text(episode.title, 21f, ink, true))
+        c.addView(vSpace(8))
+        c.addView(text(episode.description, 13f, secondary))
+        c.addView(vSpace(13))
+        c.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  演示短课", 11f, accent, true))
+        c.addView(vSpace(13))
+        c.addView(text("训练流程", 14f, ink, true))
+        c.addView(vSpace(5))
+        c.addView(text("第一遍盲听 → 5 道理解题 → 逐句精听 → 原文翻译与语音解析 → 复盘。开始答题前不会显示全文。", 12f, secondary))
+        c.addView(vSpace(16))
+        c.addView(pillButton("开始第一遍盲听", true) {
+            listeningAttemptId = listeningRepository.startAttempt(episode.id)
+            listeningQuestionIndex = 0
+            listeningCorrectCount = 0
+            listeningSelectedChoiceId = null
+            listeningSubmitted = false
+            listeningCurrentCorrect = null
+            listeningCorrectChoiceId = null
+            listeningStage = "blind"
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        c.addView(vSpace(5))
+        c.addView(quietButton("返回听力首页") {
+            listeningStage = "home"
+            renderPage()
+        })
+        parent.addView(c)
+    }
+
+    private fun renderListeningBlind(parent: LinearLayout) {
+        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val sentences = listeningRepository.getSentences(episode.id)
+        addSectionTitle(parent, "第一遍 · 盲听", "先完整听，不看原文")
+        parent.addView(vSpace(12))
+        val c = card(19)
+        c.addView(text(episode.title, 18f, ink, true))
+        c.addView(vSpace(7))
+        c.addView(text("请先听完整段落，尝试抓住主题、人物目的和关键变化。不要急着逐词翻译。", 12f, secondary))
+        c.addView(vSpace(15))
+        c.addView(text("系统英语语音 · 演示模式", 11f, accent, true))
+        c.addView(vSpace(9))
+        c.addView(pillButton("▶  播放完整音频", true) {
+            playListeningEpisode(episode)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        c.addView(vSpace(8))
+        c.addView(pillButton("重新播放", false) {
+            playListeningEpisode(episode)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        c.addView(vSpace(14))
+        c.addView(text("盲听阶段不会显示英文原文和中文翻译。播放完成后再进入理解测试。", 11f, secondary))
+        c.addView(vSpace(13))
+        c.addView(pillButton("我已完成初听，开始答题", true) {
+            tts.stop()
+            pauseListeningAudio()
+            listeningStage = "quiz"
+            listeningQuestionIndex = 0
+            listeningSelectedChoiceId = null
+            listeningSubmitted = false
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        c.addView(vSpace(5))
+        c.addView(quietButton("退出课程") {
+            tts.stop()
+            pauseListeningAudio()
+            listeningStage = "home"
+            renderPage()
+        })
+        parent.addView(c)
+    }
+
+    private fun renderListeningQuiz(parent: LinearLayout) {
+        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val questions = listeningRepository.getQuestions(episode.id)
+        val question = questions.getOrNull(listeningQuestionIndex) ?: run {
+            listeningStage = "review"
+            renderListeningReview(parent)
+            return
+        }
+        addSectionTitle(parent, "理解测试", "第 ${listeningQuestionIndex + 1} / ${questions.size} 题")
+        parent.addView(vSpace(11))
+        val progress = card(13)
+        progress.addView(text("${question.typeLabel}  ·  ${episode.title}", 11f, secondary, true))
+        progress.addView(vSpace(8))
+        progress.addView(text(question.prompt, 17f, ink, true))
+        progress.addView(vSpace(14))
+        question.options.forEach { option ->
+            val selected = listeningSelectedChoiceId == option.id
+            val backgroundColor = if (listeningSubmitted && listeningCorrectChoiceId == option.id) softAccent else if (selected) 0xFFF1F3F7.toInt() else white
+            val borderColor = if (listeningSubmitted && listeningCorrectChoiceId == option.id) accent else if (selected) 0xFFB9C2D6.toInt() else line
+            val optionView = text(
+                option.content,
+                13f,
+                if (listeningSubmitted && listeningCorrectChoiceId == option.id) accent else ink,
+                selected || (listeningSubmitted && listeningCorrectChoiceId == option.id)
+            ).apply {
+                setPadding(dp(13), dp(14), dp(13), dp(14))
+                background = rounded(backgroundColor, borderColor, 13)
+                isEnabled = !listeningSubmitted
+                isClickable = !listeningSubmitted
+                setOnClickListener {
+                    listeningSelectedChoiceId = option.id
+                    renderPage()
+                }
+            }
+            progress.addView(optionView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            progress.addView(vSpace(7))
+        }
+
+        if (!listeningSubmitted) {
+            progress.addView(pillButton("提交答案", true) {
+                val selectedId = listeningSelectedChoiceId
+                if (selectedId == null) {
+                    Toast.makeText(this, "请先选择一个选项", Toast.LENGTH_SHORT).show()
+                } else {
+                    val selected = question.options.firstOrNull { it.id == selectedId }
+                    if (selected != null) {
+                        listeningCurrentCorrect = listeningRepository.recordAnswer(
+                            listeningAttemptId, question.id, selected.id
+                        )
+                        if (listeningCurrentCorrect == true) listeningCorrectCount += 1
+                        listeningCorrectChoiceId = listeningRepository.getCorrectChoiceId(question.id)
+                        listeningSubmitted = true
+                        renderPage()
+                    }
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        } else {
+            val evidence = listeningRepository.getSentences(episode.id).firstOrNull { it.id == question.evidenceSentenceId }
+            progress.addView(vSpace(4))
+            progress.addView(text(
+                if (listeningCurrentCorrect == true) "回答正确" else "这题还需要加强",
+                14f, if (listeningCurrentCorrect == true) accent else 0xFFB66B45.toInt(), true
+            ))
+            progress.addView(vSpace(6))
+            progress.addView(text(question.explanation, 12f, secondary))
+            if (evidence != null) {
+                progress.addView(vSpace(7))
+                progress.addView(text("音频依据：${evidence.english}", 12f, ink, true))
+            }
+            progress.addView(vSpace(13))
+            progress.addView(pillButton(
+                if (listeningQuestionIndex == questions.lastIndex) "查看训练复盘" else "下一题  →",
+                true
+            ) {
+                if (listeningQuestionIndex == questions.lastIndex) {
+                    val score = listeningCorrectCount.toFloat() / questions.size.coerceAtLeast(1)
+                    listeningRepository.finishAttempt(listeningAttemptId, score)
+                    listeningStage = "review"
+                } else {
+                    listeningQuestionIndex += 1
+                    listeningSelectedChoiceId = null
+                    listeningSubmitted = false
+                    listeningCurrentCorrect = null
+            listeningCorrectChoiceId = null
+                }
+                renderPage()
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        parent.addView(progress)
+    }
+
+    private fun renderListeningReview(parent: LinearLayout) {
+        val episode = listeningRepository.getEpisode(listeningEpisodeId) ?: return
+        val sentences = listeningRepository.getSentences(episode.id)
+        val questions = listeningRepository.getQuestions(episode.id)
+        val score = if (questions.isEmpty()) 0 else (listeningCorrectCount * 100 / questions.size)
+        addSectionTitle(parent, "训练复盘", "把没听出来的内容真正听明白")
+        parent.addView(vSpace(12))
+        val result = card(18)
+        result.addView(text("本次正确率", 12f, secondary, true))
+        result.addView(vSpace(4))
+        result.addView(text("$score%", 34f, accent, true))
+        result.addView(vSpace(4))
+        result.addView(text("${listeningCorrectCount} / ${questions.size} 道题答对", 12f, secondary))
+        result.addView(vSpace(11))
+        result.addView(text("成绩只记录本次作答，不覆盖此前训练记录。后续重做会产生一条新的训练记录。", 11f, secondary))
+        parent.addView(result)
+        parent.addView(vSpace(15))
+
+        addSectionTitle(parent, "逐句精听", "逐句播放，先听声音，再核对意思")
+        sentences.forEachIndexed { index, sentence ->
+            parent.addView(vSpace(8))
+            val sentenceCard = card(14)
+            val header = row()
+            header.addView(text("0${index + 1}".takeLast(2), 11f, accent, true))
+            header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+            header.addView(quietButton("播放本句") {
+                playListeningSentence(episode, sentence)
+            })
+            sentenceCard.addView(header)
+            sentenceCard.addView(vSpace(5))
+            sentenceCard.addView(text(sentence.english, 14f, ink, true))
+            sentenceCard.addView(vSpace(4))
+            sentenceCard.addView(text(sentence.chinese, 12f, secondary))
+            if (sentence.pronunciationNote.isNotBlank()) {
+                sentenceCard.addView(vSpace(7))
+                sentenceCard.addView(text("语音提示：${sentence.pronunciationNote}", 11f, accent))
+            }
+            parent.addView(sentenceCard)
+        }
+        parent.addView(vSpace(15))
+        addSectionTitle(parent, "答题解析")
+        questions.forEachIndexed { index, question ->
+            val answerCard = card(14)
+            answerCard.addView(text("第 ${index + 1} 题 · ${question.typeLabel}", 11f, accent, true))
+            answerCard.addView(vSpace(4))
+            answerCard.addView(text(question.prompt, 13f, ink, true))
+            answerCard.addView(vSpace(4))
+            answerCard.addView(text(question.explanation, 11f, secondary))
+            parent.addView(vSpace(7))
+            parent.addView(answerCard)
+        }
+        parent.addView(vSpace(15))
+        parent.addView(pillButton("再练一次", true) {
+            listeningAttemptId = listeningRepository.startAttempt(episode.id)
+            listeningQuestionIndex = 0
+            listeningCorrectCount = 0
+            listeningSelectedChoiceId = null
+            listeningSubmitted = false
+            listeningCurrentCorrect = null
+            listeningCorrectChoiceId = null
+            listeningStage = "blind"
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        parent.addView(vSpace(6))
+        parent.addView(pillButton("返回听力首页", false) {
+            tts.stop()
+            pauseListeningAudio()
+            listeningStage = "home"
+            renderPage()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
     private fun renderStats(parent: LinearLayout) {
         addSectionTitle(parent, "学习统计", "数据仅保存在这台设备上")
         parent.addView(vSpace(18))
@@ -2312,9 +2819,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     companion object {
         private const val TAB_BROWSE = 0
         private const val TAB_STUDY = 1
-        private const val TAB_BOOKS = 2
-        private const val TAB_STATS = 3
-        private const val TAB_SETTINGS = 4
+        private const val TAB_LISTENING = 2
+        private const val TAB_BOOKS = 3
+        private const val TAB_STATS = 4
+        private const val TAB_SETTINGS = 5
         private const val REQUEST_IMPORT_PACK = 4102
         private const val KEY_BOOK = "active_book"
         private const val KEY_QUEUE = "study_queue"
