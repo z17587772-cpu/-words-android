@@ -162,3 +162,9 @@ The Python LibriVox worker remains a metadata-only GitHub Actions harvester. The
 - Feature-branch pushes now trigger the full listening validation workflow.
 - APK assembly and artifact upload occur only after Python tests, static policy checks, Kotlin compilation and API 35 instrumentation tests pass.
 - Current build target: debug APK version 1.8.3 (versionCode 24). A stable private signing key remains necessary for seamless updates across separately hosted builds.
+
+
+## 2026-11-21 — Disk-accurate storage and APK signing
+- Quota enforcement and UI storage display use actual on-disk bytes inside the app-private library, including partial/orphan files, excluding external symlink targets.
+- APK CI can use a persistent private signing keystore via four GitHub Actions secrets; otherwise it emits a standard debug-signed APK. The old installed build may still require a one-time uninstall if it was signed with a different historical key.
+- APK assembly/upload is gated behind Kotlin compilation and API 35 instrumentation tests.
