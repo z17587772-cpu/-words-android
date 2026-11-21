@@ -343,11 +343,14 @@ class WordsDatabaseMigrationTest {
         db.execSQL("UPDATE listening_choices SET content='mutated live option', is_correct=1-is_correct WHERE question_id=?",
             arrayOf(originalFirst.id))
 
-        val pinnedQuestion = repository.getQuestions(episodeId).first()
+        val pinnedQuestion = repository.getQuestionsForAttempt(attemptId).first()
         assertEquals(originalFirst.prompt, pinnedQuestion.prompt)
         assertEquals(originalFirst.explanation, pinnedQuestion.explanation)
         assertEquals(originalFirst.options.map { it.content }, pinnedQuestion.options.map { it.content })
+        assertEquals(originalFirst.prompt, repository.getQuestions(episodeId).first().prompt)
+        assertEquals(originalCorrectId, repository.getCorrectChoiceId(attemptId, originalFirst.id))
         assertEquals(originalCorrectId, repository.getCorrectChoiceId(originalFirst.id))
+        assertEquals(repository.getSentences(episodeId), repository.getSentencesForAttempt(attemptId))
         val review = repository.getAttemptAnswerReviews(attemptId).first { it.questionId == originalFirst.id }
         assertEquals(originalFirst.options.first { it.id == originalCorrectId }.content, review.correctContent)
         assertTrue(review.isCorrect)
