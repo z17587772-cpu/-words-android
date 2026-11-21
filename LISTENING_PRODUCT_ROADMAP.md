@@ -297,3 +297,17 @@ Implemented on `feature/listening-mvp`:
 - Fresh-install and v5/v6/v7 migration expectations updated to schema v11.
 
 The new Android instrumentation tests have been authored but **have not yet run**. Android compilation, emulator instrumentation, playback verification, physical-device checks, and GitHub Actions status remain pending. No APK was built, and PR #1 remains a draft without merge or rebase.
+
+
+## 13. Interrupted-session recovery and stage-motion checkpoint
+
+Additional implementation on `feature/listening-mvp`:
+
+- Added repository accessors for attempt stage, completion state, selected answer, and persisted correct-answer count.
+- MainActivity stores only the active attempt pointer and an unsubmitted selection in preferences; submitted answers remain authoritative in SQLite.
+- On Activity/process recreation, the app restores the attempt's pinned revision, finds the first unanswered question, restores a still-valid unsubmitted choice, and completes the attempt if all answers were already saved before interruption.
+- The home screen exposes a resume action for the active unfinished lesson. Returning from a completed review clears the active pointer without deleting the attempt history.
+- Quiz evidence and review scores now use attempt-pinned content and persisted answers, not mutable catalog rows or transient Activity counters.
+- Listening stage changes use a restrained two-phase transition: 115 ms exit and 220 ms entrance, cubic easing, a small vertical offset, and hardware-layer rendering. The bottom navigation remains stationary; ordinary option selection rerenders stay immediate to avoid unnecessary motion.
+
+These changes have source guards and instrumentation assertions, but the Android tests remain unexecuted. Animation timing and gesture feel still require emulator and physical-device review; do not label the motion system final until that review is complete.
