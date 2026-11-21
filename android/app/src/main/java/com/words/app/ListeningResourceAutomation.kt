@@ -93,18 +93,14 @@ class InternetArchiveDiscoveryWorker(
                 for (doc in docs) {
                     val identifier = doc.optString("identifier").trim()
                     if (!identifier.matches(Regex("[A-Za-z0-9._-]{1,120}"))) continue
-                    val license = normalizeLicense(doc.optString("licenseurl"))
+                    val license = InternetArchiveMetadataPolicy.normalizeLicense(doc.optString("licenseurl"))
                     if (license == null) continue
                     val detail = fetchMetadata(identifier)
                     val metadata = detail.optJSONObject("metadata") ?: continue
-                    val detailLicense = normalizeLicense(metadata.optString("licenseurl"))
+                    val detailLicense = InternetArchiveMetadataPolicy.normalizeLicense(metadata.optString("licenseurl"))
                     if (detailLicense != license) continue
                     val languageValue = metadata.opt("language") ?: doc.opt("language")
-                    val language = when (languageValue) {
-                        is JSONArray -> (0 until languageValue.length()).joinToString(" ") { languageValue.optString(it) }
-                        else -> languageValue?.toString().orEmpty()
-                    }
-                    if (!Regex("(^|[^a-z])(eng|english|en)([^a-z]|$)", RegexOption.IGNORE_CASE).containsMatchIn(language)) continue
+                    if (!InternetArchiveMetadataPolicy.isEnglish(languageValue)) continue
                     val title = metadata.optString("title").ifBlank { doc.optString("title") }.trim()
                     if (title.isBlank()) continue
                     val files = detail.optJSONArray("files") ?: continue
@@ -256,18 +252,6 @@ class InternetArchiveDiscoveryWorker(
         return candidates.take(MAX_TRACKS_PER_ITEM)
     }
 
-    private fun normalizeLicense(raw: String): Pair<String, String>? {
-        val url = raw.trim().lowercase().trimEnd('/') + "/"
-        return when (url) {
-            "https://creativecommons.org/publicdomain/zero/1.0/" ->
-                "https://creativecommons.org/publicdomain/zero/1.0/" to "CC0 1.0"
-            "https://creativecommons.org/licenses/by/4.0/" ->
-                "https://creativecommons.org/licenses/by/4.0/" to "CC BY 4.0"
-            "https://creativecommons.org/licenses/by-sa/4.0/" ->
-                "https://creativecommons.org/licenses/by-sa/4.0/" to "CC BY-SA 4.0"
-            else -> null
-        }
-    }
 
     companion object {
         private const val PROVIDER = "internet_archive"
@@ -286,6 +270,29 @@ class InternetArchiveDiscoveryWorker(
         private const val DETAIL_DELAY_MS = 1_000L
         private const val ERROR_BACKOFF_MS = 30L * 60L * 1000L
         private const val MAX_REDIRECTS = 4
+    }
+}
+
+internal object InternetArchiveMetadataPolicy {
+    fun isEnglish(value: Any?): Boolean {
+        val language = when (value) {
+            is JSONArray -> (0 until value.length()).joinToString(" ") { value.optString(it) }
+            else -> value?.toString().orEmpty()
+        }
+        return Regex("(^|[^a-z])(eng|english|en)([^a-z]|$)", RegexOption.IGNORE_CASE).containsMatchIn(language)
+    }
+
+    fun normalizeLicense(raw: String): Pair<String, String>? {
+        val url = raw.trim().lowercase().trimEnd('/') + "/"
+        return when (url) {
+            "https://creativecommons.org/publicdomain/zero/1.0/" ->
+                "https://creativecommons.org/publicdomain/zero/1.0/" to "CC0 1.0"
+            "https://creativecommons.org/licenses/by/4.0/" ->
+                "https://creativecommons.org/licenses/by/4.0/" to "CC BY 4.0"
+            "https://creativecommons.org/licenses/by-sa/4.0/" ->
+                "https://creativecommons.org/licenses/by-sa/4.0/" to "CC BY-SA 4.0"
+            else -> null
+        }
     }
 }
 
