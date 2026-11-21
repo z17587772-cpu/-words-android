@@ -120,6 +120,8 @@ jobs:
           assert "fun getSentencesForAttempt" in repository
           assert "fun getEpisodeForAttempt" in repository
           assert "fun getAttemptProgress" in repository and "fun getAttemptAnswer" in repository
+          assert "fun isKnownPlaybackRevision" in repository
+          assert "isKnownPlaybackRevision(episodeId, audioUri, itemRevision, position)" in service
           assert "fun getAttemptCorrectCount" in repository and "fun updateAttemptStage" in repository
           assert "restoreListeningAttemptState" in activity and "persistListeningAttemptUiState" in activity
           assert "transitionListeningStage" in activity and "setDuration(115L)" in activity and "setDuration(220L)" in activity
