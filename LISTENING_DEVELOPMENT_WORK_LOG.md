@@ -100,3 +100,6 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 
 - Added source-level permission revocation: cached resources are immediately made unavailable when item-level license metadata is removed/changed, when the item becomes inaccessible, or when it no longer meets the supported English/MP3 policy. The reconciler later removes unreferenced bytes after the orphan grace period.
 - Added WorkManager stop checks in both provider discovery workers. The local reconciler now verifies stored SHA-256 hashes as well as exact file size and repairs missing/corrupt records by re-queueing only when offline rights remain valid.
+
+- Added age-appropriate metadata screening to the Internet Archive adapter. It checks title, description and subject metadata and excludes clearly adult/explicit material before download; this is a conservative metadata filter, not a guarantee that every source item is perfectly classified.
+- Added title/creator/provider search in the resource library, alongside downloaded-only and favorites filters. The UI also exposes source and license pages.
