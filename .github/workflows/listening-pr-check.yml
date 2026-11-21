@@ -171,7 +171,7 @@ jobs:
           assert "fun getLatestIncompleteAttempt" in repository and "fun abandonAttempt" in repository
           assert "getLatestIncompleteAttempt()" in activity
           assert "fun isKnownPlaybackRevision" in repository
-          assert "isKnownPlaybackRevision(episodeId, audioUri, itemRevision, position)" in service
+          assert "store.isKnownPlaybackRevision(mediaId, audioUri, itemRevision, position)" in service
           assert "fun getAttemptCorrectCount" in repository and "fun updateAttemptStage" in repository
           assert "restoreListeningAttemptState" in activity and "persistListeningAttemptUiState" in activity
           assert "transitionListeningStage" in activity and "setDuration(115L)" in activity and "setDuration(220L)" in activity
