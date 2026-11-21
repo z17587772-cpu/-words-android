@@ -190,7 +190,7 @@ jobs:
           review_screen = activity.split("private fun renderListeningReview", 1)[1].split("private fun renderStats", 1)[0]
           assert "answerReviews.values.count { it.isCorrect }" in review_screen
           assert "listeningCorrectCount * 100" not in review_screen
-          assert "isKnownPlaybackRevision(episodeId, audioUri, itemRevision, position)" in service
+          assert "store.isKnownPlaybackRevision(mediaId, audioUri, itemRevision, position)" in service
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback" in migration_test
           assert "packageImporterCannotPromoteTheSystemTtsDemoToFormalContent" in migration_test
