@@ -249,7 +249,7 @@ jobs:
           sync_test = Path("android/app/src/androidTest/java/com/words/app/ListeningCatalogSyncTest.kt").read_text(encoding="utf-8")
           assert "verifiesEd25519EnvelopeAndRejectsPayloadTampering" in sync_test
           assert "parsesOnlySameHostHttpsPackages" in sync_test
-          assert "rejectsDuplicatePackageIdsAndNewerAppRequirements" in sync_test
+          assert "rejectsDuplicatePackageIdsAndSkipsPackagesRequiringANewerApp" in sync_test
           print("Package, playback, strict no-repeat, discovery, and signed offline-sync guards passed.")
           PY
 
