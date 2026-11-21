@@ -87,7 +87,7 @@ class WordsDatabaseMigrationTest {
         val wrongOption = question.options.first { it.id != correctId }
         val attemptId = repository.startAttempt(episodeId)
 
-        assertFalse(question.options.any { it.id == correctId && it.content.isBlank() })
+        assertEquals(2, question.options.size)
         assertFalse(repository.recordAnswer(attemptId, question.id, wrongOption.id))
         repository.finishAttempt(attemptId, 0f)
 
