@@ -36,7 +36,12 @@ data class ListeningPackageAudio(
 
 data class ListeningPackageRights(
     val sourceId: String,
+    val sourceTitle: String,
+    val sourceUrl: String,
     val rightsHolder: String,
+    val attribution: String,
+    val checkedAt: Long,
+    val licenseId: String,
     val licenseName: String,
     val licenseUrl: String,
     val allowedActions: Set<String>,
@@ -166,9 +171,16 @@ object ListeningContentPackageValidator {
         val expiry = if (json.has("expires_at") && !json.isNull("expires_at")) {
             json.getLong("expires_at").also { require(it > 0L) { "$path.expires_at must be positive" } }
         } else null
+        val checkedAt = json.requiredLong("checked_at", path)
+        require(checkedAt > 0L) { "$path.checked_at must be positive" }
         return ListeningPackageRights(
             sourceId = json.requiredString("source_id", path),
+            sourceTitle = json.requiredString("source_title", path),
+            sourceUrl = json.optString("source_url", ""),
             rightsHolder = json.requiredString("rights_holder", path),
+            attribution = json.requiredString("attribution", path),
+            checkedAt = checkedAt,
+            licenseId = json.requiredString("license_id", path),
             licenseName = json.requiredString("license_name", path),
             licenseUrl = json.optString("license_url", ""),
             allowedActions = actions,
