@@ -241,6 +241,28 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
         }
     }
 
+    fun markMissingLocalFile(resourceId: String, path: String): Boolean =
+        db.update(
+            "listening_discovered_resources",
+            ContentValues().apply {
+                put("local_file_path", "")
+                put("content_sha256", "")
+                put("status", "eligible")
+            },
+            "id=? AND local_file_path=? AND status='downloaded'",
+            arrayOf(resourceId, path)
+        ) == 1
+
+    fun getReferencedLocalPaths(): Set<String> =
+        helper.readableDatabase.rawQuery(
+            "SELECT DISTINCT local_file_path FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>''",
+            null
+        ).use { c ->
+            buildSet {
+                while (c.moveToNext()) add(c.getString(0))
+            }
+        }
+
     fun downloadedStorageBytes(): Long =
         helper.readableDatabase.rawQuery(
             "SELECT COALESCE(SUM(file_size),0) FROM (SELECT MAX(expected_size_bytes) AS file_size FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>'' GROUP BY local_file_path)",
