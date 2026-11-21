@@ -29,7 +29,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(7, upgraded.version)
+        assertEquals(8, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
@@ -41,6 +41,12 @@ class WordsDatabaseMigrationTest {
         assertTrue(tableExists(upgraded, "listening_attempts"))
         assertTrue(tableExists(upgraded, "listening_playback"))
         assertTrue(columnExists(upgraded, "listening_playback", "audio_revision"))
+        assertTrue(tableExists(upgraded, "listening_episode_revisions"))
+        assertTrue(tableExists(upgraded, "listening_revision_sentences"))
+        assertTrue(tableExists(upgraded, "listening_revision_questions"))
+        assertTrue(tableExists(upgraded, "listening_revision_choices"))
+        assertTrue(columnExists(upgraded, "listening_episodes", "current_revision_id"))
+        assertTrue(columnExists(upgraded, "listening_attempts", "content_revision_id"))
         upgraded.rawQuery("PRAGMA foreign_key_check", null).use { cursor ->
             assertEquals("No foreign-key violations after migration", false, cursor.moveToFirst())
         }
@@ -303,16 +309,60 @@ class WordsDatabaseMigrationTest {
         helper.close()
     }
 
+
+    @Test
+    fun attemptReviewReadsPinnedSnapshotInsteadOfMutableCatalogRows() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        repository.ensureDemoSeeded()
+        val episodeId = ListeningRepository.DEMO_EPISODE_ID
+        val originalQuestions = repository.getQuestions(episodeId)
+        val originalFirst = originalQuestions.first()
+        val originalCorrectId = repository.getCorrectChoiceId(originalFirst.id)!!
+        val attemptId = repository.startAttempt(episodeId)
+        assertTrue(helper.readableDatabase.rawQuery(
+            "SELECT content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(attemptId.toString())
+        ).use { it.moveToFirst() && !it.isNull(0) })
+
+        originalQuestions.forEach { question ->
+            val correctId = repository.getCorrectChoiceId(question.id)!!
+            assertTrue(repository.recordAnswer(attemptId, question.id, correctId))
+        }
+        assertEquals(1.0f, repository.finishAttempt(attemptId), 0.001f)
+
+        val db = helper.writableDatabase
+        db.execSQL("UPDATE listening_questions SET prompt='mutated live prompt', explanation='mutated live explanation' WHERE id=?",
+            arrayOf(originalFirst.id))
+        db.execSQL("UPDATE listening_choices SET content='mutated live option', is_correct=1-is_correct WHERE question_id=?",
+            arrayOf(originalFirst.id))
+
+        val pinnedQuestion = repository.getQuestions(episodeId).first()
+        assertEquals(originalFirst.prompt, pinnedQuestion.prompt)
+        assertEquals(originalFirst.explanation, pinnedQuestion.explanation)
+        assertEquals(originalFirst.options.map { it.content }, pinnedQuestion.options.map { it.content })
+        assertEquals(originalCorrectId, repository.getCorrectChoiceId(originalFirst.id))
+        val review = repository.getAttemptAnswerReviews(attemptId).first { it.questionId == originalFirst.id }
+        assertEquals(originalFirst.options.first { it.id == originalCorrectId }.content, review.correctContent)
+        assertTrue(review.isCorrect)
+        assertEquals(1.0f, repository.finishAttempt(attemptId), 0.001f)
+        helper.close()
+    }
+
     @Test
     fun freshInstallCreatesListeningSchema() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(7, database.version)
+        assertEquals(8, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
+        assertTrue(tableExists(database, "listening_episode_revisions"))
+        assertTrue(tableExists(database, "listening_revision_questions"))
+        assertTrue(columnExists(database, "listening_attempts", "content_revision_id"))
         assertEquals(0, scalar(database, "SELECT COUNT(*) FROM books"))
 
         helper.close()
