@@ -169,6 +169,10 @@ jobs:
           assert "post-completion-question" in migration_test
           assert "attempt.completed_at IS NOT NULL" in repository
           assert "ListeningDailyPlanner.choose" in repository and "stableTieBreak" in planner
+          assert "assignmentCount" in planner and "lastAssignedDate" in planner
+          assert "COUNT(*),MAX(d.assignment_date)" in repository
+          assert "getAssignmentHistory(assignmentDate)" in repository
+          assert "dailyPlannerCompletesWholeCatalogPassAndAddsNewLessonsBeforeRepeats" in migration_test
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
           forbidden_build = "assemble" + "Debug"
