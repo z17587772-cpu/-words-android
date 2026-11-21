@@ -338,4 +338,12 @@ Static source assertions and an independent SQLite schema/foreign-key simulation
 
 ## 17. Low-storage protection
 
+### Follow-up hardening — staging and extraction headroom
+
+- Before copying a ZIP into private staging, the importer now checks that the staging filesystem has room for the compressed snapshot plus the 64 MiB reserve.
+- ZIP extraction checks remaining filesystem space before each write and stops while preserving the configured reserve. A failed extraction removes its partial staging directory.
+- The importer passes the same reserve through the extraction path, then separately checks durable content storage for the complete declared audio payload plus reserve before publishing audio.
+- Added an Android instrumentation regression test that forces an impossible reserve and verifies partial extraction is cleaned up. The PR source guard now checks these protections.
+- This is source/test coverage only until the Android emulator workflow actually runs; no APK build was started.
+
 Before copying revision audio into the durable content directory, the importer now checks available storage against the package's total declared audio size plus a 64 MiB reserve. This avoids partially filling a device during an otherwise valid package install.
