@@ -2316,10 +2316,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val downloaded = resources.count { it.status == "downloaded" && it.localFilePath.isNotBlank() && java.io.File(it.localFilePath).isFile }
         val queued = resources.count { it.status == "queued" || it.status == "downloading" }
         val failed = resources.count { it.status == "failed" }
+        val storageMb = discovery.downloadedStorageBytes() / (1024L * 1024L)
         addSectionTitle(parent, "自动发现资源库", "应用联网寻找新英语听力 · Wi-Fi 下自动下载")
         parent.addView(vSpace(8))
         val summary = card(16)
         summary.addView(text("已保存 $downloaded 条  ·  下载中 $queued 条  ·  失败 $failed 条", 12f, secondary, true))
+        summary.addView(vSpace(4))
+        summary.addView(text("本地占用约 $storageMb / 512 MB  ·  优先保护收藏和已播放内容", 10f, secondary))
         summary.addView(vSpace(7))
         summary.addView(text("来源：Internet Archive（明确开放许可）与 LibriVox（待逐项核验）。原始录音独立存放，不会自动变成正式课程。", 11f, secondary))
         summary.addView(vSpace(10))
@@ -2349,6 +2352,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 text(resource.title, 14f, ink, true),
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             )
+            titleRow.addView(quietButton("来源") {
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resource.canonicalUrl)))
+                }.onFailure {
+                    Toast.makeText(this, "无法打开来源页面", Toast.LENGTH_SHORT).show()
+                }
+            })
             titleRow.addView(quietButton(if (resource.pinned) "已收藏" else "收藏") {
                 discovery.setPinned(resource.id, !resource.pinned)
                 renderPage()
@@ -2375,6 +2385,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     .filterNotNull().filter { it.isNotBlank() }.joinToString("  ·  "),
                 10f, secondary
             ))
+            if (resource.attribution.isNotBlank()) {
+                item.addView(vSpace(3))
+                item.addView(text(resource.attribution, 10f, secondary))
+            }
             if (local) {
                 item.addView(vSpace(8))
                 item.addView(pillButton("播放 / 继续收听  →", false) {
