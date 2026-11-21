@@ -408,11 +408,25 @@ class ListeningResourceDownloadWorker(
                 current = URL(current, location)
                 if (hop == MAX_REDIRECTS) throw java.io.IOException("Too many media redirects")
             } else {
-                if (code == 429 || code in 500..599) throw java.io.IOException("Audio host temporarily returned HTTP $code")
-                require(code == 200) { "Audio host returned HTTP $code" }
+                if (code == 429 || code in 500..599) {
+                    connection.disconnect()
+                    throw java.io.IOException("Audio host temporarily returned HTTP $code")
+                }
+                if (code != 200) {
+                    connection.disconnect()
+                    throw IllegalStateException("Audio host returned HTTP $code")
+                }
                 val length = connection.getHeaderField("Content-Length")?.toLongOrNull()
-                if (length != null) require(length == expectedSize) { "Audio Content-Length mismatch" }
-                return connection.inputStream to connection
+                if (length != null && length != expectedSize) {
+                    connection.disconnect()
+                    throw IllegalArgumentException("Audio Content-Length mismatch")
+                }
+                return try {
+                    connection.inputStream to connection
+                } catch (error: Exception) {
+                    connection.disconnect()
+                    throw error
+                }
             }
         }
         throw java.io.IOException("Unable to open media URL")
