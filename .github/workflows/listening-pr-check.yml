@@ -196,6 +196,11 @@ jobs:
           assert "listening_discovered_playback" in database
           assert "ListeningResourceAutomation.schedule(this)" in activity
           assert "class InternetArchiveDiscoveryWorker" in resource_automation
+          assert "MAX_LOOKUPS_PER_PAGE = 3" in resource_automation
+          assert "MAX_METADATA_LOOKUPS_PER_RUN = 6" in resource_automation
+          assert "MAX_CANDIDATES_PER_RUN = 4" in resource_automation
+          assert "checked_at" in resource_automation and "trimCheckedItems" in resource_automation
+          assert "InternetArchiveMetadataPolicy.isEnglish" in resource_automation
           assert "class ListeningResourceDownloadWorker" in resource_automation
           assert "InternetArchiveMetadataPolicy.normalizeLicense" in resource_automation
           assert "offline_download" in resource_automation
@@ -204,6 +209,8 @@ jobs:
           assert "ATOMIC_MOVE" in resource_automation
           assert "saveResourcePlayback" in service
           assert "renderDiscoveredResourceLibrary" in activity
+          assert "discoveredDownloadedOnly" in activity and "discoveredFavoritesOnly" in activity
+          assert "Source:" in activity
           assert "playDiscoveredResource" in activity
           assert "allowsOnlyExplicitApprovedCreativeCommonsLicenses" in resource_policy_test
           assert "MAX_LIBRARY_BYTES = 512L * 1024L * 1024L" in resource_automation
