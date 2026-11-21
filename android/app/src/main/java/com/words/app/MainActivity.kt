@@ -2364,6 +2364,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 resource.status == "downloading" -> "正在下载"
                 resource.status == "queued" -> "等待 Wi-Fi 下载"
                 resource.status == "failed" -> "下载失败 · 等待重试"
+                resource.status == "expired" -> "本地音频因空间管理已清理"
                 resource.rightsStatus == "review_required" -> "已发现 · 许可待核验"
                 else -> "已发现 · 等待处理"
             }
@@ -2378,6 +2379,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 item.addView(vSpace(8))
                 item.addView(pillButton("播放 / 继续收听  →", false) {
                     playDiscoveredResource(resource)
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            } else if (resource.status == "expired" && resource.rightsStatus == "cleared") {
+                item.addView(vSpace(8))
+                item.addView(pillButton("重新下载", false) {
+                    if (discovery.requeueExpiredDownload(resource.id)) {
+                        ListeningResourceAutomation.enqueueDownload(this, resource.id)
+                        Toast.makeText(this, "已加入 Wi-Fi 下载队列", Toast.LENGTH_SHORT).show()
+                        renderPage()
+                    }
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             } else if (resource.rightsStatus == "review_required") {
                 item.addView(vSpace(5))
