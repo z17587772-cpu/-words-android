@@ -88,6 +88,18 @@ def validate_assets(catalog: dict, asset_root: Path) -> None:
             raise ValueError(f"Package SHA-256 mismatch: {relative}")
 
 
+def previous_catalog_version(envelope_path: Path) -> int | None:
+    if not envelope_path.is_file():
+        return None
+    envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
+    payload = base64.b64decode(envelope["payload"], validate=True)
+    previous = json.loads(payload.decode("utf-8"))
+    version = previous.get("catalog_version")
+    if type(version) is not int or version <= 0:
+        raise ValueError("Existing signed catalog has an invalid catalog_version")
+    return version
+
+
 def sign_payload(payload: bytes, private_key: Ed25519PrivateKey) -> dict[str, str]:
     return {
         "payload": base64.b64encode(payload).decode("ascii"),
@@ -111,10 +123,15 @@ def main() -> int:
     parser.add_argument("input", type=Path, help="Unsigned catalog JSON")
     parser.add_argument("output", type=Path, help="Signed envelope JSON")
     parser.add_argument("--asset-root", type=Path, help="Verify package ZIPs against files in content-inbox")
+    parser.add_argument("--previous-envelope", type=Path, help="Reject a non-increasing catalog version")
     args = parser.parse_args()
     catalog = json.loads(args.input.read_text(encoding="utf-8"))
     if args.asset_root:
         validate_assets(catalog, args.asset_root)
+    if args.previous_envelope:
+        previous_version = previous_catalog_version(args.previous_envelope)
+        if previous_version is not None and catalog.get("catalog_version", 0) <= previous_version:
+            raise ValueError("catalog_version must increase beyond the previously published catalog")
     payload = canonical_payload(catalog)
     envelope = sign_payload(payload, load_private_key())
     args.output.parent.mkdir(parents=True, exist_ok=True)
