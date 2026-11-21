@@ -224,12 +224,15 @@ class ListeningRepository(private val helper: WordsDatabase) {
         val db = helper.writableDatabase
         // Legacy approved lessons are snapshotted before planning. New package
         // imports already publish their immutable revision in the same DB txn.
-        db.rawQuery(
+        val approvedEpisodeIds = db.rawQuery(
             "SELECT id FROM listening_episodes WHERE status='approved' AND is_demo=0",
             null
         ).use { cursor ->
-            while (cursor.moveToNext()) ensureCurrentRevision(db, cursor.getString(0))
+            buildList {
+                while (cursor.moveToNext()) add(cursor.getString(0))
+            }
         }
+        approvedEpisodeIds.forEach { ensureCurrentRevision(db, it) }
 
         return db.rawQuery(
             """SELECT e.id,r.title,r.description,r.category,r.level,r.duration_ms,
