@@ -1974,9 +1974,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         val daily = card(19)
-        daily.addView(text("TODAY'S LISTENING", 10f, accent, true))
+        daily.addView(text(if (episode.isDemo) "DEMO LESSON" else "TODAY'S LISTENING", 10f, accent, true))
         daily.addView(vSpace(8))
-        daily.addView(text("今日听力", 14f, secondary, true))
+        daily.addView(text(if (episode.isDemo) "体验课程" else "今日听力", 14f, secondary, true))
         daily.addView(vSpace(5))
         daily.addView(text(episode.title, 21f, ink, true))
         daily.addView(vSpace(6))
@@ -1984,7 +1984,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         daily.addView(vSpace(12))
         daily.addView(text("${episode.level}  ·  ${episode.categoryLabel}  ·  ${episode.durationLabel}", 11f, secondary))
         daily.addView(vSpace(13))
-        daily.addView(pillButton("开始今日训练  →", true) {
+        daily.addView(pillButton(if (episode.isDemo) "开始体验课  →" else "开始今日训练  →", true) {
             listeningStage = "intro"
             listeningQuestionIndex = 0
             listeningSelectedChoiceId = null
