@@ -458,19 +458,20 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     }
 
-    fun getPlayback(episodeId: String): ListeningPlaybackState? =
+    fun getPlayback(episodeId: String, audioRevision: String? = null): ListeningPlaybackState? =
         helper.readableDatabase.rawQuery(
-            "SELECT position_ms,playback_speed FROM listening_playback WHERE episode_id=? LIMIT 1",
+            "SELECT position_ms,playback_speed,audio_revision FROM listening_playback WHERE episode_id=? LIMIT 1",
             arrayOf(episodeId)
         ).use { cursor ->
             if (!cursor.moveToFirst()) null else ListeningPlaybackState(
                 episodeId = episodeId,
-                positionMs = cursor.getLong(0).coerceAtLeast(0L),
-                speed = cursor.getFloat(1).takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f
+                positionMs = if (audioRevision == null || cursor.getString(2) == audioRevision) cursor.getLong(0).coerceAtLeast(0L) else 0L,
+                speed = cursor.getFloat(1).takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f,
+                audioRevision = cursor.getString(2)
             )
         }
 
-    fun savePlayback(episodeId: String, positionMs: Long, speed: Float) {
+    fun savePlayback(episodeId: String, positionMs: Long, speed: Float, audioRevision: String = "") {
         val safeSpeed = speed.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f
         database.insertWithOnConflict(
             "listening_playback", null,
@@ -478,6 +479,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
                 put("episode_id", episodeId)
                 put("position_ms", positionMs.coerceAtLeast(0L))
                 put("playback_speed", safeSpeed)
+                put("audio_revision", audioRevision)
                 put("updated_at", System.currentTimeMillis())
             },
             SQLiteDatabase.CONFLICT_REPLACE
