@@ -48,6 +48,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var listeningStage = "home"
     private var discoveredDownloadedOnly = false
     private var discoveredFavoritesOnly = false
+    private var discoveredSearchQuery = ""
     private var listeningStageTransitioning = false
     private var listeningDailyEpisodeId = ListeningRepository.DEMO_EPISODE_ID
     private var listeningEpisodeId = ListeningRepository.DEMO_EPISODE_ID
@@ -2320,7 +2321,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
         val resources = allResources.filter { resource ->
             (!discoveredDownloadedOnly || (resource.status == "downloaded" && resource.localFilePath.isNotBlank() && java.io.File(resource.localFilePath).isFile)) &&
-                (!discoveredFavoritesOnly || resource.pinned)
+                (!discoveredFavoritesOnly || resource.pinned) &&
+                (discoveredSearchQuery.isBlank() ||
+                    resource.title.contains(discoveredSearchQuery, ignoreCase = true) ||
+                    resource.creator.contains(discoveredSearchQuery, ignoreCase = true) ||
+                    resource.provider.contains(discoveredSearchQuery, ignoreCase = true))
         }
         val downloaded = allResources.count { it.status == "downloaded" && it.localFilePath.isNotBlank() && java.io.File(it.localFilePath).isFile }
         val queued = allResources.count { it.status == "queued" || it.status == "downloading" }
@@ -2350,6 +2355,27 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         filters.addView(quietButton(if (discoveredFavoritesOnly) "取消收藏筛选" else "只看收藏") {
             discoveredFavoritesOnly = !discoveredFavoritesOnly
             renderPage()
+        })
+        filters.addView(quietButton(if (discoveredSearchQuery.isBlank()) "搜索" else "清除搜索") {
+            if (discoveredSearchQuery.isNotBlank()) {
+                discoveredSearchQuery = ""
+                renderPage()
+            } else {
+                val searchInput = EditText(this).apply {
+                    hint = "标题、作者或来源"
+                    setSingleLine(true)
+                    setText(discoveredSearchQuery)
+                }
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("搜索听力资源")
+                    .setView(searchInput)
+                    .setPositiveButton("搜索") { _, _ ->
+                        discoveredSearchQuery = searchInput.text.toString().trim()
+                        renderPage()
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
         })
         parent.addView(filters)
         parent.addView(vSpace(5))
