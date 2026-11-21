@@ -78,10 +78,14 @@ class InternetArchiveDiscoveryWorker(
     params: WorkerParameters
 ) : Worker(context, params) {
     override fun doWork(): Result {
-        val repository = ListeningDiscoveryRepository(WordsDatabase(applicationContext))
+        val helper = WordsDatabase(applicationContext)
+        val repository = ListeningDiscoveryRepository(helper)
         val now = System.currentTimeMillis()
         val previous = repository.getProviderState(PROVIDER)
-        if (previous != null && previous.backoffUntil > now) return Result.retry()
+        if (previous != null && previous.backoffUntil > now) {
+            helper.close()
+            return Result.retry()
+        }
         return try {
             var discovered = 0
             // Always revisit newest results, plus a bounded rotating backfill.
@@ -168,6 +172,8 @@ class InternetArchiveDiscoveryWorker(
                 )
             )
             Result.retry()
+        } finally {
+            helper.close()
         }
     }
 
