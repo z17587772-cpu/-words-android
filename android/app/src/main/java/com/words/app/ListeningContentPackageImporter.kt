@@ -50,11 +50,11 @@ class ListeningContentPackageImporter(
         require(staging.mkdirs()) { "Cannot create unique package staging directory" }
         val archiveSnapshot = File(staging, "package.zip")
         val extractedRoot = File(staging, "extracted")
-        val packageDigest = snapshotArchive(archive, archiveSnapshot)
         val newlyInstalledFiles = mutableListOf<File>()
         var databaseCommitted = false
 
         try {
+            val packageDigest = snapshotArchive(archive, archiveSnapshot)
             val extracted = FileInputStream(archiveSnapshot).use { input ->
                 ListeningPackageArchive.extractSafely(input, extractedRoot)
             }
