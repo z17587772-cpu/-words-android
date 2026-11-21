@@ -50,6 +50,9 @@ object ListeningPackageArchive {
                     require(normalized.isNotBlank() &&
                         segments.none { it.isBlank() || it == "." || it == ".." }
                     ) { "Archive entry path is unsafe" }
+                    require(rawName.toByteArray(Charsets.UTF_8).size <= MAX_ENTRY_PATH_BYTES &&
+                        segments.all { it.toByteArray(Charsets.UTF_8).size <= MAX_PATH_SEGMENT_BYTES }
+                    ) { "Archive entry path is too long" }
                     require(seen.add(normalized)) { "Duplicate archive entry: $normalized" }
 
                     val isManifest = normalized == MANIFEST_NAME && !entry.isDirectory
@@ -107,6 +110,8 @@ object ListeningPackageArchive {
     private const val MANIFEST_NAME = "manifest.json"
     private const val AUDIO_PREFIX = "audio/"
     private const val MAX_ENTRIES = 2_048
+    private const val MAX_ENTRY_PATH_BYTES = 512
+    private const val MAX_PATH_SEGMENT_BYTES = 180
     private const val MAX_MANIFEST_BYTES = 1L * 1024L * 1024L
     private const val MAX_ENTRY_BYTES = 512L * 1024L * 1024L
     private const val MAX_TOTAL_UNCOMPRESSED_BYTES = 1L * 1024L * 1024L * 1024L
