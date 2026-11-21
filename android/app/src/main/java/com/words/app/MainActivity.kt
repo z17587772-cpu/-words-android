@@ -125,6 +125,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         db.seedBuiltInPack(this)
         listeningRepository = ListeningRepository(db)
         listeningRepository.ensureDemoSeeded()
+        listeningEpisodeId = listeningRepository.getTodayEpisodeId()
         prefs = getSharedPreferences("words_preferences", MODE_PRIVATE)
         currentBookId = prefs.getString(KEY_BOOK, WordsDatabase.BUILTIN_BOOK_ID) ?: WordsDatabase.BUILTIN_BOOK_ID
         // Move users of the original 115-word demo pack to the full curriculum pack.
@@ -1873,6 +1874,59 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         controller.play()
     }
 
+    private fun pauseListeningAudio() {
+        listeningMediaController?.pause()
+    }
+
+    private fun playListeningEpisode(episode: ListeningEpisode) {
+        val audioUrl = episode.audioUrl
+        if (!audioUrl.isNullOrBlank()) {
+            tts.stop()
+            playListeningAudio(audioUrl)
+            return
+        }
+        val sentences = listeningRepository.getSentences(episode.id)
+        if (!ttsReady) {
+            Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
+            return
+        }
+        tts.setSpeechRate(episode.speechRate.coerceIn(0.75f, 1.15f))
+        tts.speak(
+            sentences.joinToString(" ") { it.english },
+            TextToSpeech.QUEUE_FLUSH,
+            Bundle(),
+            "listening-\${System.currentTimeMillis()}"
+        )
+    }
+
+    private fun playListeningSentence(episode: ListeningEpisode, sentence: ListeningSentence) {
+        val audioUrl = episode.audioUrl
+        if (!audioUrl.isNullOrBlank() && sentence.endMs > sentence.startMs) {
+            val controller = listeningMediaController
+            if (controller == null) {
+                Toast.makeText(this, "播放器正在连接，请稍后再试", Toast.LENGTH_SHORT).show()
+                return
+            }
+            controller.setMediaItem(MediaItem.fromUri(audioUrl), sentence.startMs)
+            controller.prepare()
+            controller.play()
+            val segmentEnd = sentence.endMs
+            Handler(Looper.getMainLooper()).postDelayed(object : Runnable {
+                override fun run() {
+                    if (controller.isPlaying && controller.currentPosition >= segmentEnd) {
+                        controller.pause()
+                    } else if (controller.isPlaying) {
+                        Handler(Looper.getMainLooper()).postDelayed(this, 80L)
+                    }
+                }
+            }, 80L)
+        } else if (ttsReady) {
+            tts.speak(sentence.english, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-sentence-\${sentence.id}")
+        } else {
+            Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun renderListening(parent: LinearLayout) {
         when (listeningStage) {
             "intro" -> renderListeningIntro(parent)
@@ -2000,13 +2054,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(text("系统英语语音 · 演示模式", 11f, accent, true))
         c.addView(vSpace(9))
         c.addView(pillButton("▶  播放完整音频", true) {
-            if (ttsReady) {
-                val fullText = sentences.joinToString(" ") { it.english }
-                tts.setSpeechRate(1.0f)
-                tts.speak(fullText, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-blind-${System.currentTimeMillis()}")
-            } else {
-                Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
-            }
+            playListeningEpisode(episode)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         c.addView(vSpace(8))
         c.addView(pillButton("重新播放", false) {
@@ -2020,6 +2068,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(vSpace(13))
         c.addView(pillButton("我已完成初听，开始答题", true) {
             tts.stop()
+            pauseListeningAudio()
             listeningStage = "quiz"
             listeningQuestionIndex = 0
             listeningSelectedChoiceId = null
@@ -2029,6 +2078,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         c.addView(vSpace(5))
         c.addView(quietButton("退出课程") {
             tts.stop()
+            pauseListeningAudio()
             listeningStage = "home"
             renderPage()
         })
@@ -2149,8 +2199,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             header.addView(text("0${index + 1}".takeLast(2), 11f, accent, true))
             header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
             header.addView(quietButton("播放本句") {
-                if (ttsReady) tts.speak(sentence.english, TextToSpeech.QUEUE_FLUSH, Bundle(), "listening-sentence-${sentence.id}")
-                else Toast.makeText(this, ttsStatusMessage, Toast.LENGTH_SHORT).show()
+                playListeningSentence(episode, sentence)
             })
             sentenceCard.addView(header)
             sentenceCard.addView(vSpace(5))
