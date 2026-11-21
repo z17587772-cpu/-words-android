@@ -193,6 +193,14 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             )
         """.trimIndent())
         db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_daily_assignments (
+                assignment_date TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("""
             CREATE TABLE IF NOT EXISTS listening_attempts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 episode_id TEXT NOT NULL,
@@ -213,6 +221,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 is_correct INTEGER NOT NULL DEFAULT 0,
                 attempt_no INTEGER NOT NULL DEFAULT 1,
                 answered_at INTEGER NOT NULL,
+                UNIQUE(attempt_id, question_id, attempt_no),
                 FOREIGN KEY(attempt_id) REFERENCES listening_attempts(id) ON DELETE CASCADE,
                 FOREIGN KEY(question_id) REFERENCES listening_questions(id) ON DELETE CASCADE
             )
@@ -249,6 +258,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_questions_episode ON listening_questions(episode_id, ordinal)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempts_episode ON listening_attempts(episode_id, started_at)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_answers_attempt ON listening_answers(attempt_id, question_id)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_daily_episode ON listening_daily_assignments(episode_id)")
     }
 
     fun seedBuiltInPack(context: Context) {
