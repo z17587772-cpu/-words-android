@@ -16,14 +16,16 @@ class ListeningPlaybackCoordinator(
     private var durationMs: Long = 0L
 
     fun play(controller: MediaController, episode: ListeningEpisode, uri: String) {
-        val currentUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
-        if (currentUri != uri) checkpoint(controller)
+        val currentItem = controller.currentMediaItem
+        val currentUri = currentItem?.localConfiguration?.uri?.toString()
+        val sameEpisode = currentUri == uri && currentItem.mediaId == episode.id
+        if (!sameEpisode) checkpoint(controller)
 
         episodeId = episode.id
         mediaUri = uri
         durationMs = episode.durationMs
 
-        if (currentUri != uri) {
+        if (!sameEpisode) {
             val saved = repository.getPlayback(episode.id)
             val savedPosition = saved?.positionMs ?: 0L
             val restorePosition = if (episode.durationMs > 0L &&
