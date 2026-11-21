@@ -372,6 +372,24 @@ jobs:
           disable-spellchecker: true
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
+      - name: Restore optional persistent APK signing key
+        if: ${{ secrets.WORDS_SIGNING_KEYSTORE_BASE64 != '' }}
+        env:
+          WORDS_SIGNING_KEYSTORE_BASE64: ${{ secrets.WORDS_SIGNING_KEYSTORE_BASE64 }}
+          WORDS_SIGNING_STORE_PASSWORD: ${{ secrets.WORDS_SIGNING_STORE_PASSWORD }}
+          WORDS_SIGNING_KEY_ALIAS: ${{ secrets.WORDS_SIGNING_KEY_ALIAS }}
+          WORDS_SIGNING_KEY_PASSWORD: ${{ secrets.WORDS_SIGNING_KEY_PASSWORD }}
+        run: |
+          test -n "$WORDS_SIGNING_STORE_PASSWORD"
+          test -n "$WORDS_SIGNING_KEY_ALIAS"
+          test -n "$WORDS_SIGNING_KEY_PASSWORD"
+          echo "$WORDS_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/words-signing.jks"
+          chmod 600 "$RUNNER_TEMP/words-signing.jks"
+          echo "WORDS_SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/words-signing.jks" >> "$GITHUB_ENV"
+          echo "WORDS_SIGNING_STORE_PASSWORD=$WORDS_SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "WORDS_SIGNING_KEY_ALIAS=$WORDS_SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "WORDS_SIGNING_KEY_PASSWORD=$WORDS_SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
+
       - name: Build debug APK after all validation gates pass
         run: gradle --no-daemon --stacktrace :app:assembleDebug
         working-directory: android
