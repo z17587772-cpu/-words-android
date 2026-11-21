@@ -296,14 +296,15 @@ class ListeningResourceDownloadWorker(
         val candidate = repository.getDownloadCandidate(id) ?: return Result.failure()
         if (candidate.rightsStatus != "cleared" ||
             !candidate.allowedActions.contains("offline_download") ||
+            candidate.status !in setOf("queued", "downloading") ||
             candidate.expectedSizeBytes !in 1L..MAX_FILE_BYTES ||
             candidate.mimeType != "audio/mpeg"
         ) return Result.failure()
 
         val root = File(applicationContext.filesDir, "listening-library")
         if (!root.exists() && !root.mkdirs()) return Result.retry()
-        val finalFile = File(root, "$id.mp3")
         val temporary = File(root, ".$id-${System.currentTimeMillis()}.part")
+        var installedFile: File? = null
         repository.updateDownloadStatus(id, "downloading")
         return try {
             val digest = MessageDigest.getInstance("SHA-256")
@@ -333,6 +334,7 @@ class ListeningResourceDownloadWorker(
             }
             require(total == candidate.expectedSizeBytes) { "Audio size differs from provider metadata" }
             val hash = digest.digest().joinToString("") { "%02x".format(it) }
+            val finalFile = File(root, "$id-$hash.mp3")
             val retriever = MediaMetadataRetriever()
             val duration = try {
                 retriever.setDataSource(temporary.absolutePath)
@@ -342,26 +344,23 @@ class ListeningResourceDownloadWorker(
             }
             require(duration > 0L) { "Downloaded audio is not a playable media file" }
             if (finalFile.exists()) {
-                val oldHash = sha256(finalFile)
-                if (oldHash == hash && finalFile.length() == total) {
-                    temporary.delete()
-                    repository.saveLocalFile(id, finalFile.absolutePath, hash, duration)
-                    return Result.success()
+                require(finalFile.length() == total && sha256(finalFile) == hash) {
+                    "Existing immutable audio revision is corrupt"
                 }
-                finalFile.delete()
-            }
-            try {
-                java.nio.file.Files.move(
-                    temporary.toPath(), finalFile.toPath(),
-                    java.nio.file.StandardCopyOption.ATOMIC_MOVE
-                )
-            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-                java.nio.file.Files.move(temporary.toPath(), finalFile.toPath())
+                temporary.delete()
+            } else {
+                try {
+                    java.nio.file.Files.move(temporary.toPath(), finalFile.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+                } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                    java.nio.file.Files.move(temporary.toPath(), finalFile.toPath())
+                }
+                installedFile = finalFile
             }
             require(finalFile.isFile && finalFile.length() == total && sha256(finalFile) == hash) {
                 "Published audio failed verification"
             }
             repository.saveLocalFile(id, finalFile.absolutePath, hash, duration)
+            installedFile = null
             Result.success()
         } catch (interrupted: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -369,6 +368,7 @@ class ListeningResourceDownloadWorker(
             Result.retry()
         } catch (error: Exception) {
             temporary.delete()
+            installedFile?.let { runCatching { it.delete() } }
             repository.updateDownloadStatus(id, "failed")
             if (error is java.io.IOException) Result.retry() else Result.failure()
         } finally {
