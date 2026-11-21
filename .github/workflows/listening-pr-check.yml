@@ -8,6 +8,13 @@ on:
       - '.github/workflows/listening-pr-check.yml'
       - 'wordbooks/**'
       - 'tools/**'
+  push:
+    branches: [feature/listening-mvp]
+    paths:
+      - 'android/**'
+      - '.github/workflows/listening-pr-check.yml'
+      - 'wordbooks/**'
+      - 'tools/**'
   workflow_dispatch:
 
 permissions:
@@ -359,4 +366,16 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
+
+      - name: Build debug APK after all validation gates pass
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        working-directory: android
+
+      - name: Upload validated debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: words-validated-debug-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
 
