@@ -40,7 +40,7 @@ Rights/provenance fields:
 - stable `source_id`, `source_title`, optional `source_url`;
 - `rights_holder`, `attribution`, `checked_at`;
 - stable `license_id`, `license_name`, optional `license_url`;
-- `allowed_actions` must explicitly include `in_app_playback`;
+- `allowed_actions` must explicitly include both `in_app_playback` and `offline_download`; imported course audio is stored locally for offline playback, so a streaming-only license is not eligible.
 - `territory` and optional `expires_at` (if present, later than `checked_at`).
 
 Sentence IDs and question IDs must be unique within their episode. Sentence ordinals are sequential; timestamps must satisfy `0 <= start < end <= duration` and be chronological. Each lesson must contain 3-8 questions. Every question must have a supported type, 2-6 distinct choices, exactly one correct choice, a non-empty explanation, and an evidence sentence ID that exists in the same episode.
@@ -79,8 +79,6 @@ Implemented:
 - Instrumentation tests for malformed manifests, unsafe paths, checksum mismatch, preservation of the previous destination file on failure, and archive traversal rejection.
 
 Not implemented yet:
-- Revision-safe database import and rollback.
-- WorkManager catalog sync, download progress, retry, and offline library UI.
 - WorkManager catalog sync, download progress, retry, and offline library UI.
 
 
