@@ -30,6 +30,22 @@ class InternetArchiveMetadataPolicyTest {
     }
 
     @Test
+    fun rejectsClearlyAdultOrExplicitMetadata() {
+        assertTrue(InternetArchiveMetadataPolicy.isAgeAppropriateAudio(
+            "A public-domain story", "An English short story for learners", JSONArray().put("Education")
+        ))
+        assertTrue(!InternetArchiveMetadataPolicy.isAgeAppropriateAudio(
+            "Erotica collection", "Audio stories", JSONArray()
+        ))
+        assertTrue(!InternetArchiveMetadataPolicy.isAgeAppropriateAudio(
+            "A recording", "Explicit sexual content", JSONArray()
+        ))
+        assertTrue(!InternetArchiveMetadataPolicy.isAgeAppropriateAudio(
+            "An item", "For adult-only audiences", JSONArray()
+        ))
+    }
+
+    @Test
     fun recognizesEnglishLanguageStringsAndArraysOnly() {
         assertTrue(InternetArchiveMetadataPolicy.isEnglish("English"))
         assertTrue(InternetArchiveMetadataPolicy.isEnglish("eng"))
