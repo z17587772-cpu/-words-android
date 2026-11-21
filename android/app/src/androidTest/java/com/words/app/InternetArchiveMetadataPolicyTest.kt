@@ -3,6 +3,7 @@ package com.words.app
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,6 +11,24 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class InternetArchiveMetadataPolicyTest {
+    @Test
+    fun storageAccountingIncludesOrphansAndPartialFilesButOnlyInsideLibraryRoot() {
+        val parent = java.nio.file.Files.createTempDirectory("words-storage-test").toFile()
+        val root = java.io.File(parent, "listening-library").apply { mkdirs() }
+        try {
+            java.io.File(root, "downloaded.mp3").writeBytes(ByteArray(120))
+            java.io.File(root, "orphan.mp3").writeBytes(ByteArray(35))
+            java.io.File(root, "interrupted.part").writeBytes(ByteArray(15))
+            val outside = java.io.File(parent, "outside.mp3").apply { writeBytes(ByteArray(500)) }
+
+            assertEquals(170L, ListeningStorageAccounting.diskUsage(root))
+            assertFalse(ListeningStorageAccounting.diskUsage(java.io.File(parent, "missing")) > 0L)
+            outside.delete()
+        } finally {
+            parent.deleteRecursively()
+        }
+    }
+
     @Test
     fun allowsOnlyExplicitApprovedCreativeCommonsLicenses() {
         assertEquals(
