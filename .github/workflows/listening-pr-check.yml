@@ -177,6 +177,23 @@ jobs:
           print("Package validation, audio integrity, background playback, emulator fallback and no-APK PR boundaries passed.")
           PY
 
+      - name: Compile app and instrumentation sources without packaging an APK
+        run: cd android && gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin
+
+      - name: Enable KVM or prepare emulator TCG fallback
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+          fi
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "ANDROID_I_WANT_MY_TCG=yes" >> "$GITHUB_ENV"
+            echo "KVM unavailable; explicitly enabling supported TCG fallback."
+          else
+            echo "KVM is available; emulator will use hardware acceleration."
+          fi
+
       - name: Run database migration tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         env:
