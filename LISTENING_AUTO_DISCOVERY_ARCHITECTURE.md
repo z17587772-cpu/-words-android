@@ -124,7 +124,8 @@ Exit: network interruption, process death, duplicate broadcasts, bad checksum an
 
 ### D3 — Discovered-library UI/player
 - [x] Add separate “自动发现资源库” list with source, attribution, duration and download state.
-- [ ] Add search/filter/favorites/downloaded-only controls.
+- [x] Add downloaded-only and favorites filters.
+- [ ] Add title/source text search.
 - [x] Play downloaded resources offline and resume saved position/speed.
 - [x] Display source and license attribution.
 - [x] Clearly distinguish raw recordings from formal courses.
@@ -148,5 +149,5 @@ Exit: only complete, reviewed lessons become eligible for daily assignment.
 
 ## 8. Explicitly not considered complete
 
-The Python LibriVox worker remains a metadata-only GitHub Actions harvester. An initial Android LibriVox metadata adapter now runs inside the app and saves normalized candidate records to SQLite. This is only the discovery/indexing foundation: it does not yet download audio, unpack tracks, expose a resource-library UI or play raw resources. The signed-catalog worker remains a separate fixed-endpoint course distribution lane.
+The Python LibriVox worker remains a metadata-only GitHub Actions harvester. The Android LibriVox adapter remains metadata-only and rights-quarantined. The Internet Archive adapter now performs item-level CC license filtering, downloads a bounded MP3 track per item, verifies it and publishes it to a separate local library. The listening screen can list, filter, favorite and play downloaded raw resources offline. This is not yet a complete course-authoring pipeline: transcript acquisition, sentence alignment, Chinese translation, level tagging and question authoring still require separate processing and QA. The signed-catalog worker remains a separate fixed-endpoint course distribution lane.
 
