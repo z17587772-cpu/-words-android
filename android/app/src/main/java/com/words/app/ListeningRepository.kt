@@ -4,6 +4,18 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import java.time.LocalDate
 
+data class ListeningAttemptProgress(
+    val id: Long,
+    val episodeId: String,
+    val stage: String,
+    val isCompleted: Boolean
+)
+
+data class ListeningAttemptAnswer(
+    val selectedChoiceId: Long?,
+    val isCorrect: Boolean
+)
+
 class ListeningRepository(private val helper: WordsDatabase) {
     private val database: SQLiteDatabase
         get() = helper.writableDatabase
@@ -574,6 +586,48 @@ class ListeningRepository(private val helper: WordsDatabase) {
         } finally {
             db.endTransaction()
         }
+    }
+
+    fun getAttemptProgress(attemptId: Long): ListeningAttemptProgress? =
+        helper.readableDatabase.rawQuery(
+            "SELECT id,episode_id,stage,completed_at FROM listening_attempts WHERE id=? LIMIT 1",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else ListeningAttemptProgress(
+                id = cursor.getLong(0),
+                episodeId = cursor.getString(1),
+                stage = cursor.getString(2),
+                isCompleted = !cursor.isNull(3)
+            )
+        }
+
+    fun getAttemptAnswer(attemptId: Long, questionId: String): ListeningAttemptAnswer? =
+        helper.readableDatabase.rawQuery(
+            """SELECT selected_choice_id,is_correct FROM listening_answers
+               WHERE attempt_id=? AND question_id=? AND attempt_no=1 LIMIT 1""",
+            arrayOf(attemptId.toString(), questionId)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else ListeningAttemptAnswer(
+                selectedChoiceId = if (cursor.isNull(0)) null else cursor.getLong(0),
+                isCorrect = cursor.getInt(1) == 1
+            )
+        }
+
+    fun getAttemptCorrectCount(attemptId: Long): Int =
+        helper.readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM listening_answers WHERE attempt_id=? AND attempt_no=1 AND is_correct=1",
+            arrayOf(attemptId.toString())
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else 0 }
+
+    fun updateAttemptStage(attemptId: Long, stage: String) {
+        require(stage == "blind" || stage == "quiz") { "Unsupported in-progress listening stage" }
+        val updated = database.update(
+            "listening_attempts",
+            ContentValues().apply { put("stage", stage) },
+            "id=? AND completed_at IS NULL",
+            arrayOf(attemptId.toString())
+        )
+        require(updated == 1) { "Attempt is missing or already completed" }
     }
 
     fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean {
