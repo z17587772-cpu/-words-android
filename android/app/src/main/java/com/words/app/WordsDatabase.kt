@@ -422,6 +422,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 audio_url=(SELECT audio_url FROM listening_episodes e WHERE e.id=episode_id),
                 is_demo=COALESCE((SELECT is_demo FROM listening_episodes e WHERE e.id=episode_id),0),
                 updated_at=COALESCE((SELECT updated_at FROM listening_episodes e WHERE e.id=episode_id),0)
+            WHERE title='' OR updated_at=0
         """.trimIndent())
     }
 
