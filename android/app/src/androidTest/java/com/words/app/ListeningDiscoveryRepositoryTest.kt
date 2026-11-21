@@ -73,6 +73,7 @@ class ListeningDiscoveryRepositoryTest {
         assertEquals("downloaded", row[2])
         assertEquals("1", row[3])
         assertEquals("/private/example.mp3", row[4])
+        repository.saveProviderState(ListeningProviderState("librivox", cursorJson = """{"since":123}""", lastSuccessAt = 300L))
         assertNotNull(repository.getProviderState("librivox"))
         helper.close()
     }
