@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 9) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 10) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -129,6 +129,10 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 )
                 WHERE content_revision_id IS NULL OR content_revision_id=''
             """.trimIndent())
+        }
+        if (oldVersion < 10) {
+            ensureRevisionMetadataColumns(db)
+            backfillRevisionMetadata(db)
         }
     }
 
@@ -304,6 +308,16 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 revision_id TEXT PRIMARY KEY,
                 episode_id TEXT NOT NULL,
                 revision_hash TEXT NOT NULL,
+                title TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT '',
+                category TEXT NOT NULL DEFAULT '',
+                level TEXT NOT NULL DEFAULT 'L1',
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                accent TEXT NOT NULL DEFAULT '',
+                speech_rate REAL NOT NULL DEFAULT 1.0,
+                audio_url TEXT,
+                is_demo INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL,
                 FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE,
                 UNIQUE(episode_id, revision_id)
@@ -371,6 +385,46 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (hasTable(db, "listening_attempts")) db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempt_revision ON listening_attempts(content_revision_id)")
     }
 
+
+    private fun ensureRevisionMetadataColumns(db: SQLiteDatabase) {
+        val columns = listOf(
+            "title TEXT NOT NULL DEFAULT ''",
+            "description TEXT NOT NULL DEFAULT ''",
+            "category TEXT NOT NULL DEFAULT ''",
+            "level TEXT NOT NULL DEFAULT 'L1'",
+            "duration_ms INTEGER NOT NULL DEFAULT 0",
+            "accent TEXT NOT NULL DEFAULT ''",
+            "speech_rate REAL NOT NULL DEFAULT 1.0",
+            "audio_url TEXT",
+            "is_demo INTEGER NOT NULL DEFAULT 0",
+            "updated_at INTEGER NOT NULL DEFAULT 0"
+        )
+        columns.forEach { definition ->
+            val name = definition.substringBefore(' ')
+            if (!hasColumn(db, "listening_episode_revisions", name)) {
+                db.execSQL("ALTER TABLE listening_episode_revisions ADD COLUMN $definition")
+            }
+        }
+    }
+
+    private fun backfillRevisionMetadata(db: SQLiteDatabase) {
+        if (!hasTable(db, "listening_episodes") || !hasTable(db, "listening_episode_revisions") ||
+            !hasColumn(db, "listening_episodes", "updated_at")) return
+        db.execSQL("""
+            UPDATE listening_episode_revisions
+            SET title=COALESCE((SELECT title FROM listening_episodes e WHERE e.id=episode_id),''),
+                description=COALESCE((SELECT description FROM listening_episodes e WHERE e.id=episode_id),''),
+                category=COALESCE((SELECT category FROM listening_episodes e WHERE e.id=episode_id),''),
+                level=COALESCE((SELECT level FROM listening_episodes e WHERE e.id=episode_id),'L1'),
+                duration_ms=COALESCE((SELECT duration_ms FROM listening_episodes e WHERE e.id=episode_id),0),
+                accent=COALESCE((SELECT accent FROM listening_episodes e WHERE e.id=episode_id),''),
+                speech_rate=COALESCE((SELECT speech_rate FROM listening_episodes e WHERE e.id=episode_id),1.0),
+                audio_url=(SELECT audio_url FROM listening_episodes e WHERE e.id=episode_id),
+                is_demo=COALESCE((SELECT is_demo FROM listening_episodes e WHERE e.id=episode_id),0),
+                updated_at=COALESCE((SELECT updated_at FROM listening_episodes e WHERE e.id=episode_id),0)
+        """.trimIndent())
+    }
+
     private fun migrateLegacyListeningRevisions(db: SQLiteDatabase) {
         // Some historical test/partial databases contain only a playback stub.
         // Real v6/v7 installs have the full listening schema; never make an
@@ -382,8 +436,12 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             !hasTable(db, "listening_attempts")) return
 
         db.execSQL("""
-            INSERT OR IGNORE INTO listening_episode_revisions(revision_id, episode_id, revision_hash, created_at)
-            SELECT 'legacy:' || id || ':' || updated_at, id, 'legacy-v7', updated_at
+            INSERT OR IGNORE INTO listening_episode_revisions(
+                revision_id,episode_id,revision_hash,title,description,category,level,duration_ms,
+                accent,speech_rate,audio_url,is_demo,updated_at,created_at
+            )
+            SELECT 'legacy:' || id || ':' || updated_at,id,'legacy-v7',title,description,category,level,
+                   duration_ms,accent,speech_rate,audio_url,is_demo,updated_at,updated_at
             FROM listening_episodes
         """.trimIndent())
         db.execSQL("""
