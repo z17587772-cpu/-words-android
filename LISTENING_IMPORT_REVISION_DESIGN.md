@@ -229,3 +229,8 @@ The home and intro screens resolve daily lesson metadata from the daily assignme
 
 
 The importer checks free space before durable audio installation: total declared audio bytes plus a 64 MiB reserve must be available. A storage failure is raised before any revision audio is published.
+
+
+## 2026-11-21 — Idempotency integrity follow-up
+
+Same-version/same-digest import is not considered intact merely because the package registry matches and row counts are unchanged. The importer now verifies revision hash and metadata, package ownership/current pointer, approved non-demo status, audio path confinement and checksum, plus every immutable sentence, question, evidence link and choice field against the validated manifest. A regression test mutates an installed question prompt, requires the repeated import to reject the damaged snapshot, then restores the row and confirms normal idempotency. Android runtime execution remains pending.
