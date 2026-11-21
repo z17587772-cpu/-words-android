@@ -23,13 +23,13 @@ data class ListeningAssignmentHistory(
 object ListeningDailyPlanner {
     fun choose(
         candidates: List<ListeningEpisode>,
-        recentHistory: List<ListeningAssignmentHistory>,
+        assignmentHistory: List<ListeningAssignmentHistory>,
         assignmentDate: String
     ): ListeningEpisode? {
         if (candidates.isEmpty()) return null
 
-        val historyById = recentHistory.associateBy { it.episodeId }
-        val categoryCounts = recentHistory.groupingBy { it.category }
+        val historyById = assignmentHistory.associateBy { it.episodeId }
+        val categoryCounts = assignmentHistory.groupingBy { it.category }
             .fold(0) { total, item -> total + item.assignmentCount }
         val accentCounts = recentHistory.groupingBy { it.accent.lowercase() }
             .fold(0) { total, item -> total + item.assignmentCount }
