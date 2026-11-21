@@ -356,6 +356,25 @@ class WordsDatabaseMigrationTest {
         try {
             val first = importer.importArchive(archiveFile, nowMs)
             assertTrue(first is ListeningPackageImportResult.Installed)
+
+            assertEquals(1, scalar(helper.readableDatabase,
+                "SELECT COUNT(*) FROM listening_revision_questions WHERE prompt='What is the main idea?'"))
+            helper.writableDatabase.execSQL(
+                """UPDATE listening_revision_questions SET prompt='tampered prompt'
+                   WHERE revision_id=(SELECT current_revision_id FROM listening_episodes WHERE id='lesson-01')
+                     AND ordinal=1"""
+            )
+            try {
+                importer.importArchive(archiveFile, nowMs)
+                throw AssertionError("Idempotent import accepted a tampered immutable question snapshot")
+            } catch (_: IllegalArgumentException) {
+                // A matching archive digest is not enough when installed rows have changed.
+            }
+            helper.writableDatabase.execSQL(
+                """UPDATE listening_revision_questions SET prompt='What is the main idea?'
+                   WHERE revision_id=(SELECT current_revision_id FROM listening_episodes WHERE id='lesson-01')
+                     AND ordinal=1"""
+            )
             assertTrue(importer.importArchive(archiveFile, nowMs) is ListeningPackageImportResult.AlreadyInstalled)
 
             val episodeId = "lesson-01"
