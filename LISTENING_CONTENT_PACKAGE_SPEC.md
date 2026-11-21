@@ -43,7 +43,7 @@ Rights/provenance fields:
 - `allowed_actions` must explicitly include `in_app_playback`;
 - `territory` and optional `expires_at` (if present, later than `checked_at`).
 
-Sentence IDs and question IDs must be unique within their episode. Sentence ordinals are sequential; timestamps must satisfy `0 <= start < end <= duration` and be chronological. Every question must have a supported type, 2-6 distinct choices, exactly one correct choice, a non-empty explanation, and an evidence sentence ID that exists in the same episode.
+Sentence IDs and question IDs must be unique within their episode. Sentence ordinals are sequential; timestamps must satisfy `0 <= start < end <= duration` and be chronological. Each lesson must contain 3-8 questions. Every question must have a supported type, 2-6 distinct choices, exactly one correct choice, a non-empty explanation, and an evidence sentence ID that exists in the same episode.
 
 ## Import transaction design
 
