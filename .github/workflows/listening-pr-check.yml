@@ -8,6 +8,9 @@ on:
       - '.github/workflows/listening-pr-check.yml'
       - 'wordbooks/**'
       - 'tools/**'
+      - 'README.md'
+      - 'android/PROJECT_STATUS.txt'
+      - 'LISTENING_*.md'
   push:
     branches: [feature/listening-mvp]
     paths:
@@ -15,6 +18,9 @@ on:
       - '.github/workflows/listening-pr-check.yml'
       - 'wordbooks/**'
       - 'tools/**'
+      - 'README.md'
+      - 'android/PROJECT_STATUS.txt'
+      - 'LISTENING_*.md'
   workflow_dispatch:
 
 permissions:
