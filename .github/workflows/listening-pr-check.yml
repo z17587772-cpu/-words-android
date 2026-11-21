@@ -71,6 +71,21 @@ jobs:
           print(f"Validated {len(packs)} bundled wordbooks.")
           PY
 
+      - name: Verify blind-listening answer-key boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          models = Path("android/app/src/main/java/com/words/app/ListeningModels.kt").read_text(encoding="utf-8")
+          repository = Path("android/app/src/main/java/com/words/app/ListeningRepository.kt").read_text(encoding="utf-8")
+          activity = Path("android/app/src/main/java/com/words/app/MainActivity.kt").read_text(encoding="utf-8")
+          option = models.split("data class ListeningOption(", 1)[1].split(")", 1)[0]
+          assert "isCorrect" not in option, "UI option model must not expose answer correctness"
+          assert '"SELECT id,content,is_correct FROM listening_choices' not in repository, "Option query leaks answer key"
+          assert "option.isCorrect" not in activity and "selected.isCorrect" not in activity, "Activity must not inspect answer keys"
+          assert "fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean" in repository
+          print("Blind-listening answer-key boundary checks passed.")
+          PY
+
       - name: Build Android debug APK
         run: gradle --no-daemon --stacktrace clean assembleDebug
         working-directory: android
