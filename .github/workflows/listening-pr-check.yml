@@ -83,7 +83,9 @@ jobs:
           assert '"SELECT id,content,is_correct FROM listening_choices' not in repository, "Option query leaks answer key"
           assert "option.isCorrect" not in activity and "selected.isCorrect" not in activity, "Activity must not inspect answer keys"
           assert "fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean" in repository
-          print("Blind-listening answer-key boundary checks passed.")
+          seed = repository.split("fun ensureDemoSeeded()", 1)[1].split("fun getTodayEpisodeId()", 1)[0]
+          assert "listening_daily_assignments" not in seed, "Demo content must not be written as a formal daily assignment"
+          print("Blind-listening answer-key and demo-assignment boundary checks passed.")
           PY
 
       - name: Build Android debug APK
