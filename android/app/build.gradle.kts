@@ -3,7 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val listeningCatalogUrl = providers.gradleProperty("LISTENING_CATALOG_URL").orNull.orEmpty()
+val listeningCatalogUrl = providers.gradleProperty("LISTENING_CATALOG_URL").orNull
+    ?: "https://raw.githubusercontent.com/z17587772-cpu/-words-android/content-inbox/catalog/catalog.json"
 val listeningCatalogPublicKey = providers.gradleProperty("LISTENING_CATALOG_PUBLIC_KEY").orNull.orEmpty()
 fun buildConfigString(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "") + "\""
