@@ -645,3 +645,12 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [ ] No Actions run is associated with the current head yet. Python tests, full Android Gradle compilation, and emulator instrumentation are therefore not yet runtime-verified.
 - [ ] The scheduled discovery worker will begin running only after this workflow is present on the repository's default branch. The current Draft PR has intentionally not been merged.
 - [ ] No approved production human-recorded course packages exist yet; metadata discovery is not course creation. Rights review, transcript/translation/question production, editorial QA, signed catalog publishing, and Android background sync remain production gates.
+
+
+## 30. Source suitability and distribution audit (2026-11-21)
+
+- [x] Added `LISTENING_SOURCE_EVALUATION.md` to distinguish source discovery, internal evaluation, in-app playback, offline download, redistribution, and educational packaging rights.
+- [x] Recorded the LibriVox API's 500-record cap, offset pagination, incremental `since` support, and several-second pacing requirement.
+- [x] Recorded that Mozilla Common Voice datasets are listed as CC0 but current legal terms make datasets available exclusively through Mozilla Data Collective and ask users not to mirror or redistribute them elsewhere; do not bundle its audio into app courses under those terms.
+- [x] Clarified that short ASR speech clips are not complete 5–10 minute learning courses and cannot bypass transcript, translation, question, evidence, rights, and editorial gates.
+- [ ] Evaluate only coherent long-form sources with explicit redistribution rights for intended territories, or commissioned recordings with documented contributor releases.
