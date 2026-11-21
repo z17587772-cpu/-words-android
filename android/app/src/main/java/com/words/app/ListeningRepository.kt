@@ -340,12 +340,12 @@ class ListeningRepository(private val helper: WordsDatabase) {
                           WHERE latest.episode_id=e.id
                           ORDER BY latest.assignment_date DESC LIMIT 1
                       ),e.accent),
-                      COUNT(*),MAX(d.assignment_date)
+                      COUNT(*)
                FROM listening_daily_assignments d
                JOIN listening_episodes e ON e.id=d.episode_id
                WHERE d.assignment_date<>?
                GROUP BY e.id
-               ORDER BY MAX(d.assignment_date) DESC""",
+               ORDER BY e.id""",
             arrayOf(excludingDate)
         ).use { cursor ->
             buildList {
