@@ -290,16 +290,6 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
             arrayOf(resourceId, path)
         ) == 1
 
-    fun getReferencedLocalPaths(): Set<String> =
-        helper.readableDatabase.rawQuery(
-            "SELECT DISTINCT local_file_path FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>''",
-            null
-        ).use { c ->
-            buildSet {
-                while (c.moveToNext()) add(c.getString(0))
-            }
-        }
-
     fun downloadedStorageBytes(): Long =
         helper.readableDatabase.rawQuery(
             "SELECT COALESCE(SUM(file_size),0) FROM (SELECT MAX(expected_size_bytes) AS file_size FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>'' GROUP BY local_file_path)",
