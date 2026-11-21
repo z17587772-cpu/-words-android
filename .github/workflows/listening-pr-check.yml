@@ -18,8 +18,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-debug-apk:
-    name: Compile listening branch and package debug APK
+  listening-validation:
+    name: Validate listening module and database migrations
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -89,14 +89,3 @@ jobs:
           profile: pixel_2
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
-      - name: Build Android debug APK
-        run: gradle --no-daemon --stacktrace clean assembleDebug
-        working-directory: android
-
-      - name: Upload PR debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: words-listening-pr-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
