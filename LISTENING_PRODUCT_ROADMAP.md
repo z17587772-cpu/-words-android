@@ -417,3 +417,70 @@ Research links:
 - LibriVox API: https://librivox.org/api/info
 - LibriVox API update and polite polling guidance: https://librivox.org/2026/09/16/librivox-api-update/
 - LibriVox public-domain / territorial notice: https://librivox.org/pages/public-domain/
+
+
+## 20. New-content-first supply — product correction and long-term operating model
+
+**Important correction:** a lifetime rotation algorithm is not a content-supply system. Reassigning an old episode is review, never a new lesson. The previous local rotation remains useful only as an offline/review fallback; it must not be presented as a way to create fresh daily content.
+
+### Learner-facing rules
+
+1. Every episode has an immutable identity and a learner state: unseen, started, completed, or review-due.
+2. The daily "new lesson" slot selects only approved episodes the learner has never started. A completed or previously started episode must never be relabelled as new.
+3. New approved episodes are inserted into the unseen queue immediately, ahead of any repeat. Do not wait for the current catalog pass to finish.
+4. Repeats belong in a separately labelled review queue, selected by learning need and spaced-repetition timing. They do not consume the new-lesson slot.
+5. If there is no unseen approved episode available, say so honestly and offer a review lesson; do not silently recycle an old episode as today's new lesson.
+6. A package revision with changed audio/transcript/questions is not automatically a new lesson. It is a new revision of the same lesson unless editorial review confirms that it is materially distinct and assigns a new episode identity.
+7. Deduplicate across providers using provider/source IDs, normalized transcript fingerprints, and audio fingerprints/segment boundaries. Re-uploading, re-encoding, or slightly re-slicing the same recording must not inflate the new-lesson count.
+
+### Continuous publisher pipeline
+
+Run a separate content-publisher service on a schedule (daily metadata discovery; batch processing and publication several times per week). Do not put this workload inside the Android app.
+
+1. **Discover:** poll source catalogs incrementally (for example, LibriVox `since` cursor); check versioned dataset releases (for example, Common Voice Spontaneous Speech); persist source cursor, provider ID, discovery time and source metadata.
+2. **Rights gate:** record the exact source license/version, attribution, allowed redistribution/offline actions, territory and any restrictions before downloading or processing audio. Unknown, non-commercial-only, research-only, or unclear redistribution rights go to quarantine, never production.
+3. **Acquire and normalize:** download only eligible source assets; keep original provenance; normalize audio into app-supported formats without changing the source identity; create stable segments with explicit source offsets.
+4. **Transcribe and align:** use supplied human-checked transcripts when available; otherwise generate a draft transcript and word/sentence timing, then run audio-to-text alignment. Automated output is provisional, not proof of correctness.
+5. **Create the lesson:** prepare reviewed English transcript, Chinese translation, level/topic/accent metadata, learning objectives, evidence-linked comprehension questions, distractors, explanations, and 5–10 vocabulary items. Keep the original recording human-recorded; TTS may assist internal testing only.
+6. **Quality gates:** validate audio decodability/duration/loudness, transcript coverage and alignment, sentence timing, translation completeness, answer-key evidence, question uniqueness, level suitability, duplicate fingerprints, attribution and offline rights. Any failure blocks publication.
+7. **Editorial approval:** maintain a review queue and audit trail. Human approval is required for the initial production pipeline; later, only narrowly defined low-risk transformations may be auto-approved after measured error rates and rollback controls justify it.
+8. **Package and publish:** produce immutable versioned ZIP packages, calculate exact byte size and SHA-256, publish a signed catalog index, and retain prior catalog versions for rollback. Never replace bytes behind an existing package version.
+9. **Observe and replenish:** track candidate → rights-cleared → processed → QA-passed → approved → published counts, failures, source freshness, and unseen-library runway. Alert when the unseen backlog falls below its configured floor.
+
+### Supply targets and operational reality
+
+- Initial launch target remains 30 days of daily new lessons plus 60 separate review/extra episodes, subject to rights and QA.
+- Long-term target: publish at least 7 approved new lessons per week to sustain one new daily lesson; aim for 10–20 per week to build a buffer and support varied levels/topics.
+- Maintain a rolling minimum of 30 days of unseen approved content. Pause or reduce low-quality publication rather than lowering rights or educational standards.
+- A source API or public dataset does not guarantee a fixed number of suitable new lessons every day. The service must monitor source yield and maintain a prepared backlog. If supply drops, the app must be transparent instead of pretending old material is new.
+- GitHub Actions can validate manifests, run tests and publish a static catalog as an initial low-cost deployment. It should not be the only durable scheduler or state store: source cursors, editorial review state, retries, monitoring and backup need persistent storage and operational ownership. The publisher should be deployable independently from the Android app and APK.
+- The app checks for catalog updates periodically when network constraints allow, but learning never depends on the publisher being online. Downloaded approved content remains available offline.
+
+### Source strategy
+
+- **Common Voice Spontaneous Speech:** primary candidate for natural conversational clips; the upstream project describes open-ended unscripted recordings and CC0 audio. Pin each dataset release and retain contributor/source metadata; it still needs educational curation.
+- **LibriVox:** incremental discovery source for human-read public-domain literature. Use the API's `since` cursor and polite pagination. Do not infer worldwide rights from its US public-domain status; each work needs territory-specific review.
+- **LibriSpeech / OpenSLR SLR12:** starter reservoir for read-speech listening and sentence-level practice, not a substitute for spontaneous conversation.
+- **The People's Speech and other large corpora:** candidate discovery only until exact per-subset audio and redistribution terms are verified. Repository/code license and dataset/audio license must be treated separately.
+- **RSS, podcasts, TED/video platforms and ordinary web audio:** metadata discovery does not grant audio download, offline redistribution or derivative-course rights. Exclude from production unless the specific recording has explicit compatible rights or a direct license.
+
+### Architecture boundaries
+
+- Publisher owns source connectors, rights ledger, editorial queue, media processing, lesson QA, package generation and signing.
+- Static catalog/object storage owns signed manifests and immutable packages; no user-specific progress belongs there.
+- Android owns local catalog cache, signature verification, downloads, package installation and learner progress. Use the existing revision-safe importer; large transfers use DownloadManager and durable post-download installation uses WorkManager.
+- The app must verify catalog signature, package ID/version, HTTPS location, exact size and SHA-256 before import. A manifest's self-declared license is not cryptographic proof of rights.
+- Keep new-lesson selection separate from review selection in repository APIs and UI models. Add regression tests proving that a completed episode cannot re-enter the new queue and that a newly published episode is selected before any repeat.
+
+### Implementation order
+
+1. Add explicit unseen/new versus review-due states and tests to the local repository/planner.
+2. Define source provenance, rights ledger and publisher candidate schemas.
+3. Implement Common Voice release discovery and LibriVox incremental discovery as isolated publisher connectors; do not download unrestricted corpora wholesale.
+4. Build a durable editorial queue and processing/QA pipeline; start with a small controlled batch.
+5. Generate immutable signed catalogs and course packages; add catalog signature verification on Android.
+6. Implement periodic catalog refresh, DownloadManager transfer, WorkManager installation/reconciliation and storage policy.
+7. Add monitoring for source yield, publishing cadence, unseen backlog runway and failed jobs.
+8. Only then enable unattended scheduled publishing. Keep APK packaging paused until the rest of the product is ready.
+
+This section supersedes any interpretation of the earlier "whole-catalog rotation" as a way to provide fresh daily content. Rotation is a fallback for review/offline continuity; continuous new lessons require the independent publisher pipeline above.
