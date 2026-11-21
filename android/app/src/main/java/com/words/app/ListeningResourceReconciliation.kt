@@ -49,7 +49,7 @@ class ListeningResourceReconcileWorker(
         val repository = ListeningDiscoveryRepository(helper)
         return try {
             val root = File(applicationContext.filesDir, "listening-library")
-            if (!root.exists()) return Result.success()
+            if (!root.exists() && !root.mkdirs()) return Result.retry()
             val rootPrefix = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
             val referenced = linkedSetOf<String>()
             val downloaded = repository.listDownloadedLocalFiles()
