@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 10) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 11) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -80,6 +80,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         db.execSQL("CREATE INDEX idx_history_date ON history(rated_at)")
         createListeningTables(db)
         createListeningRevisionTables(db)
+        createListeningPackageTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -134,6 +135,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             ensureRevisionMetadataColumns(db)
             backfillRevisionMetadata(db)
         }
+        if (oldVersion < 11) createListeningPackageTables(db)
     }
 
     private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
@@ -385,6 +387,32 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (hasTable(db, "listening_attempts")) db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempt_revision ON listening_attempts(content_revision_id)")
     }
 
+
+
+    private fun createListeningPackageTables(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_content_packages (
+                package_id TEXT PRIMARY KEY,
+                package_version INTEGER NOT NULL CHECK(package_version > 0),
+                package_digest TEXT NOT NULL,
+                content_revision TEXT NOT NULL,
+                imported_at INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS listening_package_episodes (
+                package_id TEXT NOT NULL,
+                episode_id TEXT NOT NULL UNIQUE,
+                revision_id TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0,1)),
+                PRIMARY KEY(package_id, episode_id),
+                FOREIGN KEY(package_id) REFERENCES listening_content_packages(package_id) ON DELETE RESTRICT,
+                FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE RESTRICT,
+                FOREIGN KEY(revision_id) REFERENCES listening_episode_revisions(revision_id) ON DELETE RESTRICT
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_package_active ON listening_package_episodes(package_id,is_active)")
+    }
 
     private fun ensureRevisionMetadataColumns(db: SQLiteDatabase) {
         val columns = listOf(
