@@ -520,7 +520,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
 
             val result = db.rawQuery(
-                """SELECT COUNT(question.id),
+                """SELECT COUNT(question.question_id),
                           SUM(CASE WHEN answer.id IS NOT NULL THEN 1 ELSE 0 END),
                           SUM(CASE WHEN answer.is_correct=1 THEN 1 ELSE 0 END)
                    FROM listening_attempts attempt
