@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -44,15 +45,18 @@ class ListeningContentPackageImporter(
         require(appVersionCode > 0) { "appVersionCode must be positive" }
         require(nowMs > 0L) { "nowMs must be positive" }
 
-        val packageDigest = sha256(archive)
         require(stagingRoot.exists() || stagingRoot.mkdirs()) { "Cannot create package staging root" }
         val staging = File(stagingRoot, "import-${UUID.randomUUID()}")
+        require(staging.mkdirs()) { "Cannot create unique package staging directory" }
+        val archiveSnapshot = File(staging, "package.zip")
+        val extractedRoot = File(staging, "extracted")
+        val packageDigest = snapshotArchive(archive, archiveSnapshot)
         val newlyInstalledFiles = mutableListOf<File>()
         var databaseCommitted = false
 
         try {
-            val extracted = FileInputStream(archive).use { input ->
-                ListeningPackageArchive.extractSafely(input, staging)
+            val extracted = FileInputStream(archiveSnapshot).use { input ->
+                ListeningPackageArchive.extractSafely(input, extractedRoot)
             }
             require(extracted.manifestFile.length() in 2L..MAX_MANIFEST_BYTES) {
                 "Package manifest exceeds the supported size"
@@ -71,14 +75,14 @@ class ListeningContentPackageImporter(
             val declaredPaths = audioPaths.toSet()
             val extractedAudioPaths = extracted.files
                 .filter { it != extracted.manifestFile }
-                .map { it.relativeTo(staging).invariantSeparatorsPath }
+                .map { it.relativeTo(extractedRoot).invariantSeparatorsPath }
                 .toSet()
             require(extractedAudioPaths == declaredPaths) {
                 "Archive audio entries do not exactly match the manifest"
             }
 
             val audioSources = manifest.episodes.associate { episode ->
-                val file = ListeningAudioIntegrity.resolveUnderRoot(staging, episode.audio.path)
+                val file = ListeningAudioIntegrity.resolveUnderRoot(extractedRoot, episode.audio.path)
                 require(ListeningAudioIntegrity.verify(file, episode.audio)) {
                     "Audio verification failed for episode ${episode.id}"
                 }
@@ -583,16 +587,27 @@ class ListeningContentPackageImporter(
         else -> throw IllegalArgumentException("Unsupported audio MIME type: $mimeType")
     }
 
-    private fun sha256(file: File): String {
+    private fun snapshotArchive(source: File, destination: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        FileInputStream(file).use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                if (read > 0) digest.update(buffer, 0, read)
+        var copied = 0L
+        FileInputStream(source).use { input ->
+            FileOutputStream(destination).use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    if (read == 0) continue
+                    copied += read
+                    require(copied <= MAX_ARCHIVE_BYTES) {
+                        "Package archive exceeds the supported size while being copied"
+                    }
+                    digest.update(buffer, 0, read)
+                    output.write(buffer, 0, read)
+                }
+                output.fd.sync()
             }
         }
+        require(copied > 0L) { "Package archive is empty" }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
