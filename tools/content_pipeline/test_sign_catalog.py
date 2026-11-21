@@ -1,11 +1,14 @@
 import base64
+import hashlib
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 
-from sign_catalog import canonical_payload, sign_payload
+from sign_catalog import canonical_payload, sign_payload, validate_assets
 
 
 class CatalogSigningTests(unittest.TestCase):
@@ -51,6 +54,22 @@ class CatalogSigningTests(unittest.TestCase):
         self.catalog["packages"][0]["sha256"] = "not-a-digest"
         with self.assertRaisesRegex(ValueError, "sha256"):
             canonical_payload(self.catalog)
+
+    def test_publisher_checks_local_package_size_and_digest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            asset = root / "packages" / "lesson.zip"
+            asset.parent.mkdir(parents=True)
+            asset.write_bytes(b"verified package")
+            self.catalog["packages"][0].update({
+                "url": "https://raw.githubusercontent.com/z17587772-cpu/-words-android/content-inbox/packages/lesson.zip",
+                "size_bytes": asset.stat().st_size,
+                "sha256": hashlib.sha256(asset.read_bytes()).hexdigest(),
+            })
+            validate_assets(self.catalog, root)
+            asset.write_bytes(b"tampered package")
+            with self.assertRaisesRegex(ValueError, "size mismatch|SHA-256 mismatch"):
+                validate_assets(self.catalog, root)
 
 
 if __name__ == "__main__":
