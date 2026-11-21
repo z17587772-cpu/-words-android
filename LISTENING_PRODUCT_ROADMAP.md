@@ -328,3 +328,9 @@ A regression assertion covers recognition of both the old and new revision audio
 - Staging cleanup also covers archive-snapshot failures.
 
 Static source assertions and an independent SQLite schema/foreign-key simulation pass. Android Gradle compilation and instrumentation execution remain pending.
+
+
+## 16. Daily-assignment display and scroll continuity
+
+- Daily home and intro screens now resolve lesson metadata through the daily assignment's pinned revision, matching the revision that `startAttempt` will use even if the package catalog was updated after the assignment was created.
+- Ordinary quiz answer rerenders preserve the listening scroll offset; actual stage transitions intentionally reset to the top.
