@@ -2412,7 +2412,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     .build()
             )
             .build()
-        controller.setMediaItem(item, progress?.positionMs?.coerceAtLeast(0L) ?: 0L)
+        val resumePosition = progress?.positionMs?.coerceAtLeast(0L) ?: 0L
+        val safePosition = if (resource.durationMs > 0L && resumePosition >= resource.durationMs - 2_000L) 0L else resumePosition
+        controller.setMediaItem(item, safePosition)
         controller.prepare()
         controller.setPlaybackSpeed(progress?.speed?.coerceIn(0.5f, 2f) ?: 1f)
         controller.play()
