@@ -339,6 +339,9 @@ class WordsDatabaseMigrationTest {
             val assignmentDate = java.time.LocalDate.now().toString()
             assertEquals(episodeId, repository.assignDailyEpisode(assignmentDate, nowMs))
             val attemptId = repository.startAttempt(episodeId)
+            assertEquals("blind", repository.getAttemptProgress(attemptId)?.stage)
+            repository.updateAttemptStage(attemptId, "quiz")
+            assertEquals("quiz", repository.getAttemptProgress(attemptId)?.stage)
             val oldEpisode = repository.getEpisodeForAttempt(attemptId)!!
             val oldAudioUri = oldEpisode.audioUrl!!
             val oldAudioFile = java.io.File(java.net.URI(oldAudioUri))
@@ -349,7 +352,10 @@ class WordsDatabaseMigrationTest {
                 val correctChoice = repository.getCorrectChoiceId(attemptId, question.id)!!
                 assertTrue(repository.recordAnswer(attemptId, question.id, correctChoice))
             }
+            assertEquals(3, repository.getAttemptCorrectCount(attemptId))
+            assertTrue(repository.getAttemptAnswer(attemptId, originalQuestions.first().id)?.isCorrect == true)
             assertEquals(1.0f, repository.finishAttempt(attemptId), 0.001f)
+            assertTrue(repository.getAttemptProgress(attemptId)?.isCompleted == true)
 
             val audioV2 = ByteArray(1024) { 0x3B.toByte() }
             val digestV2 = java.security.MessageDigest.getInstance("SHA-256")
