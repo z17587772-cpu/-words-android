@@ -200,7 +200,7 @@ Instrumentation coverage now exercises package install, idempotency, version con
 ## 12. In-progress attempt recovery and interaction motion
 
 - `listening_attempts.stage` records the active stage (`blind` or `quiz`); completion sets it to `completed`.
-- The Activity persists an active attempt ID and the current unsubmitted choice in preferences. The answer table remains the source of truth for submitted choices.
+- The Activity persists an active attempt ID and the current unsubmitted choice in preferences. The answer table remains the source of truth for submitted choices. If the preferences pointer is absent after a process interruption, the latest unfinished attempt is recovered from SQLite; starting another lesson marks the previous unfinished attempt as abandoned so it cannot be resurrected later.
 - On restoration, the app loads the attempt's pinned revision, derives the first unanswered question from SQLite, restores a selected choice only if it belongs to that question, and recovers the correct count from persisted answers.
 - If every question was answered before the app was interrupted but the completion transaction had not yet run, restoration completes the attempt and opens review.
 - The user can resume the active unfinished lesson from the listening home screen. Dismissing a completed review clears only the resume pointer, not the historical attempt.
