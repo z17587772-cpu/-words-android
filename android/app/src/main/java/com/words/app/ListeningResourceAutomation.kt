@@ -308,9 +308,10 @@ class ListeningResourceDownloadWorker(
         return try {
             val digest = MessageDigest.getInstance("SHA-256")
             var total = 0L
-            val response = openMedia(candidate.mediaUrl)
-            response.first.use { input ->
-                FileOutputStream(temporary).use { output ->
+            val response = openMedia(candidate.mediaUrl, candidate.expectedSizeBytes)
+            try {
+                response.first.use { input ->
+                    FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(32 * 1024)
                     while (true) {
                         if (isStopped) throw InterruptedException("Download worker stopped")
@@ -324,8 +325,11 @@ class ListeningResourceDownloadWorker(
                         digest.update(buffer, 0, count)
                         output.write(buffer, 0, count)
                     }
-                    output.fd.sync()
+                        output.fd.sync()
+                    }
                 }
+            } finally {
+                response.second.disconnect()
             }
             require(total == candidate.expectedSizeBytes) { "Audio size differs from provider metadata" }
             val hash = digest.digest().joinToString("") { "%02x".format(it) }
@@ -372,7 +376,7 @@ class ListeningResourceDownloadWorker(
         }
     }
 
-    private fun openMedia(rawUrl: String): Pair<java.io.InputStream, HttpURLConnection> {
+    private fun openMedia(rawUrl: String, expectedSize: Long): Pair<java.io.InputStream, HttpURLConnection> {
         var current = URL(rawUrl)
         repeat(MAX_REDIRECTS + 1) { hop ->
             require(current.protocol.equals("https", true) && isArchiveHost(current.host)) {
@@ -384,7 +388,7 @@ class ListeningResourceDownloadWorker(
             connection.readTimeout = READ_TIMEOUT_MS
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.setRequestProperty("Accept", "audio/mpeg, application/octet-stream")
-            val code = connection.responseCode
+            val code = try { connection.responseCode } catch (error: Exception) { connection.disconnect(); throw error }
             if (code in 300..399) {
                 val location = connection.getHeaderField("Location") ?: throw java.io.IOException("Missing media redirect")
                 connection.disconnect()
@@ -394,14 +398,13 @@ class ListeningResourceDownloadWorker(
                 if (code == 429 || code in 500..599) throw java.io.IOException("Audio host temporarily returned HTTP $code")
                 require(code == 200) { "Audio host returned HTTP $code" }
                 val length = connection.getHeaderField("Content-Length")?.toLongOrNull()
-                if (length != null) require(length == candidateSizeGuard()) { "Audio Content-Length mismatch" }
+                if (length != null) require(length == expectedSize) { "Audio Content-Length mismatch" }
                 return connection.inputStream to connection
             }
         }
         throw java.io.IOException("Unable to open media URL")
     }
 
-    private fun candidateSizeGuard(): Long = inputData.getLong("expected_size", -1L).takeIf { it > 0L } ?: -1L
 
     private fun isArchiveHost(host: String): Boolean {
         val normalized = host.lowercase()
