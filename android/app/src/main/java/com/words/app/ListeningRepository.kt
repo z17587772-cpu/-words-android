@@ -263,6 +263,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
                  AND s.checked_at>0
                  AND TRIM(l.license_name)<>'' AND TRIM(l.territory)<>''
                  AND (',' || l.allowed_actions || ',') LIKE '%,in_app_playback,%'
+                 AND (',' || l.allowed_actions || ',') LIKE '%,offline_download,%'
                  AND (l.expires_at IS NULL OR l.expires_at>?)
                  AND EXISTS (
                      SELECT 1 FROM listening_revision_sentences ss
