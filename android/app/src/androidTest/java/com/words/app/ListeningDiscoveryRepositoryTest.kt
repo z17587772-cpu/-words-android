@@ -109,6 +109,13 @@ class ListeningDiscoveryRepositoryTest {
         repository.setPinned(id, false)
         helper.writableDatabase.update(
             "listening_discovered_resources",
+            ContentValues().apply { put("last_played_at", System.currentTimeMillis()) },
+            "id=?",
+            arrayOf(id)
+        )
+        assertFalse(repository.markLocalFileEvicted(id, "/private/example.mp3"))
+        helper.writableDatabase.update(
+            "listening_discovered_resources",
             ContentValues().apply {
                 put("last_played_at", System.currentTimeMillis() - 31L * 24L * 60L * 60L * 1000L)
             },
