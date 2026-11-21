@@ -71,7 +71,8 @@ class ListeningPlaybackCoordinator(
         val safeSpeed = speed.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: DEFAULT_SPEED
         val expectedUri = episode.audioUrl
         val currentUri = controller?.currentMediaItem?.localConfiguration?.uri?.toString()
-        if (controller != null && !expectedUri.isNullOrBlank() && currentUri == expectedUri && controller.currentMediaItem?.mediaId == episode.id) {
+        if (controller != null && !expectedUri.isNullOrBlank() && currentUri == expectedUri && controller.currentMediaItem?.mediaId == episode.id &&
+            episodeId == episode.id && episodeUpdatedAt == episode.updatedAt) {
             controller.setPlaybackSpeed(safeSpeed)
             checkpoint(controller)
         } else {
@@ -85,7 +86,7 @@ class ListeningPlaybackCoordinator(
         val expectedUri = mediaUri ?: return
         val currentItem = controller.currentMediaItem
         val actualUri = currentItem?.localConfiguration?.uri?.toString()
-        if (actualUri != expectedUri || currentItem.mediaId != id) return
+        if (currentItem == null || actualUri != expectedUri || currentItem.mediaId != id) return
 
         val position = controller.currentPosition.coerceAtLeast(0L)
         if (durationMs > 0L && position >= durationMs) return
