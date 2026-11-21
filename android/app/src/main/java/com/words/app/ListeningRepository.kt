@@ -193,15 +193,27 @@ class ListeningRepository(private val helper: WordsDatabase) {
 
     private fun getOptions(questionId: String): List<ListeningOption> =
         helper.readableDatabase.rawQuery(
-            "SELECT id,content,is_correct FROM listening_choices WHERE question_id=? ORDER BY ordinal",
+            "SELECT id,content FROM listening_choices WHERE question_id=? ORDER BY ordinal",
             arrayOf(questionId)
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(
-                    ListeningOption(cursor.getLong(0), cursor.getString(1), cursor.getInt(2) == 1)
+                    ListeningOption(cursor.getLong(0), cursor.getString(1))
                 )
             }
         }
+
+    private fun isCorrectChoice(questionId: String, choiceId: Long): Boolean =
+        helper.readableDatabase.rawQuery(
+            "SELECT is_correct FROM listening_choices WHERE question_id=? AND id=? LIMIT 1",
+            arrayOf(questionId, choiceId.toString())
+        ).use { cursor -> cursor.moveToFirst() && cursor.getInt(0) == 1 }
+
+    fun getCorrectChoiceId(questionId: String): Long? =
+        helper.readableDatabase.rawQuery(
+            "SELECT id FROM listening_choices WHERE question_id=? AND is_correct=1 LIMIT 1",
+            arrayOf(questionId)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
 
     fun startAttempt(episodeId: String): Long = database.insertOrThrow(
         "listening_attempts", null, ContentValues().apply {
@@ -211,7 +223,8 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     )
 
-    fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long, correct: Boolean) {
+    fun recordAnswer(attemptId: Long, questionId: String, choiceId: Long): Boolean {
+        val correct = isCorrectChoice(questionId, choiceId)
         database.insertWithOnConflict("listening_answers", null, ContentValues().apply {
             put("attempt_id", attemptId)
             put("question_id", questionId)
@@ -220,6 +233,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
             put("attempt_no", 1)
             put("answered_at", System.currentTimeMillis())
         }, SQLiteDatabase.CONFLICT_IGNORE)
+        return correct
     }
 
     fun finishAttempt(attemptId: Long, score: Float) {
