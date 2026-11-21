@@ -347,6 +347,32 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
     }
 
+    fun getSentencesForAttempt(attemptId: Long): List<ListeningSentence> {
+        val revisionId = helper.readableDatabase.rawQuery(
+            "SELECT content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            require(cursor.moveToFirst()) { "Attempt does not exist: $attemptId" }
+            require(!cursor.isNull(0)) { "Attempt has no pinned content revision" }
+            cursor.getString(0)
+        }
+        return helper.readableDatabase.rawQuery(
+            """SELECT sentence_id,episode_id,ordinal,start_ms,end_ms,english,chinese,pronunciation_note
+               FROM listening_revision_sentences WHERE revision_id=? ORDER BY ordinal""",
+            arrayOf(revisionId)
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(
+                    ListeningSentence(
+                        cursor.getString(0), cursor.getString(1), cursor.getInt(2),
+                        cursor.getLong(3), cursor.getLong(4), cursor.getString(5),
+                        cursor.getString(6), cursor.getString(7)
+                    )
+                )
+            }
+        }
+    }
+
     fun getQuestions(episodeId: String): List<ListeningQuestion> {
         val db = helper.writableDatabase
         val revisionId = ensureCurrentRevision(db, episodeId)
@@ -389,6 +415,50 @@ class ListeningRepository(private val helper: WordsDatabase) {
                 while (cursor.moveToNext()) add(ListeningOption(cursor.getLong(0), cursor.getString(1)))
             }
         }
+
+    fun getQuestionsForAttempt(attemptId: Long): List<ListeningQuestion> {
+        val attempt = helper.readableDatabase.rawQuery(
+            "SELECT episode_id,content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            require(cursor.moveToFirst()) { "Attempt does not exist: $attemptId" }
+            require(!cursor.isNull(1)) { "Attempt has no pinned content revision" }
+            cursor.getString(0) to cursor.getString(1)
+        }
+        val (episodeId, revisionId) = attempt
+        return helper.readableDatabase.rawQuery(
+            """SELECT question_id,episode_id,ordinal,question_type,prompt,explanation,evidence_sentence_id
+               FROM listening_revision_questions WHERE revision_id=? ORDER BY ordinal""",
+            arrayOf(revisionId)
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val questionId = cursor.getString(0)
+                    val evidence = if (cursor.isNull(6)) null else cursor.getString(6)
+                    add(ListeningQuestion(
+                        questionId, episodeId, cursor.getInt(2), cursor.getString(3),
+                        cursor.getString(4), cursor.getString(5), evidence,
+                        getOptions(questionId, revisionId)
+                    ))
+                }
+            }
+        }
+    }
+
+    fun getCorrectChoiceId(attemptId: Long, questionId: String): Long? {
+        val revisionId = helper.readableDatabase.rawQuery(
+            "SELECT content_revision_id FROM listening_attempts WHERE id=?",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            require(cursor.moveToFirst()) { "Attempt does not exist: $attemptId" }
+            require(!cursor.isNull(0)) { "Attempt has no pinned content revision" }
+            cursor.getString(0)
+        }
+        return helper.readableDatabase.rawQuery(
+            "SELECT choice_id FROM listening_revision_choices WHERE revision_id=? AND question_id=? AND is_correct=1 LIMIT 1",
+            arrayOf(revisionId, questionId)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
+    }
 
     fun getCorrectChoiceId(questionId: String): Long? {
         val db = helper.writableDatabase
