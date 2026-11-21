@@ -401,6 +401,47 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun packageImporterCannotPromoteTheSystemTtsDemoToFormalContent() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val repository = ListeningRepository(helper)
+        repository.ensureDemoSeeded()
+        val root = java.io.File(context.cacheDir, "listening-demo-import-${System.nanoTime()}")
+        val archive = java.io.File(context.cacheDir, "listening-demo-package-${System.nanoTime()}.zip")
+        val audio = ByteArray(1024) { 0x2A.toByte() }
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(audio).joinToString("") { "%02x".format(it) }
+        val manifest = validPackageManifest()
+            .replace("\"id\": \"lesson-01\"", "\"id\": \"${ListeningRepository.DEMO_EPISODE_ID}\"")
+            .replace("a".repeat(64), digest)
+        archive.writeBytes(createZip(
+            "manifest.json" to manifest.toByteArray(Charsets.UTF_8),
+            "audio/lesson-01.mp3" to audio
+        ))
+        val importer = ListeningContentPackageImporter(
+            helper,
+            java.io.File(root, "content"),
+            java.io.File(root, "staging"),
+            22
+        )
+        try {
+            try {
+                importer.importArchive(archive, 1_795_300_000_000L)
+                throw AssertionError("Package import promoted the demo episode")
+            } catch (_: IllegalArgumentException) {
+                assertEquals(1, scalar(helper.readableDatabase,
+                    "SELECT is_demo FROM listening_episodes WHERE id='${ListeningRepository.DEMO_EPISODE_ID}'"))
+                assertEquals(0, scalar(helper.readableDatabase,
+                    "SELECT COUNT(*) FROM listening_content_packages"))
+            }
+        } finally {
+            archive.delete()
+            root.deleteRecursively()
+            helper.close()
+        }
+    }
+
+    @Test
     fun dailyPlannerPrefersAdvancedContentThenAvoidsRecentRepeats() {
         context.deleteDatabase(DATABASE_NAME)
         val helper = WordsDatabase(context)
