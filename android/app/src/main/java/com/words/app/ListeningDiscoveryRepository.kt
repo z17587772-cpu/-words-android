@@ -242,9 +242,21 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
 
     fun downloadedStorageBytes(): Long =
         helper.readableDatabase.rawQuery(
-            "SELECT COALESCE(SUM(expected_size_bytes),0) FROM listening_discovered_resources WHERE status='downloaded'",
+            "SELECT COALESCE(SUM(file_size),0) FROM (SELECT MAX(expected_size_bytes) AS file_size FROM listening_discovered_resources WHERE status='downloaded' AND local_file_path<>'' GROUP BY local_file_path)",
             null
         ).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+
+    fun findDownloadedFileByHash(sha256: String): String? =
+        helper.readableDatabase.rawQuery(
+            "SELECT local_file_path FROM listening_discovered_resources WHERE content_sha256=? AND status='downloaded' AND local_file_path<>'' LIMIT 1",
+            arrayOf(sha256.lowercase())
+        ).use { c -> if (c.moveToFirst()) c.getString(0) else null }
+
+    fun isLocalPathShared(resourceId: String, path: String): Boolean =
+        helper.readableDatabase.rawQuery(
+            "SELECT 1 FROM listening_discovered_resources WHERE local_file_path=? AND status='downloaded' AND id<>? LIMIT 1",
+            arrayOf(path, resourceId)
+        ).use { it.moveToFirst() }
 
     fun getEvictionCandidates(
         limit: Int = 200,
