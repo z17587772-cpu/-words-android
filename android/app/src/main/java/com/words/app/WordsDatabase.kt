@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 6) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 7) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -109,6 +109,9 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             db.execSQL("ALTER TABLE words ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
         }
         if (oldVersion < 6) createListeningTables(db)
+        if (oldVersion < 7) {
+            db.execSQL("ALTER TABLE listening_playback ADD COLUMN audio_revision TEXT NOT NULL DEFAULT ''")
+        }
     }
 
     private fun createListeningTables(db: SQLiteDatabase) {
@@ -231,6 +234,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 episode_id TEXT PRIMARY KEY,
                 position_ms INTEGER NOT NULL DEFAULT 0,
                 playback_speed REAL NOT NULL DEFAULT 1.0,
+                audio_revision TEXT NOT NULL DEFAULT '',
                 updated_at INTEGER NOT NULL,
                 FOREIGN KEY(episode_id) REFERENCES listening_episodes(id) ON DELETE CASCADE
             )
