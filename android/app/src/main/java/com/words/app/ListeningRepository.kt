@@ -164,7 +164,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
     private fun getEligibleEpisodes(nowMs: Long): List<ListeningEpisode> =
         helper.readableDatabase.rawQuery(
             """SELECT e.id,e.title,e.description,e.category,e.level,e.duration_ms,
-                      e.accent,e.speech_rate,e.audio_url,e.is_demo
+                      e.accent,e.speech_rate,e.audio_url,e.is_demo,e.updated_at
                FROM listening_episodes e
                JOIN listening_sources s ON s.id=e.source_id
                JOIN listening_licenses l ON l.id=e.license_id
@@ -213,7 +213,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
                         cursor.getString(3), cursor.getString(4), cursor.getLong(5),
                         cursor.getString(6), cursor.getFloat(7),
                         if (cursor.isNull(8)) null else cursor.getString(8),
-                        cursor.getInt(9) == 1
+                        cursor.getInt(9) == 1, cursor.getLong(10)
                     )
                 )
             }
@@ -242,7 +242,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
         }
 
     fun getEpisode(id: String): ListeningEpisode? = helper.readableDatabase.rawQuery(
-        """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo
+        """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo,updated_at
            FROM listening_episodes WHERE id=? AND status IN ('approved','demo') LIMIT 1""",
         arrayOf(id)
     ).use { cursor ->
@@ -250,12 +250,13 @@ class ListeningRepository(private val helper: WordsDatabase) {
             id = cursor.getString(0), title = cursor.getString(1), description = cursor.getString(2),
             category = cursor.getString(3), level = cursor.getString(4), durationMs = cursor.getLong(5),
             accent = cursor.getString(6), speechRate = cursor.getFloat(7),
-            audioUrl = if (cursor.isNull(8)) null else cursor.getString(8), isDemo = cursor.getInt(9) == 1
+            audioUrl = if (cursor.isNull(8)) null else cursor.getString(8), isDemo = cursor.getInt(9) == 1,
+            updatedAt = cursor.getLong(10)
         )
     }
 
     fun getEpisodes(): List<ListeningEpisode> = helper.readableDatabase.rawQuery(
-        """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo
+        """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo,updated_at
            FROM listening_episodes WHERE status IN ('approved','demo') ORDER BY is_demo ASC,title ASC""",
         null
     ).use { cursor ->
@@ -264,7 +265,7 @@ class ListeningRepository(private val helper: WordsDatabase) {
                 ListeningEpisode(
                     cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getString(3),
                     cursor.getString(4), cursor.getLong(5), cursor.getString(6), cursor.getFloat(7),
-                    if (cursor.isNull(8)) null else cursor.getString(8), cursor.getInt(9) == 1
+                    if (cursor.isNull(8)) null else cursor.getString(8), cursor.getInt(9) == 1, cursor.getLong(10)
                 )
             )
         }
