@@ -384,3 +384,32 @@ The daily planner now uses lifetime assignment history instead of looking back o
 - Added an instrumentation regression test covering a two-lesson pass, a newly arriving third lesson, and the first repeat after the full pass.
 
 This closes the short-window repeat problem in local daily assignment. It does **not** yet create new course content or download updates. Continuous content supply still requires the signed remote catalog, periodic catalog refresh, DownloadManager transfer, WorkManager installation/reconciliation, and a sufficiently large licensed audio library. Until those are connected, the app can rotate only the approved lessons already installed on the device. Runtime execution of the new instrumentation test remains pending.
+
+
+## 19. Open-source content and distribution research
+
+Reviewed current public implementations and upstream documentation to avoid rebuilding the content-delivery wheel:
+
+- **DictaLearn** (MIT app code): useful reference for a portable lesson package containing audio plus sentence timing/transcript data, lesson import/export, and downloading additional books separately from the small base app. Its current built-in library uses neural-voice audio, so it is an architecture reference only and is not a source for our required human-recorded production lessons.
+- **SpeakAlong** (MIT app code): useful reference for a static catalog JSON plus per-book timed sentence data and separately hosted audio assets. Its content is separately governed from its code; do not copy its recordings/translations into Words without verifying the exact content terms.
+- **Voxshelf** (GPL-3.0 app): useful reference for a generated catalog, nightly catalog refresh, discovery filters, and a local download shelf. Do not copy its GPL implementation into this app without a license compatibility review.
+- **LibriVox**: a potential human-narrated source for public-domain literature and short-work collections. Its API supports incremental discovery with the since parameter, pagination with offset, and a maximum limit of 500; the project asks clients to space large requests by several seconds. It explicitly warns that its recordings are public domain in the USA but may not be public domain in every other country. Therefore each candidate work needs territorial review and metadata before inclusion; a catalog entry alone is not blanket global clearance.
+
+### Chosen long-term model
+
+1. Keep the app's learner-facing library local-first and offline-capable.
+2. Publish a versioned static catalog index and immutable ZIP course packages separately from the APK. The catalog lists package ID/version, HTTPS URL, archive size, SHA-256, content metadata, and signing key ID.
+3. Have a scheduled publisher job refresh source metadata politely, process only new/changed candidates, and build a human-reviewed editorial queue. It must never automatically turn an arbitrary public-domain audiobook into a graded lesson without transcript, timing, question, level, and audio-quality review.
+4. Publish only approved packages through a signed catalog. The app periodically checks the index, verifies its signature and package digest, downloads with Android DownloadManager, and installs through the existing revision-safe importer using unique WorkManager jobs.
+5. Keep a rolling local cache with a configurable storage budget while preserving pinned revisions for attempts and daily assignments. A package may be evicted only when it is not in use, not pinned by an unfinished attempt, and not needed for a saved playback position; its catalog metadata and learner history remain.
+6. Maintain a fallback: when offline or when the feed is unavailable, continue the current local rotation. When the installed catalog is exhausted, repeat from the oldest-assigned lesson rather than showing an empty daily screen.
+
+This architecture removes the need for the learner to ask for manual course updates. It does not remove the need for a reliable publisher and ongoing content review. Human-recorded source material, accurate transcripts, question quality, and legal clearance remain editorial gates; automated discovery and delivery handle the repetitive distribution work.
+
+Research links:
+- DictaLearn: https://github.com/BurakYildizGameDev/dictalearn
+- SpeakAlong: https://github.com/r4yg/speakalong
+- Voxshelf: https://github.com/ezlabs/voxshelf
+- LibriVox API: https://librivox.org/api/info
+- LibriVox API update and polite polling guidance: https://librivox.org/2026/09/16/librivox-api-update/
+- LibriVox public-domain / territorial notice: https://librivox.org/pages/public-domain/
