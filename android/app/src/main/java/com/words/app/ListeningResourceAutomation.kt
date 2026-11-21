@@ -426,7 +426,6 @@ class ListeningResourceDownloadWorker(
             }
             require(total == candidate.expectedSizeBytes) { "Audio size differs from provider metadata" }
             val hash = digest.digest().joinToString("") { "%02x".format(it) }
-            val finalFile = File(root, "$id-$hash.mp3")
             val retriever = MediaMetadataRetriever()
             val duration = try {
                 retriever.setDataSource(temporary.absolutePath)
@@ -435,6 +434,17 @@ class ListeningResourceDownloadWorker(
                 retriever.release()
             }
             require(duration > 0L) { "Downloaded audio is not a playable media file" }
+            val rootPrefix = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
+            val duplicatePath = repository.findDownloadedFileByHash(hash)
+            val duplicateFile = duplicatePath?.let { runCatching { File(it).canonicalFile }.getOrNull() }
+            if (duplicateFile != null && duplicateFile.path.startsWith(rootPrefix) &&
+                duplicateFile.isFile && duplicateFile.length() == total && sha256(duplicateFile) == hash
+            ) {
+                temporary.delete()
+                repository.saveLocalFile(id, duplicateFile.absolutePath, hash, duration)
+                return Result.success()
+            }
+            val finalFile = File(root, "$id-$hash.mp3")
             if (finalFile.exists() && finalFile.length() == total && sha256(finalFile) == hash) {
                 temporary.delete()
             } else {
@@ -483,6 +493,12 @@ class ListeningResourceDownloadWorker(
             val file = if (candidate.localFilePath.isBlank()) null else runCatching { File(candidate.localFilePath).canonicalFile }.getOrNull()
             if (candidate.localFilePath.isNotBlank() && file == null) continue
             if (file != null && !file.path.startsWith(rootPath)) continue
+            if (repository.isLocalPathShared(candidate.id, candidate.localFilePath)) {
+                // Other source records still point at these exact bytes. Remove
+                // only this metadata reference; keep the shared file available.
+                repository.markLocalFileEvicted(candidate.id, candidate.localFilePath)
+                continue
+            }
             val bytes = file?.takeIf { it.isFile }?.length() ?: candidate.expectedSizeBytes
             if (file != null && file.exists() && !file.delete()) continue
             if (repository.markLocalFileEvicted(candidate.id, candidate.localFilePath)) {
