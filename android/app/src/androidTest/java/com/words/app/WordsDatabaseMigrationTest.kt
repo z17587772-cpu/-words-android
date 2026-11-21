@@ -343,6 +343,13 @@ class WordsDatabaseMigrationTest {
             val oldAudioUri = oldEpisode.audioUrl!!
             val oldAudioFile = java.io.File(java.net.URI(oldAudioUri))
             assertTrue(oldAudioFile.isFile)
+            val originalQuestions = repository.getQuestionsForAttempt(attemptId)
+            assertEquals(3, originalQuestions.size)
+            originalQuestions.forEach { question ->
+                val correctChoice = repository.getCorrectChoiceId(attemptId, question.id)!!
+                assertTrue(repository.recordAnswer(attemptId, question.id, correctChoice))
+            }
+            assertEquals(1.0f, repository.finishAttempt(attemptId), 0.001f)
 
             val audioV2 = ByteArray(1024) { 0x3B.toByte() }
             val digestV2 = java.security.MessageDigest.getInstance("SHA-256")
@@ -361,9 +368,19 @@ class WordsDatabaseMigrationTest {
                 assertTrue(importer.importArchive(archiveV2, nowMs) is ListeningPackageImportResult.Installed)
                 assertEquals("A Small Change", repository.getEpisodeForAttempt(attemptId)?.title)
                 assertEquals("A Better Small Change", repository.getEpisode(episodeId)?.title)
+                assertEquals(3, repository.getAttemptAnswerReviews(attemptId).size)
+                assertTrue(repository.getAttemptAnswerReviews(attemptId).all { it.isCorrect })
+                assertEquals(1.0f, repository.finishAttempt(attemptId), 0.001f)
                 assertTrue("Historical revision audio must remain available", oldAudioFile.isFile)
                 assertEquals(2, scalar(helper.readableDatabase,
                     "SELECT package_version FROM listening_content_packages WHERE package_id='words-listening-core'"))
+                helper.writableDatabase.delete(
+                    "listening_daily_assignments",
+                    "assignment_date=?",
+                    arrayOf(assignmentDate)
+                )
+                val newAttemptId = repository.startAttempt(episodeId)
+                assertEquals("A Better Small Change", repository.getEpisodeForAttempt(newAttemptId)?.title)
 
                 val conflictingManifest = manifestV2.replace("A Better Small Change", "Conflicting same-version content")
                 val conflictingArchive = java.io.File(context.cacheDir, "listening-package-conflict-${System.nanoTime()}.zip")
