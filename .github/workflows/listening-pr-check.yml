@@ -149,6 +149,7 @@ jobs:
           assert "packageImporterIsIdempotentVersionSafeAndPreservesAttemptRevision" in migration_test
           assert "packageArchivePreservesConfiguredFreeSpaceReserve" in migration_test
           assert "Idempotent import accepted a tampered immutable question snapshot" in migration_test
+          assert "dailyPlannerRejectsStreamingOnlyLicense" in migration_test
           assert "getEpisodeForAttempt" in activity and "getQuestionsForAttempt" in activity
           quiz_screen = activity.split("private fun renderListeningQuiz", 1)[1].split("private fun addListeningSpeedControls", 1)[0]
           assert "getSentencesForAttempt(listeningAttemptId)" in quiz_screen
