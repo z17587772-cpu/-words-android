@@ -81,6 +81,27 @@ jobs:
           print("Blind-listening answer-key and demo-assignment boundary checks passed.")
           PY
 
+      - name: Verify content package and playback safety boundaries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("android/app/src/main/java/com/words/app")
+          validator = (root / "ListeningContentPackageValidator.kt").read_text(encoding="utf-8")
+          integrity = (root / "ListeningAudioIntegrity.kt").read_text(encoding="utf-8")
+          service = (root / "ListeningPlaybackService.kt").read_text(encoding="utf-8")
+          coordinator = (root / "ListeningPlaybackCoordinator.kt").read_text(encoding="utf-8")
+          assert "SUPPORTED_SCHEMA_VERSION = 1" in validator
+          assert "evidence_sentence_id" in validator and "in_app_playback" in validator
+          assert "MAX_AUDIO_SIZE_BYTES" in validator
+          assert "MessageDigest.getInstance(\"SHA-256\")" in integrity
+          assert "ATOMIC_MOVE" in integrity and "resolveUnderRoot" in integrity
+          assert "CHECKPOINT_INTERVAL_MS = 5_000L" in service
+          assert "checkpointNow()" in service and "setMediaId(episode.id)" in coordinator
+          workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
+          assert "assembleDebug" not in workflow and "upload-artifact" not in workflow
+          print("Package validation, audio integrity, background playback and no-APK PR boundaries passed.")
+          PY
+
       - name: Run database migration tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
