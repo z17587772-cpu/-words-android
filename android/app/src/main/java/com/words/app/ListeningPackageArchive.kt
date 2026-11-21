@@ -18,7 +18,12 @@ data class ExtractedListeningPackage(
  * is never materialized as filesystem links.
  */
 object ListeningPackageArchive {
-    fun extractSafely(source: InputStream, stagingDirectory: File): ExtractedListeningPackage {
+    fun extractSafely(
+        source: InputStream,
+        stagingDirectory: File,
+        minimumFreeBytes: Long = DEFAULT_MINIMUM_FREE_BYTES
+    ): ExtractedListeningPackage {
+        require(minimumFreeBytes >= 0L) { "Minimum free-space reserve cannot be negative" }
         require(!stagingDirectory.exists() || stagingDirectory.listFiles().isNullOrEmpty()) {
             "Staging directory must be new or empty"
         }
@@ -87,6 +92,9 @@ object ListeningPackageArchive {
                                 require(totalBytes <= MAX_TOTAL_UNCOMPRESSED_BYTES) {
                                     "Package exceeds the uncompressed size limit"
                                 }
+                                require(minimumFreeBytes <= root.usableSpace - read.toLong()) {
+                                    "Not enough free storage to safely extract this package"
+                                }
                                 output.write(buffer, 0, read)
                             }
                             output.fd.sync()
@@ -115,4 +123,5 @@ object ListeningPackageArchive {
     private const val MAX_MANIFEST_BYTES = 1L * 1024L * 1024L
     private const val MAX_ENTRY_BYTES = 512L * 1024L * 1024L
     private const val MAX_TOTAL_UNCOMPRESSED_BYTES = 1L * 1024L * 1024L * 1024L
+    private const val DEFAULT_MINIMUM_FREE_BYTES = 64L * 1024L * 1024L
 }
