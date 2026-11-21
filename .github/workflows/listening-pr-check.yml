@@ -102,7 +102,8 @@ jobs:
           assert "checkpointNow()" in service and "setMediaId(episode.id)" in coordinator
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
           assert "assembleDebug" not in workflow and "upload-artifact" not in workflow
-          print("Package validation, audio integrity, background playback and no-APK PR boundaries passed.")
+          assert "ANDROID_I_WANT_MY_TCG" in workflow
+          print("Package validation, audio integrity, background playback, emulator fallback and no-APK PR boundaries passed.")
           PY
 
       - name: Run database migration tests on Android emulator
