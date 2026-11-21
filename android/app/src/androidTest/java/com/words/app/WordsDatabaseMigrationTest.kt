@@ -374,6 +374,15 @@ class WordsDatabaseMigrationTest {
                 assertTrue("Historical revision audio must remain available", oldAudioFile.isFile)
                 assertEquals(2, scalar(helper.readableDatabase,
                     "SELECT package_version FROM listening_content_packages WHERE package_id='words-listening-core'"))
+                val orphan = java.io.File(contentRoot, "orphan/rev_${"f".repeat(40)}.mp3")
+                assertTrue(orphan.parentFile!!.mkdirs())
+                orphan.writeText("unreferenced")
+                val unrelatedFile = java.io.File(contentRoot, "keep-me.txt")
+                unrelatedFile.writeText("not an importer revision")
+                assertEquals(1, importer.recoverOrphanedAudioFiles())
+                assertFalse(orphan.exists())
+                assertTrue(unrelatedFile.isFile)
+                assertTrue(oldAudioFile.isFile)
                 helper.writableDatabase.delete(
                     "listening_daily_assignments",
                     "assignment_date=?",
