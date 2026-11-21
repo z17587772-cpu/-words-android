@@ -84,6 +84,7 @@ class ListeningDiscoveryRepositoryTest {
         assertEquals(id, listed.id)
         assertEquals("downloaded", listed.status)
         assertEquals("/private/example.mp3", listed.localFilePath)
+        assertEquals("a".repeat(64), listed.contentSha256)
         assertTrue(listed.pinned)
         val duplicate = DiscoveredListeningResource(
             provider = "internet_archive",
