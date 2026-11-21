@@ -399,18 +399,38 @@ class ListeningRepository(private val helper: WordsDatabase) {
         ).use { cursor -> cursor.moveToFirst() && cursor.getInt(0) == 1 }
     }
 
-    fun finishAttempt(attemptId: Long, score: Float) {
+    fun finishAttempt(attemptId: Long): Float {
+        val result = helper.readableDatabase.rawQuery(
+            """SELECT COUNT(question.id),
+                      SUM(CASE WHEN answer.id IS NOT NULL THEN 1 ELSE 0 END),
+                      SUM(CASE WHEN answer.is_correct=1 THEN 1 ELSE 0 END)
+               FROM listening_attempts attempt
+               JOIN listening_questions question ON question.episode_id=attempt.episode_id
+               LEFT JOIN listening_answers answer
+                 ON answer.attempt_id=attempt.id AND answer.question_id=question.id AND answer.attempt_no=1
+               WHERE attempt.id=?""",
+            arrayOf(attemptId.toString())
+        ).use { cursor ->
+            require(cursor.moveToFirst() && cursor.getInt(0) > 0) { "Attempt has no questions" }
+            val total = cursor.getInt(0)
+            val answered = cursor.getInt(1)
+            val correct = cursor.getInt(2)
+            require(answered == total) { "Every question must be answered before completing an attempt" }
+            correct.toFloat() / total.toFloat()
+        }
+
         database.update(
             "listening_attempts",
             ContentValues().apply {
                 put("completed_at", System.currentTimeMillis())
                 put("stage", "completed")
-                put("first_score", score)
-                put("final_score", score)
+                put("first_score", result)
+                put("final_score", result)
             },
-            "id=?",
+            "id=? AND completed_at IS NULL",
             arrayOf(attemptId.toString())
         )
+        return result
     }
 
     fun completedAttemptCount(): Int = helper.readableDatabase.rawQuery(
