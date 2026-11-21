@@ -373,7 +373,18 @@ class WordsDatabaseMigrationTest {
             try {
                 assertTrue(importer.importArchive(archiveV2, nowMs) is ListeningPackageImportResult.Installed)
                 assertEquals("A Small Change", repository.getEpisodeForAttempt(attemptId)?.title)
-                assertEquals("A Better Small Change", repository.getEpisode(episodeId)?.title)
+                val currentEpisode = repository.getEpisode(episodeId)!!
+                assertEquals("A Better Small Change", currentEpisode.title)
+                assertTrue(repository.isKnownPlaybackRevision(
+                    episodeId, oldAudioUri, oldEpisode.playbackRevision(oldAudioUri), 1_000L
+                ))
+                val currentAudioUri = currentEpisode.audioUrl!!
+                assertTrue(repository.isKnownPlaybackRevision(
+                    episodeId, currentAudioUri, currentEpisode.playbackRevision(currentAudioUri), 1_000L
+                ))
+                assertFalse(repository.isKnownPlaybackRevision(
+                    episodeId, "file:///not-a-published-revision.mp3", "wrong-revision", 1_000L
+                ))
                 assertEquals(3, repository.getAttemptAnswerReviews(attemptId).size)
                 assertTrue(repository.getAttemptAnswerReviews(attemptId).all { it.isCorrect })
                 assertEquals(1.0f, repository.finishAttempt(attemptId), 0.001f)
