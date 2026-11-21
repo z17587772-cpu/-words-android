@@ -620,3 +620,15 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [x] After bootstrap, switches to incremental sync with a three-day UTC overlap.
 - [x] Added tests for bootstrap resume, no-`since` initial requests, pagination, deduplication, pacing and incremental overlap.
 - [ ] Execute all Python tests on GitHub Actions and verify the first live full-catalog run after merge.
+
+
+## 28. Independent listening review queue (2026-11-21)
+
+- [x] Added a pure Kotlin score-based review planner with transparent 1/3/7/14-day intervals.
+- [x] Selects only valid completed-attempt scores and ignores invalid/empty history.
+- [x] Repository query uses the latest completed attempt per episode and excludes demo, inactive, expired, or streaming-only content.
+- [x] Review recommendations do not create or mutate daily new-lesson assignments.
+- [x] Added a separate "SPACED REVIEW / 薄弱课程复习" card on the listening home screen.
+- [x] Added instrumentation regression coverage for each score interval.
+- [ ] Verify repository SQL and UI flow in Android instrumentation on the latest head.
+- [ ] Extend from whole-course review to question-level and evidence-sentence-level targeting after event tracking is validated.
