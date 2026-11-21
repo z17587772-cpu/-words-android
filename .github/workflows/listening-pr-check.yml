@@ -405,6 +405,22 @@ jobs:
         run: gradle --no-daemon --stacktrace :app:assembleDebug
         working-directory: android
 
+      - name: Verify APK archive, package metadata and Android signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          test -s "$APK"
+          unzip -tq "$APK"
+          "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -F "package: name='com.words.app' versionCode='24' versionName='1.8.3'"
+          echo "APK size:"
+          stat -c '%s bytes' "$APK"
+          echo "APK SHA-256:"
+          sha256sum "$APK"
+
       - name: Upload validated debug APK
         uses: actions/upload-artifact@v4
         with:

@@ -9,54 +9,67 @@ Version source of truth:
 - targetSdk: 35
 - PR: https://github.com/z17587772-cpu/-words-android/pull/1 (Draft; not merged)
 
-Important release status:
-- v1.8.3 is the feature-branch app configuration, not proof of a validated distributable release.
-- The current PR explicitly records that a complete current-head Gradle compile + API 35 emulator instrumentation run has not been observed.
-- A previous emulator attempt failed during emulator startup and is not a passing test.
-- No validated current-head APK artifact has been retrieved or verified.
-- Do not report installation, update-in-place, or real-device validation as complete without evidence.
+Latest completed validation record (2026-11-21):
+- Validated source commit: e2eb2b5dc59872a4c46bbfa2c8ed079f55e1b3b3
+- GitHub Actions run: 44906977169
+- Workflow: Validate listening module PR
+- Python content-pipeline unit tests: passed.
+- Kotlin app and instrumentation source compilation: passed.
+- API 35 Android emulator database migration/instrumentation job: passed.
+- Debug APK assembly and artifact upload: passed.
+- Artifact: words-validated-debug-apk-91
+- Artifact ID: 14708920531
+- Artifact ZIP size: 11,216,359 bytes
+- Artifact ZIP SHA-256: e6b89183e81f12073f6454668b79e75890807b19475ea31c454fc9b50f7b846a
+- APK size: 17,401,244 bytes
+- APK SHA-256: b4a11d315262f07b33f15b939d36a99b367898f4afb9fcd69ada384e0e427db9
+- Local verification: APK ZIP/CRC passed; APK v2 signer signature and content digest independently verified.
+- APK signer subject: C=US, O=Android, CN=Android Debug
+- APK signer certificate SHA-256: c8ee6c1fc3fef6bc1102cd6f76703e58d595799c03664fb7568ddba48b5e2051
+- The APK is debug-signed. A persistent project signing key has not been configured; separately built APKs may have different debug certificates and may not update an existing installation in place.
+- These results apply to the exact source commit above. Any subsequent commit requires its own successful workflow run and artifact verification.
 
-Implemented in feature-branch source (not all runtime-verified):
-- Automatic LibriVox metadata discovery and Internet Archive discovery.
-- Internet Archive automatic offline download is limited to item-level CC0 1.0, CC BY 4.0, and CC BY-SA 4.0 metadata accepted by policy.
+APK installation incident — NOT RESOLVED:
+- Earlier APK SHA-256: 0b5947d4910e7e183f8a6e14542d687a9af03f45cd1f2bd6ba12659aa375f592
+- Earlier artifact ZIP digest matched GitHub's artifact digest; the extracted APK passed ZIP/CRC checks.
+- The latest APK also passes local ZIP/CRC and APK v2 signature/content-digest verification.
+- The reported device error was java.util.zip.ZipException: invalid stored block lengths.
+- The phone-side saved APK SHA-256 has not been obtained. Therefore download/transfer corruption, device storage mutation and installer compatibility have not been conclusively distinguished.
+- Do not mark the installation issue resolved until the exact phone-side file hash is compared with the published APK hash and a device installation test is completed.
+
+Implemented in feature-branch source (runtime coverage varies):
+- Automatic on-device LibriVox and Internet Archive metadata discovery.
+- Internet Archive automatic offline download restricted to item-level CC0 1.0, CC BY 4.0 and CC BY-SA 4.0 metadata accepted by policy.
 - LibriVox items remain rights-quarantined until item/territory permission is established.
-- Daily WorkManager discovery, resumable backfill, stable provider-ID deduplication, and incremental discovery.
-- Serial unmetered-network downloads, exact-size validation, SHA-256 verification, duration probing, and immutable local publication.
-- Local discovered-resource library with search, downloaded/favorites filters, attribution/license links, offline playback, and playback resume.
+- Daily WorkManager discovery, resumable backfill, stable provider-ID deduplication and incremental discovery.
+- Serial unmetered-network downloads, exact-size validation, SHA-256 verification, duration probing and immutable local publication.
+- Local discovered-resource library with search, downloaded-only/favorites filters, attribution/license links, offline playback and resume position/speed.
 - 512 MiB storage quota with protection for pinned and recently played resources.
-- Reconciliation for missing/corrupt files, stale partial downloads, and orphan files.
-- License-revocation protection and shared-file hash deduplication.
+- Reconciliation for missing/corrupt file records, stale partial downloads and orphan files.
+- License-revocation protection, shared-file hash deduplication and confirmed local-copy deletion.
 - Database schema v13.
-- Formal lesson content packages, validation/import, Ed25519 signed-catalog verification, DownloadManager/WorkManager sync path, and strict new-lesson vs review separation exist in source.
-- Daily new-lesson assignment uses stable episode identity and excludes previously assigned episodes; review is a separate 1/3/7/14-day queue.
-
-Validation status:
-- Instrumentation test source covers metadata/license policy, duplicate discovery, rights revocation, local playback persistence, shared-file deduplication, storage eviction, missing-file recovery, and database migrations.
-- Python content-pipeline tests are wired into the PR workflow.
-- Kotlin app and instrumentation compile tasks are wired into the PR workflow.
-- API 35 emulator instrumentation and debug APK artifact upload are wired to run after compile/tests.
-- None of the above is considered passed for the current head until a successful GitHub Actions run and its logs/artifacts are inspected.
-- Source-level assertions previously recorded as 32/32 or 33/33 are not substitutes for runtime tests.
+- Formal lesson packages, validation/import, Ed25519 signed-catalog verification and strict separation of new lessons from the 1/3/7/14-day review queue.
+- Daily new-lesson assignment excludes previously assigned episode identities; metadata candidates are not formal lessons.
 
 Still outstanding before release:
-1. Successful latest-head Python unit tests, Gradle app/test compilation, API 35 instrumentation, and validated APK artifact retrieval.
-2. Inspect test failures and fix them; rerun the complete suite after each correction.
-3. Configure the persistent APK signing secrets only if stable update-in-place signing is intended; otherwise document the one-time uninstall needed when signatures differ.
-4. Configure LISTENING_CATALOG_PRIVATE_KEY_PEM as a protected Actions secret and pin the matching Base64 X.509 public key in the release build.
-5. Prepare and approve the first real human-recorded course package and matching unsigned catalog; do not publish raw metadata candidates as lessons.
-6. Complete transcript sourcing/verification, sentence alignment, Chinese translation, level tagging, question drafting, evidence mapping, and human editorial QA.
-7. Publish and verify the signed catalog and package end to end.
-8. Add injected failure tests for lost DownloadManager completion, interrupted install, digest mismatch, and storage exhaustion.
-9. Complete real-device checks for background playback, lock screen, Bluetooth/headset controls, battery restrictions, network loss, process death/restart, and offline playback.
-10. Add storage overview/bulk-management UI and evaluate conditional HTTP requests (ETag) and deeper cancellation/interruption handling.
-11. Review and reconcile feature/main divergence without blind merge or rebase. Keep main unchanged until all required gates pass.
+1. Compare the exact APK saved on PJX110 with the SHA-256 above; test a fresh download and installation without overwriting the only existing app/data copy.
+2. Configure a persistent signing key through protected GitHub Actions secrets if update-in-place across builds is required. Never commit signing material.
+3. Configure LISTENING_CATALOG_PRIVATE_KEY_PEM as a protected Actions secret and pin the matching Base64 X.509 public key in the release build.
+4. Prepare and approve the first real human-recorded course package and matching signed catalog.
+5. Complete transcript sourcing/verification, sentence alignment, Chinese translation, level tagging, question drafting, evidence mapping and human editorial QA.
+6. Publish and verify the signed catalog and package end to end.
+7. Add injected failure tests for lost DownloadManager completion, interrupted install, digest mismatch and storage exhaustion.
+8. Complete real-device checks for background playback, lock screen, Bluetooth/headset controls, battery restrictions, network loss, process death/restart and offline playback.
+9. Add storage overview/bulk-management UI; evaluate ETag/conditional requests and deeper cancellation/interruption handling.
+10. Review and reconcile feature/main divergence without blind merge or rebase. Keep main unchanged until all required gates pass.
 
-Build environment declared by listening CI:
+Build environment:
 - JDK 17
 - Android SDK Platform 36
 - Build Tools 35.0.0
 - Gradle 8.13
 
 Release rule:
-- Do not mark the PR ready or merge it solely because source assertions pass.
-- Release only after successful CI, APK version/signature/hash inspection, and the required device regression checks.
+- Keep PR #1 Draft until all release gates pass.
+- APK workflow must validate archive integrity, package/version metadata, alignment, Android signature and SHA-256 before artifact upload.
+- Release only after successful latest-head CI, APK signature/hash inspection and required device regression checks.
