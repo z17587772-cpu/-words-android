@@ -361,6 +361,53 @@ class ListeningRepository(private val helper: WordsDatabase) {
             }
         }
 
+    /**
+     * Returns due formal lessons for the separate review queue. This query never
+     * inserts a daily assignment and excludes demo, inactive, expired or
+     * non-offline-licensed content.
+     */
+    fun getDueReviewItems(nowMs: Long = System.currentTimeMillis()): List<ListeningReviewItem> {
+        val candidates = helper.readableDatabase.rawQuery(
+            """SELECT e.id,a.completed_at,a.final_score,
+                      (SELECT COUNT(*) FROM listening_attempts history
+                       WHERE history.episode_id=e.id AND history.completed_at IS NOT NULL)
+               FROM listening_episodes e
+               JOIN listening_episode_revisions r
+                 ON r.revision_id=e.current_revision_id AND r.episode_id=e.id
+               JOIN listening_sources s ON s.id=e.source_id
+               JOIN listening_licenses l ON l.id=e.license_id
+               LEFT JOIN listening_package_episodes pe ON pe.episode_id=e.id
+               JOIN listening_attempts a ON a.id=(
+                   SELECT latest.id FROM listening_attempts latest
+                   WHERE latest.episode_id=e.id AND latest.completed_at IS NOT NULL
+                   ORDER BY latest.completed_at DESC,latest.id DESC LIMIT 1
+               )
+               WHERE e.status='approved' AND e.is_demo=0 AND r.is_demo=0
+                 AND (pe.episode_id IS NULL OR pe.is_active=1)
+                 AND r.audio_url IS NOT NULL AND TRIM(r.audio_url)<>''
+                 AND TRIM(s.rights_holder)<>'' AND TRIM(s.attribution)<>'' AND s.checked_at>0
+                 AND TRIM(l.license_name)<>'' AND TRIM(l.territory)<>''
+                 AND (',' || l.allowed_actions || ',') LIKE '%,in_app_playback,%'
+                 AND (',' || l.allowed_actions || ',') LIKE '%,offline_download,%'
+                 AND (l.expires_at IS NULL OR l.expires_at>?)
+                 AND a.final_score IS NOT NULL
+               ORDER BY a.completed_at ASC,e.id ASC""",
+            arrayOf(nowMs.toString())
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(
+                    ListeningReviewCandidate(
+                        episodeId = cursor.getString(0),
+                        lastCompletedAtMs = cursor.getLong(1),
+                        lastScore = cursor.getFloat(2),
+                        completedAttemptCount = cursor.getInt(3)
+                    )
+                )
+            }
+        }
+        return ListeningReviewPlanner.due(candidates, nowMs)
+    }
+
     fun getEpisode(id: String): ListeningEpisode? = helper.readableDatabase.rawQuery(
         """SELECT id,title,description,category,level,duration_ms,accent,speech_rate,audio_url,is_demo,updated_at
            FROM listening_episodes WHERE id=? AND status IN ('approved','demo') LIMIT 1""",
