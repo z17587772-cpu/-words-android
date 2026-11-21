@@ -20,11 +20,13 @@ class ListeningPlaybackCoordinator(
     private var checkpointRunnable: Runnable? = null
 
     fun play(controller: MediaController, episode: ListeningEpisode, uri: String) {
+        val currentUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
+        if (currentUri != uri) checkpoint(controller)
+
         episodeId = episode.id
         mediaUri = uri
         durationMs = episode.durationMs
 
-        val currentUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
         if (currentUri != uri) {
             val saved = repository.getPlayback(episode.id)
             val savedPosition = saved?.positionMs ?: 0L
@@ -33,6 +35,7 @@ class ListeningPlaybackCoordinator(
             ) 0L else savedPosition.coerceAtLeast(0L)
 
             val mediaItem = MediaItem.Builder()
+                .setMediaId(episode.id)
                 .setUri(uri)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
