@@ -57,7 +57,7 @@ Confirmed product contract:
 - Keep one ExoPlayer + MediaSession owned by ListeningPlaybackService.
 - Expose playback state, current item, duration, position, speed and errors through MediaController callbacks.
 - Add a repository model for saved playback state and implement both save and restore.
-- [x] Persist on Activity pause/destruction and every five seconds while the same Media3 item is playing; [ ] add service-owned checkpointing for playback that outlives the Activity.
+- [x] Persist on Activity pause/destruction and item changes; [x] add service-owned five-second checkpointing for playback that outlives the Activity.
 - [x] Restore speed and position for the same episode and URI; [ ] add an audio-revision fingerprint before package updates.
 - Avoid writing every progress tick to SQLite; throttle writes to reduce storage churn.
 - Implement sentence replay only when verified timestamps exist.
@@ -134,7 +134,7 @@ Validation/import:
 
 1. [x] Add v5→v6 migration fixture and preservation assertions; [ ] pass emulator CI.
 2. [x] Remove demo assignment writes and add a CI regression guard.
-3. [x] Implement playback state model + repository restore/save + Activity lifecycle checkpoints; [ ] add service-owned checkpointing and runtime interruption tests.
+3. [x] Implement playback state model + repository restore/save + Activity lifecycle checkpoints + service-owned background checkpointing; [ ] add audio revision matching and runtime interruption tests.
 4. Add sentence timestamp validation and loop controller.
 5. [x] Implement package manifest parser/validator and audio integrity primitives; [ ] implement revision-safe transactional importer.
 6. Implement audio download/checksum/atomic install and offline playback.
@@ -171,3 +171,4 @@ Until these gates pass, label the APK as a preview build and keep the PR unmerge
 - Extracted Media3 resume/checkpoint policy from MainActivity into ListeningPlaybackCoordinator; added episode metadata for system media controls.
 - Added schema-v1 manifest validation, provenance requirements, path traversal checks, audio size/hash checks, and tests for invalid references and atomic replacement safety.
 - Wrote LISTENING_CONTENT_PACKAGE_SPEC.md. Import is deliberately not implemented yet because the database needs a revision-safe policy that preserves existing attempts and answers; SQLite REPLACE must not be used on parent content rows.
+- Moved periodic checkpoint ownership into MediaSessionService to avoid duplicate Activity/service writes. Media items carry stable episode IDs and notification metadata; sentence playback keeps the same episode identity so background persistence can resolve it.
