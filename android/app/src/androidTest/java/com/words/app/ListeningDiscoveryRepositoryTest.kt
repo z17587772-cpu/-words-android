@@ -165,6 +165,46 @@ class ListeningDiscoveryRepositoryTest {
     }
 
     @Test
+    fun removingLocalCopyPreservesFavoriteAndPlaybackHistoryAndSharedBytes() {
+        context.deleteDatabase("words_local.db")
+        val helper = WordsDatabase(context)
+        val repository = ListeningDiscoveryRepository(helper)
+        val resource = DiscoveredListeningResource(
+            provider = "internet_archive",
+            providerItemId = "manual-delete#track.mp3",
+            canonicalUrl = "https://archive.org/details/manual-delete",
+            mediaUrl = "https://archive.org/download/manual-delete/track.mp3",
+            title = "Keep my history",
+            rightsStatus = "cleared",
+            allowedActions = setOf("in_app_playback", "offline_download"),
+            expectedSizeBytes = 100L
+        )
+        val id = repository.upsertCandidate(resource)
+        assertTrue(repository.queueDownload(id))
+        repository.updateDownloadStatus(id, "downloading")
+        repository.saveLocalFile(id, "/private/shared.mp3", "c".repeat(64), 90_000L)
+        repository.setPinned(id, true)
+        repository.saveResourcePlayback(id, 42_000L, 1.25f)
+
+        val duplicate = repository.upsertCandidate(resource.copy(providerItemId = "other-source#track.mp3"))
+        assertTrue(repository.queueDownload(duplicate))
+        repository.updateDownloadStatus(duplicate, "downloading")
+        repository.saveLocalFile(duplicate, "/private/shared.mp3", "c".repeat(64), 90_000L)
+
+        assertTrue(repository.removeLocalCopy(id, "/private/shared.mp3"))
+        assertTrue(repository.isLocalPathShared(id, "/private/shared.mp3"))
+        val row = repository.listResources(10).first { it.id == id }
+        assertEquals("expired", row.status)
+        assertTrue(row.pinned)
+        assertEquals("", row.localFilePath)
+        val playback = repository.getResourcePlayback(id)
+        assertNotNull(playback)
+        assertEquals(42_000L, playback!!.positionMs)
+        assertEquals(1.25f, playback.speed, 0.001f)
+        helper.close()
+    }
+
+    @Test
     fun downloadQueueFailsClosedUnlessOfflineRightsAreExplicitlyCleared() {
         context.deleteDatabase("words_local.db")
         val helper = WordsDatabase(context)
