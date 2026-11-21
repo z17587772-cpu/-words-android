@@ -318,3 +318,13 @@ These changes have source guards and instrumentation assertions, but the Android
 A further edge case was closed: background playback checkpoints no longer compare only against the episode's latest mutable catalog row. The playback service now validates the media item's revision token against any matching immutable revision row, then persists the checkpoint under that token. This allows an already-playing older revision to checkpoint safely after a newer package revision is published, without attributing its position to the new audio.
 
 A regression assertion covers recognition of both the old and new revision audio and rejection of an unknown URI. This remains source/test coverage pending Android execution.
+
+
+## 15. Import source snapshot and concurrent recovery guard
+
+- The importer now copies the selected ZIP to a private staging snapshot while computing its SHA-256, then extracts and imports that exact snapshot. This closes the source-file time-of-check/time-of-use gap.
+- Compressed archive size is capped at 1.1 GB in addition to entry-count, total decompressed-size, and manifest-size limits.
+- Package imports and orphan recovery share a process-wide lock, preventing recovery from deleting an audio file between its staging move and database publication.
+- Staging cleanup also covers archive-snapshot failures.
+
+Static source assertions and an independent SQLite schema/foreign-key simulation pass. Android Gradle compilation and instrumentation execution remain pending.
