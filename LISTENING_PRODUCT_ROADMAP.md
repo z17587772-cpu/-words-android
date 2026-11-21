@@ -306,7 +306,7 @@ Additional implementation on `feature/listening-mvp`:
 - Added repository accessors for attempt stage, completion state, selected answer, and persisted correct-answer count.
 - MainActivity stores only the active attempt pointer and an unsubmitted selection in preferences; submitted answers remain authoritative in SQLite.
 - On Activity/process recreation, the app restores the attempt's pinned revision, finds the first unanswered question, restores a still-valid unsubmitted choice, and completes the attempt if all answers were already saved before interruption.
-- The home screen exposes a resume action for the active unfinished lesson. Returning from a completed review clears the active pointer without deleting the attempt history.
+- The home screen exposes a resume action for the active unfinished lesson. If the preferences pointer is missing, the latest in-progress attempt is recovered from SQLite. Starting a different new lesson marks the replaced unfinished attempt as abandoned; returning from a completed review clears the active pointer without deleting attempt history.
 - Quiz evidence and review scores now use attempt-pinned content and persisted answers, not mutable catalog rows or transient Activity counters.
 - Listening stage changes use a restrained two-phase transition: 115 ms exit and 220 ms entrance, cubic easing, a small vertical offset, and hardware-layer rendering. The bottom navigation remains stationary; ordinary option selection rerenders stay immediate to avoid unnecessary motion.
 
