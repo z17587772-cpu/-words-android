@@ -1,7 +1,5 @@
 package com.words.app
 
-import android.os.Handler
-import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
@@ -11,13 +9,11 @@ import androidx.media3.session.MediaController
  * do not also own persistence details.
  */
 class ListeningPlaybackCoordinator(
-    private val repository: ListeningRepository,
-    private val handler: Handler = Handler(Looper.getMainLooper())
+    private val repository: ListeningRepository
 ) {
     private var episodeId: String? = null
     private var mediaUri: String? = null
     private var durationMs: Long = 0L
-    private var checkpointRunnable: Runnable? = null
 
     fun play(controller: MediaController, episode: ListeningEpisode, uri: String) {
         val currentUri = controller.currentMediaItem?.localConfiguration?.uri?.toString()
@@ -50,7 +46,6 @@ class ListeningPlaybackCoordinator(
         }
 
         controller.play()
-        scheduleCheckpoint(controller)
     }
 
     fun checkpoint(controller: MediaController) {
@@ -66,29 +61,9 @@ class ListeningPlaybackCoordinator(
 
     fun release(controller: MediaController?) {
         if (controller != null) checkpoint(controller)
-        checkpointRunnable?.let(handler::removeCallbacks)
-        checkpointRunnable = null
-    }
-
-    private fun scheduleCheckpoint(controller: MediaController) {
-        checkpointRunnable?.let(handler::removeCallbacks)
-        val task = object : Runnable {
-            override fun run() {
-                if (controller.currentMediaItem?.localConfiguration?.uri?.toString() != mediaUri) {
-                    checkpointRunnable = null
-                    return
-                }
-                checkpoint(controller)
-                if (controller.isPlaying) handler.postDelayed(this, CHECKPOINT_INTERVAL_MS)
-                else checkpointRunnable = null
-            }
-        }
-        checkpointRunnable = task
-        handler.postDelayed(task, CHECKPOINT_INTERVAL_MS)
     }
 
     companion object {
-        private const val CHECKPOINT_INTERVAL_MS = 5_000L
         private const val COMPLETION_GUARD_MS = 2_000L
         private const val DEFAULT_SPEED = 1.0f
     }
