@@ -270,6 +270,7 @@ class InternetArchiveDiscoveryWorker(
         private const val MAX_TRACKS_PER_ITEM = 5
         private const val MIN_FILE_BYTES = 64 * 1024L
         private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
+        private const val MAX_LIBRARY_BYTES = 512L * 1024L * 1024L
         private const val MAX_JSON_BYTES = 6 * 1024 * 1024
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 45_000
@@ -322,6 +323,10 @@ class ListeningResourceDownloadWorker(
 
         val root = File(applicationContext.filesDir, "listening-library")
         if (!root.exists() && !root.mkdirs()) return Result.retry()
+        if (!ensureStorageCapacity(repository, root, candidate.expectedSizeBytes)) {
+            repository.updateDownloadStatus(id, "failed")
+            return Result.failure()
+        }
         val temporary = File(root, ".$id-${System.currentTimeMillis()}.part")
         var installedFile: File? = null
         repository.updateDownloadStatus(id, "downloading")
@@ -393,6 +398,28 @@ class ListeningResourceDownloadWorker(
         } finally {
             helper.close()
         }
+    }
+
+    private fun ensureStorageCapacity(
+        repository: ListeningDiscoveryRepository,
+        root: File,
+        incomingBytes: Long
+    ): Boolean {
+        val quota = MAX_LIBRARY_BYTES
+        var used = repository.downloadedStorageBytes()
+        if (used + incomingBytes <= quota) return true
+        val rootPath = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
+        for (candidate in repository.getEvictionCandidates()) {
+            val file = if (candidate.localFilePath.isBlank()) null else runCatching { File(candidate.localFilePath).canonicalFile }.getOrNull()
+            if (file != null && !file.path.startsWith(rootPath)) continue
+            val bytes = file?.takeIf { it.isFile }?.length() ?: candidate.expectedSizeBytes
+            if (file != null && file.exists() && !file.delete()) continue
+            if (repository.markLocalFileEvicted(candidate.id, candidate.localFilePath)) {
+                used = (used - bytes).coerceAtLeast(0L)
+                if (used + incomingBytes <= quota) return true
+            }
+        }
+        return used + incomingBytes <= quota
     }
 
     private fun openMedia(rawUrl: String, expectedSize: Long): Pair<java.io.InputStream, HttpURLConnection> {
