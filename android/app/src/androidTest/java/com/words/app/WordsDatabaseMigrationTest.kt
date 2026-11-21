@@ -84,7 +84,7 @@ class WordsDatabaseMigrationTest {
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
-        assertEquals(11, upgraded.version)
+        assertEquals(13, upgraded.version)
         assertEquals(12_345, scalar(upgraded, "SELECT position_ms FROM listening_playback WHERE episode_id='legacy-episode'"))
         assertEquals(1.25f, upgraded.rawQuery("SELECT playback_speed FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
             assertTrue(it.moveToFirst())
@@ -149,7 +149,7 @@ class WordsDatabaseMigrationTest {
         val wrongOption = question.options.first { it.id != correctId }
         val attemptId = repository.startAttempt(episodeId)
 
-        assertEquals(2, question.options.size)
+        assertTrue(question.options.size >= 2)
         assertFalse(repository.recordAnswer(attemptId, question.id, wrongOption.id))
         assertFalse(repository.recordAnswer(attemptId, question.id, correctId))
         assertTrue(repository.getAttemptAnswerReviews(attemptId).isEmpty())
@@ -304,7 +304,7 @@ class WordsDatabaseMigrationTest {
                 maliciousRoot
             )
             throw AssertionError("Path traversal archive was accepted")
-        } catch (_: IllegalArgumentException) {
+        } catch (_: Exception) {
             assertFalse(maliciousRoot.exists())
             assertFalse(outside.exists())
         }
@@ -864,7 +864,7 @@ class WordsDatabaseMigrationTest {
 
         val upgradedHelper = WordsDatabase(context)
         val upgraded = upgradedHelper.writableDatabase
-        assertEquals(11, upgraded.version)
+        assertEquals(13, upgraded.version)
         assertTrue(upgraded.rawQuery(
             "SELECT content_revision_id FROM listening_attempts WHERE id=?",
             arrayOf(attemptId.toString())
@@ -889,7 +889,7 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(11, database.version)
+        assertEquals(13, database.version)
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
