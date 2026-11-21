@@ -123,3 +123,11 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - The PR head currently has no associated GitHub Actions run. Therefore Gradle compilation, instrumentation execution, live provider integration and device playback remain unverified; no success is claimed.
 - Branch comparison remains divergent from main (560 commits ahead, 8 behind). No merge or rebase was attempted.
 - APK packaging remains paused.
+
+
+## 2026-11-21 — Validation-gated APK pipeline
+- Updated app version to 1.8.3 / versionCode 24 for the next installable build.
+- Added a branch-push trigger for the feature branch to the listening validation workflow, in addition to PR and manual triggers.
+- The workflow now runs the existing Python checks, static policy assertions, Kotlin app/test compilation and API 35 instrumentation suite first; only after those gates pass does it assemble and upload a debug APK artifact.
+- This intentionally does not claim that an APK has been built. The workflow must complete successfully and produce its artifact before a download can be provided.
+- The APK is a debug-signed build. Because each clean hosted runner normally generates its own debug keystore, update-in-place across builds is not guaranteed; a stable private release keystore is needed for a proper signed upgrade path. No signing key was committed to the repository.
