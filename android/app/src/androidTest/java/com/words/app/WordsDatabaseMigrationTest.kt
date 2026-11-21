@@ -633,6 +633,37 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun reviewPlannerSchedulesWeakScoresSoonerThanStrongScores() {
+        val day = 24L * 60L * 60L * 1000L
+        val completedAt = 1_000_000L
+        val candidates = listOf(
+            ListeningReviewCandidate("weak", completedAt, 0.20f, 1),
+            ListeningReviewCandidate("medium", completedAt, 0.55f, 2),
+            ListeningReviewCandidate("good", completedAt, 0.75f, 1),
+            ListeningReviewCandidate("strong", completedAt, 0.95f, 4),
+            ListeningReviewCandidate("invalid", completedAt, Float.NaN, 1),
+            ListeningReviewCandidate("empty-history", completedAt, 0.10f, 0)
+        )
+
+        assertEquals(
+            listOf("weak"),
+            ListeningReviewPlanner.due(candidates, completedAt + day).map { it.episodeId }
+        )
+        assertEquals(
+            listOf("weak", "medium"),
+            ListeningReviewPlanner.due(candidates, completedAt + 3 * day).map { it.episodeId }
+        )
+        assertEquals(
+            listOf("weak", "medium", "good"),
+            ListeningReviewPlanner.due(candidates, completedAt + 7 * day).map { it.episodeId }
+        )
+        assertEquals(
+            listOf("weak", "medium", "good", "strong"),
+            ListeningReviewPlanner.due(candidates, completedAt + 14 * day).map { it.episodeId }
+        )
+    }
+
+    @Test
     fun dailyPlannerMaintainsNoRepeatInvariantAcrossYearOfWeeklyCatalogGrowth() {
         val catalog = mutableListOf<ListeningEpisode>()
         val history = mutableListOf<ListeningAssignmentHistory>()
