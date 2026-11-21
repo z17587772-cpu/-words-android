@@ -412,6 +412,7 @@ class ListeningResourceDownloadWorker(
         val rootPath = root.canonicalPath.trimEnd(File.separatorChar) + File.separator
         for (candidate in repository.getEvictionCandidates()) {
             val file = if (candidate.localFilePath.isBlank()) null else runCatching { File(candidate.localFilePath).canonicalFile }.getOrNull()
+            if (candidate.localFilePath.isNotBlank() && file == null) continue
             if (file != null && !file.path.startsWith(rootPath)) continue
             val bytes = file?.takeIf { it.isFile }?.length() ?: candidate.expectedSizeBytes
             if (file != null && file.exists() && !file.delete()) continue
