@@ -9,12 +9,37 @@ val listeningCatalogPublicKey = providers.gradleProperty("LISTENING_CATALOG_PUBL
 fun buildConfigString(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "") + "\""
 
+val stableKeystorePath = providers.environmentVariable("WORDS_SIGNING_KEYSTORE_PATH").orNull
+val stableKeystorePassword = providers.environmentVariable("WORDS_SIGNING_STORE_PASSWORD").orNull
+val stableKeyAlias = providers.environmentVariable("WORDS_SIGNING_KEY_ALIAS").orNull
+val stableKeyPassword = providers.environmentVariable("WORDS_SIGNING_KEY_PASSWORD").orNull
+val hasStableSigning = listOf(
+    stableKeystorePath, stableKeystorePassword, stableKeyAlias, stableKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.words.app"
     compileSdk = 36
 
     buildFeatures {
         buildConfig = true
+    }
+
+    signingConfigs {
+        if (hasStableSigning) {
+            create("stable") {
+                storeFile = file(stableKeystorePath!!)
+                storePassword = stableKeystorePassword
+                keyAlias = stableKeyAlias
+                keyPassword = stableKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (hasStableSigning) signingConfig = signingConfigs.getByName("stable")
+        }
     }
 
     defaultConfig {
