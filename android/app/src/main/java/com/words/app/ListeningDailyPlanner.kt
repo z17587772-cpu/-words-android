@@ -14,11 +14,10 @@ data class ListeningAssignmentHistory(
 /**
  * Deterministic rotation across the complete eligible catalog.
  *
- * Every episode is assigned once before any episode receives its next
- * assignment. New episodes enter the current rotation with a count of zero.
- * Once a full pass is complete, the oldest-assigned episode starts the next
- * pass. Topic, accent and level balancing are tie-breakers, not substitutes
- * for completing a catalog pass.
+ * An episode can enter the new-lesson queue only once. Previously assigned
+ * episodes are never recycled as new lessons; review is a separate workflow.
+ * Newly published episode IDs enter the unseen pool immediately. Topic,
+ * accent and level balancing only order genuinely unseen candidates.
  */
 object ListeningDailyPlanner {
     fun choose(
@@ -29,6 +28,9 @@ object ListeningDailyPlanner {
         if (candidates.isEmpty()) return null
 
         val historyById = assignmentHistory.associateBy { it.episodeId }
+        val unseenCandidates = candidates.filterNot { historyById.containsKey(it.id) }
+        if (unseenCandidates.isEmpty()) return null
+
         val categoryCounts = assignmentHistory.groupingBy { it.category }
             .fold(0) { total, item -> total + item.assignmentCount }
         val accentCounts = assignmentHistory.groupingBy { it.accent.lowercase() }
@@ -41,10 +43,8 @@ object ListeningDailyPlanner {
             .joinToString("|")
         val seed = "$assignmentDate|$catalogRevision"
 
-        return candidates.minWithOrNull(
+        return unseenCandidates.minWithOrNull(
             compareBy<ListeningEpisode>(
-                { historyById[it.id]?.assignmentCount ?: 0 },
-                { historyById[it.id]?.lastAssignedDate.orEmpty() },
                 { categoryCounts[it.category] ?: 0 },
                 { accentCounts[it.accent.lowercase()] ?: 0 },
                 { levelCounts[it.level] ?: 0 },
