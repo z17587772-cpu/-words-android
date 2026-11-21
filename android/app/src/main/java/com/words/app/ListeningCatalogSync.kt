@@ -4,7 +4,6 @@ import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -187,15 +186,15 @@ object ListeningCatalogSync {
             cursor.use {
                 if (!it.moveToFirst()) {
                     removeDownloadRecord(context, id)
-                    return@forEach
-                }
-                when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
-                    DownloadManager.STATUS_SUCCESSFUL -> enqueueInstall(context, id)
-                    DownloadManager.STATUS_FAILED -> {
-                        getDownloadRecord(context, id)?.optString("file_path")?.takeIf { it.isNotBlank() }
-                            ?.let { path -> File(path).delete() }
-                        manager.remove(id)
-                        removeDownloadRecord(context, id)
+                } else {
+                    when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                        DownloadManager.STATUS_SUCCESSFUL -> enqueueInstall(context, id)
+                        DownloadManager.STATUS_FAILED -> {
+                            getDownloadRecord(context, id)?.optString("file_path")?.takeIf { it.isNotBlank() }
+                                ?.let { path -> File(path).delete() }
+                            manager.remove(id)
+                            removeDownloadRecord(context, id)
+                        }
                     }
                 }
             }
@@ -338,27 +337,30 @@ class ListeningPackageInstallWorker(context: Context, params: WorkerParameters) 
 
             val staging = File(applicationContext.cacheDir, "listening-preflight-$downloadId")
             if (staging.exists()) staging.deleteRecursively()
-            val extracted = ListeningPackageArchive.extractSafely(
-                FileInputStream(archive), staging, 64L * 1024L * 1024L
-            )
-            val manifest = extracted.manifestFile.readText(Charsets.UTF_8)
-            val packageData = ListeningContentPackageValidator.validate(
-                manifest, record.getInt("minimum_app_version_code").let { required ->
-                    val current = if (Build.VERSION.SDK_INT >= 28) {
-                        @Suppress("DEPRECATION")
-                        applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).longVersionCode.toInt()
-                    } else {
-                        @Suppress("DEPRECATION")
-                        applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).versionCode
+            try {
+                val extracted = ListeningPackageArchive.extractSafely(
+                    FileInputStream(archive), staging, 64L * 1024L * 1024L
+                )
+                val manifest = extracted.manifestFile.readText(Charsets.UTF_8)
+                val packageData = ListeningContentPackageValidator.validate(
+                    manifest, record.getInt("minimum_app_version_code").let { required ->
+                        val current = if (Build.VERSION.SDK_INT >= 28) {
+                            @Suppress("DEPRECATION")
+                            applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).longVersionCode.toInt()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).versionCode
+                        }
+                        require(current >= required) { "Package requires a newer app version" }
+                        current
                     }
-                    require(current >= required) { "Package requires a newer app version" }
-                    current
-                }
-            )
-            require(packageData.packageId == record.getString("package_id") &&
-                packageData.packageVersion == record.getInt("package_version")
-            ) { "Signed catalog entry does not match package manifest" }
-            staging.deleteRecursively()
+                )
+                require(packageData.packageId == record.getString("package_id") &&
+                    packageData.packageVersion == record.getInt("package_version")
+                ) { "Signed catalog entry does not match package manifest" }
+            } finally {
+                staging.deleteRecursively()
+            }
 
             val root = File(applicationContext.filesDir, "listening-content")
             val importer = ListeningContentPackageImporter(
