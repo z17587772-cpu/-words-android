@@ -393,6 +393,8 @@ Reviewed current public implementations and upstream documentation to avoid rebu
 - **DictaLearn** (MIT app code): useful reference for a portable lesson package containing audio plus sentence timing/transcript data, lesson import/export, and downloading additional books separately from the small base app. Its current built-in library uses neural-voice audio, so it is an architecture reference only and is not a source for our required human-recorded production lessons.
 - **SpeakAlong** (MIT app code): useful reference for a static catalog JSON plus per-book timed sentence data and separately hosted audio assets. Its content is separately governed from its code; do not copy its recordings/translations into Words without verifying the exact content terms.
 - **Voxshelf** (GPL-3.0 app): useful reference for a generated catalog, nightly catalog refresh, discovery filters, and a local download shelf. Do not copy its GPL implementation into this app without a license compatibility review.
+- **LibriSpeech (OpenSLR SLR12)**: the strongest current candidate for a starter human-read audio corpus. OpenSLR describes about 1,000 hours of read English speech derived from LibriVox audiobooks, carefully segmented/aligned, and lists CC BY 4.0. Its audiobook narration is suitable for narrative listening; level assignment, Chinese translation, comprehension questions, and lesson curation still need editorial work. Use only selected, quality-checked clips rather than bundling the full multi-gigabyte corpus.
+- **Clarity Speech Corpus**: contains roughly 10,000 individually recorded British-English sentences from 40 speakers, with prompt metadata and a CC BY 4.0 research article. However, the corpus article's additional terms exclude public broadcasting of the voice recordings except as part of a research project. Treat it as a research/benchmark candidate, not a production app audio source, unless the underlying dataset's exact license and distribution rights are independently cleared.
 - **LibriVox**: a potential human-narrated source for public-domain literature and short-work collections. Its API supports incremental discovery with the since parameter, pagination with offset, and a maximum limit of 500; the project asks clients to space large requests by several seconds. It explicitly warns that its recordings are public domain in the USA but may not be public domain in every other country. Therefore each candidate work needs territorial review and metadata before inclusion; a catalog entry alone is not blanket global clearance.
 
 ### Chosen long-term model
@@ -410,6 +412,8 @@ Research links:
 - DictaLearn: https://github.com/BurakYildizGameDev/dictalearn
 - SpeakAlong: https://github.com/r4yg/speakalong
 - Voxshelf: https://github.com/ezlabs/voxshelf
+- OpenSLR LibriSpeech SLR12: https://openslr.org/12/
+- Clarity Speech Corpus paper and data rights: https://pmc.ncbi.nlm.nih.gov/articles/PMC8881678/
 - LibriVox API: https://librivox.org/api/info
 - LibriVox API update and polite polling guidance: https://librivox.org/2026/09/16/librivox-api-update/
 - LibriVox public-domain / territorial notice: https://librivox.org/pages/public-domain/
