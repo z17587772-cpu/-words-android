@@ -104,6 +104,7 @@ jobs:
           planner = (root / "ListeningDailyPlanner.kt").read_text(encoding="utf-8")
           assert "assignDailyEpisode" in repository and "e.status='approved' AND e.is_demo=0" in repository
           assert "fun getAttemptAnswerReviews" in repository
+          assert "attempt.completed_at IS NOT NULL" in repository
           assert "ListeningDailyPlanner.choose" in repository and "stableTieBreak" in planner
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
