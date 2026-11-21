@@ -169,8 +169,8 @@ jobs:
           assert "post-completion-question" in migration_test
           assert "attempt.completed_at IS NOT NULL" in repository
           assert "ListeningDailyPlanner.choose" in repository and "stableTieBreak" in planner
-          assert "assignmentCount" in planner and "lastAssignedDate" in planner
-          assert "COUNT(*),MAX(d.assignment_date)" in repository
+          assert "assignmentCount" in planner and "lastAssignedDate" not in planner
+          assert "COUNT(*)" in repository and "MAX(d.assignment_date)" not in repository
           assert "getAssignmentHistory(assignmentDate)" in repository
           assert "dailyPlannerNeverRepeatsAssignedLessonsAndAddsNewLessonsImmediately" in migration_test
           assert "dailyPlannerDoesNotTreatAnUpdatedRevisionAsANewLesson" in migration_test
