@@ -156,3 +156,9 @@ Exit: only complete, reviewed lessons become eligible for daily assignment.
 
 The Python LibriVox worker remains a metadata-only GitHub Actions harvester. The Android LibriVox adapter remains metadata-only and rights-quarantined. The Internet Archive adapter now performs item-level CC license filtering, downloads a bounded MP3 track per item, verifies it and publishes it to a separate local library. The listening screen can list, filter, favorite and play downloaded raw resources offline. This is not yet a complete course-authoring pipeline: transcript acquisition, sentence alignment, Chinese translation, level tagging and question authoring still require separate processing and QA. The signed-catalog worker remains a separate fixed-endpoint course distribution lane.
 
+
+
+## 2026-11-21 — Validation-gated APK build
+- Feature-branch pushes now trigger the full listening validation workflow.
+- APK assembly and artifact upload occur only after Python tests, static policy checks, Kotlin compilation and API 35 instrumentation tests pass.
+- Current build target: debug APK version 1.8.3 (versionCode 24). A stable private signing key remains necessary for seamless updates across separately hosted builds.
