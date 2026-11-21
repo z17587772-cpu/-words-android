@@ -368,7 +368,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_sentences ON listening_revision_sentences(revision_id, ordinal)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_questions ON listening_revision_questions(revision_id, ordinal)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_revision_choices ON listening_revision_choices(revision_id, question_id, ordinal)")
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempt_revision ON listening_attempts(content_revision_id)")
+        if (hasTable(db, "listening_attempts")) db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_attempt_revision ON listening_attempts(content_revision_id)")
     }
 
     private fun migrateLegacyListeningRevisions(db: SQLiteDatabase) {
