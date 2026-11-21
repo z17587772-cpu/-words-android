@@ -99,9 +99,9 @@ object ListeningCatalogSync {
         // Explicitly select the software provider. The default Android provider
         // can route encoded public keys to AndroidKeyStore, which only accepts
         // hardware-backed KeyGenParameterSpec keys rather than X.509 catalog keys.
-        val publicKey = KeyFactory.getInstance("Ed25519", "AndroidOpenSSL")
+        val publicKey = KeyFactory.getInstance("Ed25519", "BC")
             .generatePublic(X509EncodedKeySpec(encodedKey))
-        val verifier = Signature.getInstance("Ed25519", "AndroidOpenSSL")
+        val verifier = Signature.getInstance("Ed25519", "BC")
         verifier.initVerify(publicKey)
         verifier.update(payload)
         require(verifier.verify(signatureBytes)) { "Catalog signature verification failed" }
