@@ -681,3 +681,13 @@ When no unseen formal lesson is available, the daily card now displays `NO NEW C
 - [ ] Add the matching Base64 X.509 public key as Gradle property `LISTENING_CATALOG_PUBLIC_KEY` for the release build.
 - [ ] Prepare and approve the first production course package and unsigned catalog; do not publish candidate metadata as a course.
 - [ ] Run the publisher workflow and verify the signed catalog and package download/install end to end.
+
+
+## 33. Repository activation state (2026-11-21)
+
+- [x] Created the dedicated `content-inbox` branch from `main` for persistent discovery state and static course/catalog hosting.
+- [x] Configured the Android build's default catalog URL to the `content-inbox/catalog/catalog.json` raw-content endpoint.
+- [x] Kept the public-key setting empty by default, so no untrusted or unsigned catalog is fetched before the production trust key is pinned.
+- [ ] Add the matching publisher private key as an Actions secret and pin the public key in the release build.
+- [ ] Populate the content branch with reviewed package ZIPs and a matching unsigned catalog; then run the publisher workflow.
+- [ ] Confirm Actions CI and API 35 emulator tests on the latest PR head. The current PR is still Draft and no run/status is visible yet.
