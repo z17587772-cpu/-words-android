@@ -241,7 +241,7 @@ internal object LibriVoxMetadataParser {
             allowedActions = emptySet(),
             attribution = "LibriVox recording; retain source attribution",
             territory = "",
-            mimeType = if (zip.isNotBlank()) "application/zip" else "application/rss+xml"
+            mimeType = if (mediaUrl == zip && zip.isNotBlank()) "application/zip" else if (mediaUrl == rss && rss.isNotBlank()) "application/rss+xml" else ""
         )
     }
 
