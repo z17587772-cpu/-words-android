@@ -81,6 +81,7 @@ class LibriVoxDiscoveryWorker(
         var pages = 0
         return try {
             while (pages < MAX_PAGES_PER_RUN) {
+                if (isStopped) throw InterruptedException("LibriVox discovery stopped")
                 val records = fetchPage(sinceEpoch, offset)
                 records.forEach { raw ->
                     LibriVoxMetadataParser.normalize(raw)?.let { repository.upsertCandidate(it, now) }
