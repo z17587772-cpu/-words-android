@@ -354,6 +354,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         // combined with per-card entrance animations and caused a visible double flash.
         pageHost.animate().cancel()
         pageHost.alpha = 1f
+        pageHost.translationY = 0f
         pageHost.removeAllViews()
         val compactBrowse = selectedTab == TAB_BROWSE && !showingFavorites
         val scroll = ScrollView(this).apply {
