@@ -81,7 +81,7 @@ class WordsDatabaseMigrationTest {
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
-        assertEquals(10, upgraded.version)
+        assertEquals(11, upgraded.version)
         assertEquals(12_345, scalar(upgraded, "SELECT position_ms FROM listening_playback WHERE episode_id='legacy-episode'"))
         assertEquals(1.25f, upgraded.rawQuery("SELECT playback_speed FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
             assertTrue(it.moveToFirst())
@@ -316,7 +316,7 @@ class WordsDatabaseMigrationTest {
             val episodeId = "lesson-01"
             assertEquals(1, scalar(helper.readableDatabase,
                 "SELECT COUNT(*) FROM listening_package_episodes WHERE episode_id='lesson-01' AND is_active=1"))
-            assertEquals(1, scalar(helper.readableDatabase,
+            assertEquals(3, scalar(helper.readableDatabase,
                 "SELECT COUNT(*) FROM listening_revision_questions WHERE revision_id=(SELECT current_revision_id FROM listening_episodes WHERE id='lesson-01')"))
 
             val assignmentDate = java.time.LocalDate.now().toString()
