@@ -128,8 +128,8 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                 "listening_discovered_resources", null, values, SQLiteDatabase.CONFLICT_IGNORE
             )
             if (inserted == -1L) {
-                // Refresh provider metadata without overwriting user pinning,
-                // local files, download state, or a prior rights decision.
+                // Refresh provider metadata while preserving favorites and local state;
+                // a source rights change below deliberately revokes stale access.
                 val update = ContentValues(values).apply {
                     remove("id")
                     remove("provider")
@@ -142,7 +142,7 @@ class ListeningDiscoveryRepository(private val helper: WordsDatabase) {
                 ).use { if (it.moveToFirst()) it.getString(0) else "unknown" }
                 val newActions = resource.allowedActions
                 if (existingRights == "cleared" &&
-                    (resource.rightsStatus != "cleared" || !newActions.contains("offline_download"))
+                    (resource.rightsStatus != "cleared" || !newActions.containsAll(setOf("in_app_playback", "offline_download")))
                 ) {
                     // A source license withdrawal/reclassification immediately
                     // removes the playable local pointer and prevents future use.
