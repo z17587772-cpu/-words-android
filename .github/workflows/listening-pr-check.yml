@@ -380,13 +380,16 @@ jobs:
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
       - name: Restore optional persistent APK signing key
-        if: ${{ secrets.WORDS_SIGNING_KEYSTORE_BASE64 != '' }}
         env:
           WORDS_SIGNING_KEYSTORE_BASE64: ${{ secrets.WORDS_SIGNING_KEYSTORE_BASE64 }}
           WORDS_SIGNING_STORE_PASSWORD: ${{ secrets.WORDS_SIGNING_STORE_PASSWORD }}
           WORDS_SIGNING_KEY_ALIAS: ${{ secrets.WORDS_SIGNING_KEY_ALIAS }}
           WORDS_SIGNING_KEY_PASSWORD: ${{ secrets.WORDS_SIGNING_KEY_PASSWORD }}
         run: |
+          if [ -z "$WORDS_SIGNING_KEYSTORE_BASE64" ]; then
+            echo "No persistent signing key configured; use the runner debug key for this validation APK."
+            exit 0
+          fi
           test -n "$WORDS_SIGNING_STORE_PASSWORD"
           test -n "$WORDS_SIGNING_KEY_ALIAS"
           test -n "$WORDS_SIGNING_KEY_PASSWORD"
