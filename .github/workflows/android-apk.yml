@@ -3,6 +3,9 @@ name: Build words APK
 on:
   workflow_dispatch:
   push:
+    branches: [main, 'feature/**']
+    tags: ['v*']
+  pull_request:
     branches: [main]
 
 permissions:
@@ -180,6 +183,10 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"version_name={name.group(1)}\n")
               out.write(f"version_code={code.group(1)}\n")
+          if os.environ.get("GITHUB_REF", "").startswith("refs/tags/"):
+              tag = os.environ["GITHUB_REF"].removeprefix("refs/tags/")
+              if tag != f"v{name.group(1)}":
+                  raise SystemExit(f"Tag {tag} does not match Gradle version v{name.group(1)}")
           print(f"Building words {name.group(1)} (versionCode {code.group(1)})")
           PY
 
@@ -207,6 +214,7 @@ jobs:
           retention-days: 7
 
       - name: Publish downloadable GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version_name }}
