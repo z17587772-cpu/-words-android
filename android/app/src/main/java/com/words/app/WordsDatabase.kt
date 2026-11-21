@@ -119,6 +119,12 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         }
     }
 
+    private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
+        db.rawQuery(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            arrayOf(table)
+        ).use { it.moveToFirst() }
+
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean =
         db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
             val nameIndex = cursor.getColumnIndex("name")
@@ -350,6 +356,15 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
     }
 
     private fun migrateLegacyListeningRevisions(db: SQLiteDatabase) {
+        // Some historical test/partial databases contain only a playback stub.
+        // Real v6/v7 installs have the full listening schema; never make an
+        // otherwise valid upgrade fail because an optional legacy table is absent.
+        if (!hasColumn(db, "listening_episodes", "updated_at") ||
+            !hasTable(db, "listening_sentences") ||
+            !hasTable(db, "listening_questions") ||
+            !hasTable(db, "listening_choices") ||
+            !hasTable(db, "listening_attempts")) return
+
         db.execSQL("""
             INSERT OR IGNORE INTO listening_episode_revisions(revision_id, episode_id, revision_hash, created_at)
             SELECT 'legacy:' || id || ':' || updated_at, id, 'legacy-v7', updated_at
