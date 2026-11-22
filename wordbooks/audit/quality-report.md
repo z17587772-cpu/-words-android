@@ -17,17 +17,17 @@ All examples and example translations are blank in the current packs. wordbooks/
 
 | Pack | Records | Missing phonetic | Missing POS | Missing example | Duplicate senses | Multi-space meanings | SHA-256 (prefix) |
 |---|---:|---:|---:|---:|---:|---:|---|
-| gaokao_standard_2025.json | 3,097 | 15 | 14 | 3,097 | 0 | 0 | `038814ea2010` |
-| highschool_extension_3743.json | 3,743 | 3,743 | 1 | 3,743 | 528 | 2,296 | `2709cdb83abb` |
-| cet4_core.json | 3,815 | 10 | 1 | 3,815 | 1 | 0 | `29e3fd103278` |
-| cet6_core.json | 5,371 | 25 | 8 | 5,371 | 1 | 0 | `30dbb10498c4` |
-| ielts_core.json | 4,974 | 244 | 20 | 4,974 | 1 | 0 | `55cef561ed88` |
-| toefl_core.json | 6,959 | 109 | 57 | 6,959 | 1 | 0 | `d60cb1b155f3` |
-| gre_core.json | 7,485 | 75 | 29 | 7,485 | 1 | 0 | `1ca5ddcd0482` |
-| kaoyan_core.json | 4,787 | 7 | 4 | 4,787 | 1 | 0 | `998375b6f18a` |
-| sat_core.json | 4,471 | 44 | 14 | 4,471 | 1 | 0 | `a9bea4edc340` |
-| gmat_core.json | 2,996 | 13 | 6 | 2,996 | 1 | 0 | `862f66a72193` |
-| ngsl_nawl_core_3000.json | 3,000 | 32 | 27 | 3,000 | 0 | 0 | `f77eb67c9417` |
+| gaokao_standard_2025.json | 3,097 | 15 | 14 | 3,097 | 0 | 0 | `746b11245f5e` |
+| highschool_extension_3743.json | 3,743 | 3,743 | 1 | 3,743 | 528 | 2,296 | `2cf1c6cfd663` |
+| cet4_core.json | 3,815 | 10 | 1 | 3,815 | 1 | 0 | `6105e4e6ee5d` |
+| cet6_core.json | 5,371 | 25 | 8 | 5,371 | 1 | 0 | `00069bfd7aec` |
+| ielts_core.json | 4,974 | 244 | 20 | 4,974 | 1 | 0 | `83d58f2e75a8` |
+| toefl_core.json | 6,959 | 109 | 57 | 6,959 | 1 | 0 | `ede3afb8cd43` |
+| gre_core.json | 7,485 | 75 | 29 | 7,485 | 1 | 0 | `28bf1dc0e3e0` |
+| kaoyan_core.json | 4,787 | 7 | 4 | 4,787 | 1 | 0 | `842faa1927b5` |
+| sat_core.json | 4,471 | 44 | 14 | 4,471 | 1 | 0 | `c89826d38c45` |
+| gmat_core.json | 2,996 | 13 | 6 | 2,996 | 1 | 0 | `3b2a52d8e8f0` |
+| ngsl_nawl_core_3000.json | 3,000 | 32 | 27 | 3,000 | 0 | 0 | `f31d0df4cdb2` |
 
 ## Findings
 
