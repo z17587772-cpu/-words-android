@@ -22,20 +22,21 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
-    fun upgradingV5ToV13PreservesVocabularyAndLearningHistory() {
+    fun upgradingV5ToV14PreservesVocabularyAndLearningHistory() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
 
-        assertEquals(13, upgraded.version)
+        assertEquals(14, upgraded.version)
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM books WHERE id='gaokao_core'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM words WHERE id=101 AND favorite=1 AND word='abandon'"))
         assertEquals(4, scalar(upgraded, "SELECT mastery FROM reviews WHERE word_id=101"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM history WHERE word_id=101 AND rated_at=1700000000000"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM word_detail_cache WHERE word='abandon'"))
         assertEquals(1, scalar(upgraded, "SELECT COUNT(*) FROM example_translation_cache WHERE sentence='I abandon the plan.'"))
+        assertTrue(columnExists(upgraded, "books", "content_sha256"))
 
         assertTrue(tableExists(upgraded, "listening_episodes"))
         assertTrue(tableExists(upgraded, "listening_attempts"))
@@ -63,6 +64,48 @@ class WordsDatabaseMigrationTest {
     }
 
     @Test
+    fun sameVersionWordbookContentChangeUpdatesPackAndPreservesLearningHistory() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val database = helper.writableDatabase
+        val originalJson = """
+            {"id":"hash_test_pack","name":"Hash Test","version":1,
+             "words":[{"word":"apple","meaning":"苹果","importance":3}]}
+        """.trimIndent()
+        val changedJson = originalJson.replace("苹果", "苹果；苹果树")
+        val upgradedVersionJson = changedJson.replace("\"version\":1", "\"version\":2")
+        val original = WordsDatabase.parsePack(originalJson)
+        val changed = WordsDatabase.parsePack(changedJson)
+        val versionTwo = WordsDatabase.parsePack(upgradedVersionJson)
+
+        assertTrue(WordsDatabase.shouldInstallPack(null, null, original))
+        assertFalse(WordsDatabase.shouldInstallPack(1, original.contentSha256, original))
+        assertTrue(WordsDatabase.shouldInstallPack(1, original.contentSha256, changed))
+        assertTrue(WordsDatabase.shouldInstallPack(1, changed.contentSha256, versionTwo))
+        assertFalse(WordsDatabase.shouldInstallPack(2, versionTwo.contentSha256, original))
+
+        helper.installPack(original)
+        val wordId = scalarLong(database, "SELECT id FROM words WHERE book_id='hash_test_pack' AND word='apple'")
+        database.execSQL("INSERT INTO reviews(word_id,mastery,seen_count,correct_count,last_seen) VALUES(?,4,12,9,1700000000000)", arrayOf(wordId))
+        database.execSQL("INSERT INTO history(word_id,rated_at,rating) VALUES(?,1700000000000,4)", arrayOf(wordId))
+        assertEquals(original.contentSha256, database.rawQuery(
+            "SELECT content_sha256 FROM books WHERE id='hash_test_pack'", null
+        ).use { it.moveToFirst(); it.getString(0) })
+
+        helper.installPack(changed)
+        assertEquals(wordId, scalarLong(database, "SELECT id FROM words WHERE book_id='hash_test_pack' AND word='apple'"))
+        assertEquals("苹果；苹果树", database.rawQuery(
+            "SELECT meaning FROM words WHERE id=?", arrayOf(wordId.toString())
+        ).use { it.moveToFirst(); it.getString(0) })
+        assertEquals(4, scalar(database, "SELECT mastery FROM reviews WHERE word_id=$wordId"))
+        assertEquals(1, scalar(database, "SELECT COUNT(*) FROM history WHERE word_id=$wordId"))
+        assertEquals(changed.contentSha256, database.rawQuery(
+            "SELECT content_sha256 FROM books WHERE id='hash_test_pack'", null
+        ).use { it.moveToFirst(); it.getString(0) })
+        helper.close()
+    }
+
+    @Test
     fun upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback() {
         context.deleteDatabase(DATABASE_NAME)
         createVersion5Fixture()
@@ -84,7 +127,7 @@ class WordsDatabaseMigrationTest {
 
         val helper = WordsDatabase(context)
         val upgraded = helper.writableDatabase
-        assertEquals(13, upgraded.version)
+        assertEquals(14, upgraded.version)
         assertEquals(12_345, scalar(upgraded, "SELECT position_ms FROM listening_playback WHERE episode_id='legacy-episode'"))
         assertEquals(1.25f, upgraded.rawQuery("SELECT playback_speed FROM listening_playback WHERE episode_id='legacy-episode'", null).use {
             assertTrue(it.moveToFirst())
@@ -864,7 +907,7 @@ class WordsDatabaseMigrationTest {
 
         val upgradedHelper = WordsDatabase(context)
         val upgraded = upgradedHelper.writableDatabase
-        assertEquals(13, upgraded.version)
+        assertEquals(14, upgraded.version)
         assertTrue(upgraded.rawQuery(
             "SELECT content_revision_id FROM listening_attempts WHERE id=?",
             arrayOf(attemptId.toString())
@@ -889,7 +932,8 @@ class WordsDatabaseMigrationTest {
         val helper = WordsDatabase(context)
         val database = helper.writableDatabase
 
-        assertEquals(13, database.version)
+        assertEquals(14, database.version)
+        assertTrue(columnExists(database, "books", "content_sha256"))
         assertTrue(tableExists(database, "listening_episodes"))
         assertTrue(tableExists(database, "listening_vocab_links"))
         assertTrue(columnExists(database, "listening_playback", "audio_revision"))
@@ -1145,6 +1189,9 @@ class WordsDatabaseMigrationTest {
         db.version = 5
         db.close()
     }
+
+    private fun scalarLong(db: SQLiteDatabase, sql: String): Long =
+        db.rawQuery(sql, null).use { cursor -> cursor.moveToFirst(); cursor.getLong(0) }
 
     private fun scalar(db: SQLiteDatabase, sql: String): Int =
         db.rawQuery(sql, null).use { cursor ->
