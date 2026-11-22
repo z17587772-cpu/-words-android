@@ -18,7 +18,7 @@ class WordbookAuditTests(unittest.TestCase):
             "words": [
                 {
                     "word": "alpha",
-                    "meaning": "n. 甲；adj. 第一的",
+                    "meaning": "n.  甲；adj. 第一的",
                     "phonetic": "/ˈælfə/",
                     "pos": "n./adj.",
                     "example": "",
