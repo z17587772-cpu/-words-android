@@ -1,5 +1,7 @@
 # Words Listening — Product & Delivery Roadmap
 
+> **历史文档说明（2026-11-22）：** 本文件累计记录 34 个阶段的设计和实现快照。各节复选框反映写入当日状态，可能已被后续实现或决策覆盖，不能直接作为当前总待办。当前真实进度、历史冲突裁决和唯一执行顺序，统一见 [PROJECT_AUDIT_AND_MASTER_ROADMAP.md](PROJECT_AUDIT_AND_MASTER_ROADMAP.md)。第 22 节“严格不重复”覆盖第 18 节任何耗尽后重复旧课的设计。APK 生产暂停，版本固定 1.8.5 / 26。
+
 Updated: 2026-11-21
 Target: `feature/listening-mvp` / preview code line; APK packaging intentionally paused
 Release status: **not production-ready; keep PR #1 draft**

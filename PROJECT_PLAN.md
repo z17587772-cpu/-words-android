@@ -1,37 +1,35 @@
 # Words Android — 项目总计划与持续交接基线
 
-> 本文是跨会话的项目执行总入口。每次开始工作必须先读取本文、`android/PROJECT_STATUS.txt` 和 `LISTENING_DEVELOPMENT_WORK_LOG.md`，核对 GitHub 当前分支、HEAD 与最新 CI；每次结束工作必须将计划状态、提交、测试证据和未完成事项写回仓库。本文不替代 Git 历史，也不允许用“计划完成”代替实际验收。
+> 本文是跨会话执行入口。**当前全量现状、历史计划冲突裁决、所有子系统进度和唯一执行路线，以 [PROJECT_AUDIT_AND_MASTER_ROADMAP.md](PROJECT_AUDIT_AND_MASTER_ROADMAP.md) 为准。** 每次开始工作必须读取本文件、审计文件、`android/PROJECT_STATUS.txt` 和 `LISTENING_DEVELOPMENT_WORK_LOG.md`，核对 GitHub 当前分支、HEAD 与最新 CI；每次结束必须把计划、提交、测试证据和未完成事项写回仓库。旧专项 roadmap 的复选框是历史快照，不替代当前状态。
 
 ## 1. 当前项目基线
 
 - 当前开发分支：`feature/listening-mvp`
-- 当前开发分支 HEAD：由最新 GitHub 分支记录为准；schema v14 和词书 APK 内容已在验证提交 `fce557cc4a196eca3947bd0bb68ee7aba389238c` 上通过
+- 当前开发分支 HEAD：`91b7b8b58e15297ae5e0aa096c21cfea37553b1d`（审计基线；每轮以 GitHub 最新分支为准）
 - 稳定主分支：`main`（不得未经明确授权直接修改或合并）
 - PR #1：Draft，保持未合并
 - 应用版本：`1.8.5` / versionCode `26`（本轮修复升级版本）
 - applicationId：`com.words.app`
-- compileSdk：36；targetSdk：35；数据库 schema：v14（代码、迁移和哈希回归测试已通过 CI；11 套资产入库幂等性测试等待 1.8.5 CI）
+- compileSdk：36；targetSdk：35；数据库 schema：v14（迁移、同版本哈希更新、防降级、11 套词书入库及重复 seed 幂等性已通过当前 API 35 模拟器 CI）
 - 版本号唯一来源：`android/app/build.gradle.kts`
 
-### 最新已验证构建
+### 最新当前 HEAD 验证（开发期，仅验证，不产 APK）
 
-- 首次词库同步验证： [Actions run #96](https://github.com/z17587772-cpu/-words-android/actions/runs/44916432083)，代码提交 `5509f921420f4f5562eb59df88ffcc7aa47cb4d5`。
-- 最新 schema v14 验证： [Actions run #100](https://github.com/z17587772-cpu/-words-android/actions/runs/45029773333)，验证提交 `fce557cc4a196eca3947bd0bb68ee7aba389238c`；所有 CI steps 成功，包括 Kotlin 编译、API 35 模拟器迁移/回归测试、APK 构建和 APK 内 11 套词书门禁。
-- 最新 artifact：`words-validated-debug-apk-100`，artifact ID `14756944617`
-- Artifact ZIP SHA-256：`cfcb3b46156b9e10b2d2acf89dfef6af4f617b9f90e86eee591299ee54e14c1b`
-- 解包 APK：19,638,765 bytes；SHA-256：`92c29f6e82ef78da96bba3afc9538e969e783a141f234a04acbbb1aa2daf367b`
-- 已直接下载并检查该 APK 内部 ZIP：11 个词书文件全部存在、均为有效 JSON，ID/词条数正确，合计 50,698 条；每个文件字节均与仓库 `wordbooks/` 对应源文件一致。
-- 注意：该 APK 仍为 1.8.4 / versionCode 25；如果设备已安装 code 25，不能作为覆盖升级包。真机安装和升级仍未验证；签名证书稳定性也仍需确认。
+- 当前 HEAD：`91b7b8b58e15297ae5e0aa096c21cfea37553b1d`
+- 最新验证：[Actions run 45030879471](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471)，成功。
+- Python 内容管线测试、11 套词书同步/校验、静态安全边界检查、Kotlin 主/测试源码编译、API 35 模拟器迁移/仪器测试全部成功。
+- 本次验证没有 APK artifact，符合用户要求；不能把“无产物”说成构建失败。
+- 版本保持 1.8.5 / code 26；APK assemble/sign/upload/Release 全部暂停。
 
-## APK 生产暂停规则（用户明确要求）
+### 历史 APK 证据（不能作为当前安装包）
 
-- 当前保留版本号：`1.8.5` / versionCode `26`；暂停安装包生产不意味着回退版本号。
-- 在用户明确宣布项目完成并授权进入发布阶段前，不得执行 APK assemble、sign、artifact upload 或 GitHub Release。
-- `.github/workflows/listening-pr-check.yml` 只做 Python 检查、词书同步/资源检查、Kotlin 编译、数据库迁移与模拟器测试；不得生成 APK。
-- `.github/workflows/android-apk.yml` 的手动构建 job 保持禁用，防止误触发。
-- 允许持续运行源码、单元测试、仪器测试和静态检查；这些验证不等于产出安装包。
-- 只有所有 P0–P4 项达到验收门槛，且用户明确同意发布，才恢复 APK 工作流；届时使用已保留的 1.8.5 / 26 作为本轮候选版本，不擅自提升或降低版本号。
-- 本轮停产调整提交：`df24a11`（验证工作流移除打包上传）、`379af2d`（禁用手动 APK job）、`cec35de`（增加 CI 防误开门禁）、`e5a56de`（修正门禁自匹配问题）。
+- 历史 run #100：[45029773333](https://github.com/z17587772-cpu/-words-android/actions/runs/45029773333)，提交 `fce557cc4a196eca3947bd0bb68ee7aba389238c`，构建了 1.8.4 / code25。
+- 历史 artifact：`words-validated-debug-apk-100` / ID `14756944617`。
+- 解包 APK SHA-256：`92c29f6e82ef78da96bba3afc9538e969e783a141f234a04acbbb1aa2daf367b`。
+- 历史 APK 内 11 套词书均存在，50,698 条 pack records；每份 JSON 有效且与源文件字节相同。
+- 这份 APK 不是 1.8.5 / code26，不代表真机验收成功，也不能作为本轮修复安装包发给用户。
+- 用户报告的 PJX110 `ZipException: invalid stored block lengths` 尚未通过设备文件 SHA-256 对比和实际安装测试关闭。
+
 
 ## 2. 词书数据基线（必须保护）
 
@@ -55,8 +53,8 @@
 
 ### 词书不可回退规则
 
-1. 所有 11 套词书必须进入 APK；只检查 Git 仓库文件不算通过。
-2. CI 必须核对文件清单、pack ID、记录数、必需字段、文件字节哈希；构建后还必须打开 APK 核验内部资源和 SHA-256。
+1. 正式发布时所有 11 套词书必须进入 APK；开发期先校验根目录源文件到 Android assets 的同步，恢复 APK 生产后再检查 APK 内部资源。
+2. CI 开发期核对文件清单、pack ID、记录数、必需字段、源/目标 SHA-256；发布期另需打开 APK 核验内部资源和 SHA-256。
 3. 应用升级必须能识别词书内容变更。仅按版本号判断会漏掉“版本号不变、文件内容已变化”的情况；本轮将增加数据库内容哈希字段并为同版本内容变化提供安全更新路径。
 4. 不允许因为听力、UI 或其他功能更新而覆盖/删除词书源数据。
 5. 更新词书时尽量复用既有 headword 的 word ID；停用移除词条而不物理删除；必须保留 reviews、history、favorite、缓存和随刷进度。
@@ -71,7 +69,7 @@
 - [x] 11 套词书源数据已经存在于仓库。
 - [x] 本轮已修复 CI 构建前自动同步 11 套词书至 Android assets。
 - [x] Run #96 构建出的 APK 内 11 套词书均已验证 ID、数量和 JSON 格式。
-- [x] 应用数据库基于内容哈希判断词书更新（schema v14、同版本内容变更可更新、低版本不触发升级；CI 正在验收）。
+- [x] 应用数据库基于内容哈希判断词书更新（schema v14、同版本内容变更可更新、低版本不触发升级；当前 HEAD 的 API 35 模拟器 CI 已通过）。
 - [ ] 对 11 套词书开展完整释义/音标/词性/例句质量审计。
 - [ ] PJX110 Android 16 真机视觉与安装升级回归。
 
@@ -104,18 +102,18 @@
 - `247ca76`：增加词书同版本变更、版本防降级、原单词 ID / reviews / history 保留测试。
 - `fce557c`：增加 APK 构建后内部词书清单、数量、字节哈希和总词条数核验，并更新 CI 静态门禁。
 - 已完成的上一轮 APK 实物检查：run #96 的 APK 中确实包含 11 套词书、50,698 条记录，所有 JSON 和源文件字节一致；该包仍为 1.8.4 / code 25，不能用作 code 25 设备的覆盖升级包。
-- 当前 schema v14 完整 CI： [run 45029773333](https://github.com/z17587772-cpu/-words-android/actions/runs/45029773333)，当前正在执行 API 35 模拟器迁移与回归测试。
+- 当前 HEAD 的 validation-only CI：[run 45030879471](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471)，Python、Kotlin 编译和 API 35 模拟器测试全部通过；没有 APK artifact。
 
 - [x] 在 CI 构建前自动同步 11 套词书到 Android assets。
 - [x] 同步时核对 ID、词条数、关键字段、源/目标 SHA-256。
 - [x] Run #96 成功；实际下载 APK 并验证 11 个内部资源文件。
-- [x] 将 APK 内部词书清单/数量/哈希校验固化为 CI 的构建后步骤（当前 HEAD 已加入，等待运行结果）。
+- [x] 历史 APK 构建后曾加入内部词书清单/数量/哈希检查，并在 1.8.4/code25 run #100 通过；当前开发 CI 不构建 APK，因此只执行源文件/assets 检查。
 - [x] 数据库升至 schema v14，为 books 增加 content_sha256；旧版迁移与学习记录保留测试通过。
 - [x] seedBuiltInPack 对“更高版本”或“同版本不同哈希”更新；对更低版本拒绝降级。
 - [x] 增加迁移、哈希判断、同版本内容变化、旧版本拒绝降级和学习记录保留测试（API 35 CI 通过）。
-- [x] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确，重复初始化幂等（代码已提交，待 CI 执行）。
+- [x] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确、50,698 条 active rows、重复初始化幂等；当前 run #45030879471 已通过。
 - [x] 把修复包版本提升为 1.8.5 / versionCode 26（确保已安装 1.8.4/code 25 的用户具备版本号升级路径）。
-- [ ] 更新 README、项目状态和开发日志，再执行最终 1.8.5 完整 CI 与 APK 检查。
+- [x] 更新 README、项目状态、开发日志并建立全量审计文件；当前 HEAD validation-only CI 已通过。后续按审计文件 Phase 1–6 执行，APK 继续暂停。
 
 ### S1 — 背词/随刷回归
 
@@ -153,6 +151,8 @@
 
 ## 5. 每次工作会话必须遵守的提交制度
 
+当前统一审计与执行路线：[PROJECT_AUDIT_AND_MASTER_ROADMAP.md](PROJECT_AUDIT_AND_MASTER_ROADMAP.md)。旧专项 roadmap 的历史 checklist 不得直接当作当前待办。
+
 每次续接任务严格执行以下顺序，并将阶段成果提交到本分支：
 
 1. **接手核验**：读取本文件、`android/PROJECT_STATUS.txt`、`LISTENING_DEVELOPMENT_WORK_LOG.md`；检查 branch HEAD、最近提交和最新 Actions run，不以聊天旧摘要代替代码状态。
@@ -173,7 +173,7 @@
 ## 6. 发布与数据安全规则
 
 - `main` 是稳定基线，只有用户明确授权并且所有门禁通过后才考虑合并。
-- PR #1 持续保持 Draft，直到词书、背词/随刷、听力、迁移和真机验收达到发布门槛。全部完成并获明确授权前，APK 生产保持暂停，版本号保持 1.8.5 / 26。用户明确要求完成前暂停 APK 生产，版本号保持 1.8.5 / 26。
+- PR #1 持续保持 Draft；main 不动。用户明确要求完整项目完成并授权前不生成 APK；开发期只跑源码、资源和模拟器验证，版本号保持 1.8.5 / 26。
 - 任何数据库迁移必须验证旧版本升级、外键完整性、收藏、reviews、history 和缓存保留。
 - 所有远程内容均视为不可信输入；先验证格式、来源、许可、路径和哈希再落盘。
 - 不将私钥、签名 keystore、口令、个人设备数据写入 Git。

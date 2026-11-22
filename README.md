@@ -49,31 +49,28 @@
 - 通用核心词汇采用 NGSL + NAWL 开放词表（约 3,000 词），作为 Oxford 3000/5000 的开放替代。未打包 Oxford 原表，因为没有确认其内容具有可再分发授权。
 - 词库来源、许可和新课标数量差异见 `wordbooks/SOURCES.md` 与 `wordbooks/CURRICULUM-AUDIT.md`。
 
-## 项目结构与构建
+## 项目结构与开发验证
 ```
 android/              Android 工程
-wordbooks/            离线词书
-tools/                词库数据处理与工程脚本
-.github/workflows/    自动构建与 Release
-PROJECT_PLAN.md       版本规划与实施记录
-android/PROJECT_STATUS.txt  当前实现与验证状态
+wordbooks/            离线词书与来源审计
+tools/                词库与听力内容处理工具
+.github/workflows/    源码编译、模拟器与内容管线验证（暂停 APK 产出）
+PROJECT_AUDIT_AND_MASTER_ROADMAP.md  全量审计与统一执行路线
+PROJECT_PLAN.md       总计划与会话提交约定
+android/PROJECT_STATUS.txt  当前实现与验证事实
+LISTENING_DEVELOPMENT_WORK_LOG.md  按时间追加的开发日志
 ```
 
-环境：JDK 17、Android SDK Platform 36、Build Tools 35.0.0、Gradle 8.13（以听力 PR CI 配置为准）。
+环境：JDK 17、Android SDK Platform 36、Build Tools 35.0.0、Gradle 8.13。
 
-```bash
-cd android
-gradle --no-daemon clean assembleDebug
-```
-
-输出：`app/build/outputs/apk/debug/app-debug.apk`。
+**当前开发阶段不生成 APK。** CI 仅执行内容管线测试、词书同步与校验、Kotlin 编译、数据库迁移和 Android 模拟器回归；不执行 APK assemble、签名或 artifact 上传。版本保持 1.8.5 / versionCode 26。
 
 ## 听力模块状态
 - 自动发现与本地资源下载已实现源码路径；Internet Archive 仅对明确许可的 CC0 / CC BY 4.0 / CC BY-SA 4.0 条目开放自动下载，LibriVox 候选仍处于权利隔离状态。
-- 本地资源库、离线播放、播放进度恢复、SHA-256 校验、存储配额和资源协调修复已有实现；本轮增加了下载中断状态恢复、失败下载可重试、终态失败不再阻塞后续队列、资源许可过滤和刷新页面复用。1.8.3 对应代码已通过 Android 编译与模拟器回归，1.8.4 新版本构建待验证。
+- 本地资源库、离线播放、播放进度恢复、SHA-256 校验、存储配额和资源协调修复已有代码；还需补真实下载进度/错误状态、故障注入和 Android 16 真机回归。当前 1.8.5 / code 26 validation-only CI 已通过 Kotlin 编译与 API 35 模拟器回归，但没有生成 APK。
 - 原始发现资源与正式课程、每日新课严格分离。自动元数据发现不等于正式课程生产。
 - 正式课程转录、句子时间轴、中文翻译、题目生成、人工审核、签名目录密钥配置和首批正式课程发布仍未闭环。
-- 详细验收状态以 `android/PROJECT_STATUS.txt` 和 `LISTENING_PRODUCT_ROADMAP.md` 为准。
+- 全量审计、历史计划整合、当前进度与唯一执行顺序见 `PROJECT_AUDIT_AND_MASTER_ROADMAP.md`；旧专项 roadmap 保留历史，不再单独充当当前任务清单。
 
 ## 版本管理与发布约定
 1. `android/app/build.gradle.kts` 是版本号唯一事实来源。

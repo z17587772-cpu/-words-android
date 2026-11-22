@@ -232,3 +232,60 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 2. Keep the no-package workflows in place throughout feature development.
 3. Continue UI, vocabulary and listening improvements under `PROJECT_PLAN.md`; update the work log at the end of each work session.
 4. Only restore APK production after all product/device gates pass and the user explicitly authorizes release.
+
+
+## 2026-11-22 — Full project inventory, historical-plan reconciliation and unified roadmap
+
+### Scope
+- Reviewed branch history, current PR/branches, main-vs-feature divergence, current Actions validation and both APK-production workflow controls.
+- Read the project plan/status/README, the 34-section listening roadmap, append-only work log, architecture review, automatic discovery architecture, continuous supply specification, content-package specification, revision importer design, source-rights evaluation, and vocabulary source/curriculum audits.
+- Inspected current Android database, vocabulary scheduler, listening discovery/resource automation, package importer, signed catalog client, Media3 playback service, daily/review planners, instrumentation tests and workflows.
+- Reconciled documented history against preserved user requirements and current source/CI evidence; checked relevant Android and learning-science references.
+
+### Verified baseline
+- Branch: feature/listening-mvp
+- HEAD: 91b7b8b58e15297ae5e0aa096c21cfea37553b1d
+- Compare with main: 633 commits ahead / 8 behind; 48 changed files; no merge/rebase performed.
+- PR #1 remains Draft; main remains untouched.
+- Version remains 1.8.5 / code 26.
+- Latest current-HEAD validation-only run [45030879471](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471) succeeded: Python pipeline, 11-pack sync/asset checks, source boundary checks, Kotlin app/test compilation and API 35 emulator instrumentation all passed.
+- No artifact was produced by the current run, as required.
+- 11 wordbooks sum to 50,698 pack records (not globally unique terms); curriculum source keys 3,099 vs 3,097 app rows after case-insensitive merging.
+- Current test inventory: 38 Android @Test methods in five instrumentation classes and 18 Python test methods in two content-pipeline test files. android/core-tests is not included in that total because it is not confirmed as an active Gradle test module.
+
+### Reconciled decisions
+- Roadmap section 22 strict no-repeat rule supersedes section 18's older “repeat oldest after full pass” behavior.
+- A discovered/downloaded raw audio resource is not a published formal lesson. Rights, transcript/timing, translation, evidence-linked questions, quality review and signed publishing are separate gates.
+- LibriVox Android candidates stay rights-quarantined; Python catalog discovery is metadata-only and its scheduled workflow is not active on main while PR #1 remains Draft.
+- Internet Archive raw-audio discovery/download is partly implemented with metadata/license gates, but live long-run provider behavior, user-facing byte progress, pause/cancel and failure recovery need more tests.
+- Signed catalog client/importer exists but remote sync remains disabled because the pinned public key is empty; content-inbox has no production catalog or course ZIP assets.
+- Current download heartbeat is not true byte progress/percentage.
+- The PJX110 ZIP corruption report remains unresolved until device-side file SHA-256 is compared and installation is tested.
+- Stable signing continuity is unverified; protect local learning data and do not use uninstall as default troubleshooting.
+
+### Unified roadmap
+Created PROJECT_AUDIT_AND_MASTER_ROADMAP.md to unify:
+- all previous user requirements and project memory;
+- branch/history and documentation inventory;
+- current code vs. tested vs. designed-but-disabled vs. not-yet-built;
+- source/rights boundaries and 11-pack vocabulary facts;
+- conflicts among old task lists and the final strict no-repeat rule;
+- phases for wordbook QA, vocabulary/UI regression, raw audio reliability, formal course supply, new-course/review experience and Android 16 physical-device/release acceptance.
+
+### Documentation-only changes
+- The audit is the new single authoritative current status and master roadmap.
+- PROJECT_PLAN points to the audit and must not retain stale “latest run pending” language.
+- PROJECT_STATUS is normalized to the current run and no-artifact status.
+- README's direct APK build commands are removed while APK production is paused.
+- LISTENING_PRODUCT_ROADMAP is explicitly labelled as historical snapshots; original details are retained.
+- No application source code, database schema, dependency, version number or APK was changed/created in this audit.
+
+### Next execution order
+1. 11-pack content-quality audit and issue report.
+2. Home/daily study/flashcard UI regression matrix and statistics verification.
+3. Raw-audio download state machine, true byte progress and failure injection.
+4. Rights/editorial/production pipeline and signed course catalog activation.
+5. Strict no-repeat new lessons, separate review and full listening learning loop.
+6. Android 16 physical-device, performance, accessibility, data-upgrade and release gate.
+
+APK production remains paused; version 1.8.5 / code 26 remains fixed.

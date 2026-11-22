@@ -1,81 +1,83 @@
-Words Android v1.8.5 — implementation and validation status
+Words Android — 当前工程状态（2026-11-22）
 
-## Version and repository baseline
-- versionName: 1.8.5
-- versionCode: 26
-- applicationId: com.words.app
-- compileSdk: 36
-- targetSdk: 35
-- Database schema: v14
-APK production: PAUSED — validation only; no APK assemble/sign/upload until project completion and explicit release approval
-Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paused.
-APK production: PAUSED — validation only; no APK assemble/sign/upload until project completion and explicit release approval
-Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paused.
-- Development branch: feature/listening-mvp
-- PR #1: Draft; not merged
-- Stable main is unchanged.
-- Project execution baseline: PROJECT_PLAN.md
-- Historical work log: LISTENING_DEVELOPMENT_WORK_LOG.md
+## 1. 固定基线
+- 分支：feature/listening-mvp
+- 当前 HEAD：91b7b8b58e15297ae5e0aa096c21cfea37553b1d
+- PR #1：Draft，未合并
+- main：未修改
+- versionName：1.8.5
+- versionCode：26
+- applicationId：com.words.app
+- compileSdk / targetSdk：36 / 35
+- SQLite schema：v14
+- APK 生产：PAUSED（不 assemble / sign / upload / Release）
+- 完整项目完成且用户明确授权前，版本保持 1.8.5 / 26
 
-## Verified vocabulary repair
-- Root wordbooks directory contains 11 complete source packs.
-- CI copies all 11 into android/app/src/main/assets/books before Android compilation and checks pack ID, expected entry count, required fields and SHA-256 copy equality.
-- Run #100 passed on code commit fce557cc4a196eca3947bd0bb68ee7aba389238c:
-  https://github.com/z17587772-cpu/-words-android/actions/runs/45029773333
-- Artifact words-validated-debug-apk-100; artifact ID 14756944617.
-- Artifact ZIP SHA-256: cfcb3b46156b9e10b2d2acf89dfef6af4f617b9f90e86eee591299ee54e14c1b
-- Extracted APK size 19,638,765 bytes; SHA-256 92c29f6e82ef78da96bba3afc9538e969e783a141f234a04acbbb1aa2daf367b.
-- The APK was downloaded and manually inspected: all 11 expected assets exist; IDs and counts match; all files parse as JSON; total is 50,698 entries; all embedded bytes match root wordbooks exactly.
-- This run was built with version 1.8.4 / code 25. It is evidence for the asset packaging fix but is not the new 1.8.5 upgrade package.
+## 2. 最新当前 HEAD 验证
+- Actions：成功 — https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471
+- Python 内容发现/签名测试：通过
+- 11 套词书同步到 Android assets，pack ID/数量/字段/源目标 SHA-256：通过
+- blind-listening answer-key 和课程包/播放安全边界检查：通过
+- Kotlin app + instrumentation 源码编译：通过
+- API 35 emulator migration/instrumentation：通过
+- artifact：无（符合停产要求）；本轮未构建 APK
 
-## Database v14 content-hash protection
-- books.content_sha256 is added through a non-destructive schema migration.
-- parsePack computes SHA-256 over the exact UTF-8 source JSON.
-- seedBuiltInPack updates on first install, higher pack version, or same version with different content hash.
-- A lower incoming pack version never replaces a higher installed version.
-- installPack reuses matching word IDs, deactivates removed headwords instead of deleting them, and preserves reviews/history/favorites for retained words.
-- Instrumentation tests cover v5-to-v14 migration preservation, same-version content change, downgrade rejection logic and word ID / review / history preservation.
-- Application-level regression added: run seedBuiltInPack against all 11 packaged assets and verify DB entry counts/hashes and idempotence. The latest validation-only CI run is pending; it must not produce an APK.
+## 3. 词书现状
+- 根目录 11 套词书共 50,698 条 pack records；这是各 pack 行数之和，不是跨词书全局唯一词数。
+- 2025 新课标 app 记录数 3,097；来源结构键 3,099，两个大小写词头对合并，不声称官方唯一词恰好 3,100。
+- CI 构建前同步和源/目标 SHA-256 检查已实现。
+- schema v14 books.content_sha256 已实现；更高版本或同版本内容变化可更新，低版本不会降级；匹配词头复用 ID，停用旧词而保留 review/history/favorite。
+- 当前模拟器已验证 11 套入库、数量/哈希、50,698 active rows、重复 seed 幂等。
+- 尚未完成 11 套词条语义、词性、音标、例句质量审计；真实 Android 设备未运行当前 code26。
 
-## Listening and study functionality already present
-- On-device LibriVox and Internet Archive discovery with bounded pagination, deduplication and persisted cursors.
-- Automatic offline downloads restricted to explicit supported item-level CC licenses; LibriVox uncertain-rights candidates stay quarantined.
-- Serial Wi-Fi/unmetered WorkManager download path, file size/SHA-256/duration validation, local resource library and offline playback progress.
-- Storage quota, pinned/recently played protection, stale file reconciliation, duplicate audio hash reuse and license revocation handling.
-- Formal courses are separated from raw discovered resources and TTS demo content.
-- Quiz answer-key separation, course revision snapshots, daily no-repeat planning and spaced-review foundations.
-- Remaining listening gaps: byte-level progress/total size/speed, structured failure details, pause/cancel/restart tests, real approved human-recorded formal courses, transcript alignment, reviewed Chinese translation and teaching QA.
+## 4. 词汇主流程
+- 已有：离线词书、每日四选一、答后解释、收藏/历史、在线词典扩展、随刷加权浏览调度。
+- 历史提交处理过：卡片滑动/翻转动画、释义排版、讲解页刷新、首页统计、反馈开关等。
+- 未验收：全量屏幕状态矩阵、历史 UI 缺陷回归、统计口径独立校验、UI 自动化/帧率、TalkBack/字体缩放/真机视觉。
 
-## Latest 1.8.5 changes under validation (APK production paused) (APK production paused)
-- Version bumped to 1.8.5 / versionCode 26 so existing code-25 installs can receive an upgrade.
-- Added an instrumentation test that seeds all 11 bundled packs into SQLite, checks exact per-pack counts and hashes, totals 50,698 active words, and verifies a second seed is idempotent.
-- CI requires the all-11-pack database seeding/idempotence test and validates source code/migrations only. APK build and upload steps are removed from the validation workflow; the manual APK workflow is disabled.
-- Latest validation-only run: https://github.com/z17587772-cpu/-words-android/actions/runs/45030655437 (recheck its final result before claiming success).
-- Previous successful run #100 validates schema v14 migration and the APK asset packaging fix, but it predates the new database seeding test and was version 1.8.4 / code 25. It is historical evidence, not a new release.
+## 5. 听力模块
+### 已有代码与已测基础
+- Media3 ExoPlayer + MediaSessionService 播放基础；位置/速度 checkpoint；课程尝试恢复；revision-safe history。
+- 课程 manifest 校验、安全 ZIP 解压、音频 size/SHA-256、事务化 revision importer、签名目录验证客户端。
+- blind listening 的 UI 选项不暴露 answer key。
+- 严格 no-repeat 新课 planner；独立 1/3/7/14-day 整课复习 planner。
+- Android LibriVox 元数据候选发现；Internet Archive 元数据发现/授权门控/受限下载。
+- 原始音频库：搜索、收藏、离线播放、播放位置/速度、跨来源 hash 去重、512 MiB 容量管理、许可撤销和文件协调恢复。
 
-## Still not verified
-1. Final 1.8.5 / code 26 validation-only CI success, including all-11-pack database seeding and idempotence (no APK artifact is expected).
-2. Actual install/upgrade on PJX110 Android 16; no device-side APK hash or install result has been supplied.
-3. Stable signing certificate continuity. If persistent signing secrets are absent, CI may use a runner debug key and update-in-place is not guaranteed.
-4. Real-device background audio, lock-screen, Bluetooth/headset, battery restrictions, process restart, network interruption and offline playback.
-5. Formal production course content and signed catalog activation.
+### 未闭环
+- LibriVox Android 候选默认权利待审，不是自动下载通道。
+- 外部 LibriVox Python 采集和 publisher workflow 仍在 feature branch；未在 main 启用。
+- Internet Archive 原始资源不等于审核通过的正式课程；真实 provider 长期运行仍需故障注入/真机验证。
+- 下载真实 bytes/total/speed、用户取消/暂停、结构化错误码和端到端重试状态不足。
+- 尚无首批审核的人声正式课程包、人工核对的 transcript/时间轴/译文/题目。
+- catalog 默认公钥为空；签名目录客户端未在生产环境激活。
+- content-inbox 当前无 unsigned catalog、signed catalog 或课程 ZIP；publisher 没有已验证生产发布记录。
+- 真机后台播放/锁屏/蓝牙/音频焦点/网络切换/进程回收未验收。
 
-## APK packaging pause
-- APK production is disabled by user request until the whole project is finished and accepted.
-- Do not generate, sign, upload or publish a new APK during ongoing development.
-- Keep versionName 1.8.5 and versionCode 26 unchanged during this pause.
-- Validation-only CI remains active for source compilation, database migration and instrumentation testing.
+## 6. 测试规模（代码盘点）
+- Android instrumentation：5 个测试类，38 个 @Test。
+- Python 内容管线：2 个测试文件，18 个 test methods。
+- 当前 CI 已执行这些对应测试并成功。
+- app/src/test 当前没有额外 JVM test source set；android/core-tests 未确认纳入 Gradle，不计作 CI 测试。
+- 模拟器通过不代表真机通过；源码编译不代表产品完整。
 
-## APK production pause
-- User explicitly requested no new APK until the whole project is complete.
-- Do not generate, sign, upload or publish a new APK during active development.
-- Keep versionName 1.8.5 and versionCode 26 unchanged during this pause.
-- Validation-only CI remains active for source compilation, migration and instrumentation checks.
+## 7. 历史 APK 证据与未关闭问题
+- 历史 run #100 生成 1.8.4 / code25 APK，曾验证包含 11 套词书、50,698 条记录；APK SHA-256：92c29f6e82ef78da96bba3afc9538e969e783a141f234a04acbbb1aa2daf367b。
+- 这是历史验证包，不是 1.8.5 / 26，也不应在当前停产状态下分发。
+- 用户设备曾报告 ZipException: invalid stored block lengths。设备文件未提供 SHA-256 对比；该问题仍未定因/未关闭。
+- 稳定签名证书与设备旧安装签名连续性尚未验证；不建议卸载作为常规排错，以免丢失本地数据。
 
-## Release gate
-- Do not merge PR #1 or change main until user approval.
-- Do not produce APKs until the user explicitly authorizes release after project completion; preserve 1.8.5 / code 26.
-- Do not produce any new APK until the user explicitly confirms the project is complete and authorizes release; preserve 1.8.5 / code 26.
-- Do not claim that emulator validation proves real-device behavior.
-- Do not ask users to uninstall as the default update fix; protect local learning data.
-- Each session must first commit its plan to PROJECT_PLAN.md; then make small code/test commits; finally update this file and LISTENING_DEVELOPMENT_WORK_LOG.md with actual test evidence, commit IDs, CI URL, artifact ID, sizes and SHA-256.
+## 8. 当前统一路线
+唯一执行路线见 PROJECT_AUDIT_AND_MASTER_ROADMAP.md：
+1. 词书数据质量审计；
+2. 背词/随刷/首页 UI 回归；
+3. 原始音频下载进度与故障状态机；
+4. 正式课程版权/编辑/发布流水线；
+5. 新课/复习完整体验和 no-repeat；
+6. Android 16 真机、性能、无障碍和数据升级验收。
+
+## 9. 必须持续遵守
+- APK 生产暂停，版本固定 1.8.5 / versionCode 26，直至项目完成且用户明确授权。
+- PR #1 保持 Draft，main 不擅自改动。
+- 每次会话先提交计划，结束时提交代码/测试/日志/状态证据。
+- 不将计划、源码或编译通过冒充实际运行或真机验收。
