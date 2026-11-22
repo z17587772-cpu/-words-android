@@ -189,7 +189,7 @@ def inspect_payload(
         "source_bytes": len(raw_bytes),
         "unique_exact_headwords": len(exact_seen),
         "unique_casefolded_headwords": len(folded_seen),
-        "missing": {field: {"count": len(values), "headwords": values} for field, values in missing.items()},
+        "missing": {field: {"count": len(values), "samples": values[:50]} for field, values in missing.items()},
         "field_type_errors": type_errors,
         "exact_duplicates": exact_duplicates,
         "casefold_duplicates": folded_duplicates,
@@ -359,13 +359,13 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(
             f"- **Phonetic coverage:** {pack['record_count'] - pack['missing']['phonetic']['count']:,}/"
             f"{pack['record_count']:,}; missing headwords: "
-            + (", ".join(pack["missing"]["phonetic"]["headwords"][:30]) or "none")
+            + (", ".join(pack["missing"]["phonetic"]["samples"][:30]) or "none")
             + (" …" if pack["missing"]["phonetic"]["count"] > 30 else "")
         )
         lines.append(
             f"- **POS coverage:** {pack['record_count'] - pack['missing']['pos']['count']:,}/"
             f"{pack['record_count']:,}; missing headwords: "
-            + (", ".join(pack["missing"]["pos"]["headwords"][:30]) or "none")
+            + (", ".join(pack["missing"]["pos"]["samples"][:30]) or "none")
             + (" …" if pack["missing"]["pos"]["count"] > 30 else "")
         )
         lines.append(
