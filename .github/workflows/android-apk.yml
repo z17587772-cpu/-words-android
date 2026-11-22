@@ -1,4 +1,4 @@
-name: Build words APK
+name: APK production paused — validation only
 
 on:
   workflow_dispatch:
@@ -12,7 +12,8 @@ concurrency:
 
 jobs:
   build-debug-apk:
-    name: Read-only Android build and APK artifact
+    name: Disabled until product and device release gates pass
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
