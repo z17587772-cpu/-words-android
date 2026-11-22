@@ -4,13 +4,13 @@
 
 ## 当前版本
 
-- **应用版本：** 1.8.4
+- **应用版本：** 1.8.5
 - **versionCode：** 25
 - **Android applicationId：** `com.words.app`
-- **构建状态：** 听力功能更新已通过 1.8.3 源码版本的 Android 编译与模拟器回归；1.8.4 版本号递增后的完整构建正在验证，完成前不将中间包视为最终安装包。
+- **构建状态：** 1.8.4 / code 25 的 APK 已验证包含全部 11 套词书；1.8.5 / code 26 加入词书内容哈希升级、数据库 schema v14 和 APK 内部词书核验，正在进行最终 CI。
 - **唯一版本来源：** `android/app/build.gradle.kts` 中的 `versionName` 与 `versionCode`
 - **听力开发：** [PR #1（Draft，未合并）](https://github.com/z17587772-cpu/-words-android/pull/1)
-- **APK 下载：** [查看最新 GitHub Actions 验证构建](https://github.com/z17587772-cpu/-words-android/actions)。1.8.4 专属 APK 需等待本次版本号更新后的构建通过。
+- **APK 下载：** [查看最新 GitHub Actions 验证构建](https://github.com/z17587772-cpu/-words-android/actions)。1.8.5 / versionCode 26 构建通过后才作为本轮修复升级包。
 
 版本号以 Android 工程配置为准；Release tag 使用 `v${versionName}`。修改版本时必须同时递增 versionCode，并检查构建产物和 Release。
 

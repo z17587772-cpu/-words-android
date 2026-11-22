@@ -5,12 +5,12 @@
 ## 1. 当前项目基线
 
 - 当前开发分支：`feature/listening-mvp`
-- 当前文档 HEAD：本次计划检查点提交后更新；已验证代码提交：`fce557cc4a196eca3947bd0bb68ee7aba389238c`
+- 当前开发分支 HEAD：由最新 GitHub 分支记录为准；schema v14 和词书 APK 内容已在验证提交 `fce557cc4a196eca3947bd0bb68ee7aba389238c` 上通过
 - 稳定主分支：`main`（不得未经明确授权直接修改或合并）
 - PR #1：Draft，保持未合并
-- 应用版本：`1.8.4` / versionCode `25`
+- 应用版本：`1.8.5` / versionCode `26`（本轮修复升级版本）
 - applicationId：`com.words.app`
-- compileSdk：36；targetSdk：35；数据库 schema：v14（代码、迁移和哈希回归测试已通过 CI）
+- compileSdk：36；targetSdk：35；数据库 schema：v14（代码、迁移和哈希回归测试已通过 CI；11 套资产入库幂等性测试等待 1.8.5 CI）
 - 版本号唯一来源：`android/app/build.gradle.kts`
 
 ### 最新已验证构建
@@ -103,8 +103,8 @@
 - [x] 数据库升至 schema v14，为 books 增加 content_sha256；旧版迁移与学习记录保留测试通过。
 - [x] seedBuiltInPack 对“更高版本”或“同版本不同哈希”更新；对更低版本拒绝降级。
 - [x] 增加迁移、哈希判断、同版本内容变化、旧版本拒绝降级和学习记录保留测试（API 35 CI 通过）。
-- [ ] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确，重复初始化幂等。
-- [ ] 把修复包版本提升为 1.8.5 / versionCode 26（确保已安装 1.8.4/code 25 的用户可升级）。
+- [x] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确，重复初始化幂等（代码已提交，待 CI 执行）。
+- [x] 把修复包版本提升为 1.8.5 / versionCode 26（确保已安装 1.8.4/code 25 的用户具备版本号升级路径）。
 - [ ] 更新 README、项目状态和开发日志，再执行最终 1.8.5 完整 CI 与 APK 检查。
 
 ### S1 — 背词/随刷回归

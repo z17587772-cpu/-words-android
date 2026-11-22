@@ -1,77 +1,64 @@
-words Android v1.8.4 — implementation and validation status
+Words Android v1.8.5 — implementation and validation status
 
-Version source of truth:
-- android/app/build.gradle.kts
-- versionName: 1.8.4
-- versionCode: 25
+## Version and repository baseline
+- versionName: 1.8.5
+- versionCode: 26
 - applicationId: com.words.app
 - compileSdk: 36
 - targetSdk: 35
-- PR: https://github.com/z17587772-cpu/-words-android/pull/1 (Draft; not merged)
+- Database schema: v14
+- Development branch: feature/listening-mvp
+- PR #1: Draft; not merged
+- Stable main is unchanged.
+- Project execution baseline: PROJECT_PLAN.md
+- Historical work log: LISTENING_DEVELOPMENT_WORK_LOG.md
 
-Latest feature implementation commit before version bump:
-- af9050982f661ff5c548112d4b788f0e038fc14e
-- GitHub Actions run #94: https://github.com/z17587772-cpu/-words-android/actions/runs/44911950184
-- Python content pipeline tests: passed.
-- Kotlin app and instrumentation source compilation: passed.
-- API 35 Android emulator database migration/instrumentation tests: passed.
-- APK build, zipalign, Android signature and package metadata verification: passed.
-- Artifact: words-validated-debug-apk-94 (version 1.8.3 / code 24; NOT the final 1.8.4 package)
-- Artifact ZIP SHA-256: a2c3ce39645fd39c79fa6e71e93c9d215d881be2bd9e5f1d25e9a5b44d3ff331
-- Extracted APK SHA-256: 08da7ad0557b8eed2e9ded46d3ac0cd1ddbbf1d2044bbdf21fb5ae66516582b7
-- APK size: 17,401,244 bytes; internal ZIP contains 223 entries and passes CRC validation.
-- The 1.8.4 version bump (code 25) and matching CI package assertion have now been committed; its own complete CI run and artifact verification are still pending.
+## Verified vocabulary repair
+- Root wordbooks directory contains 11 complete source packs.
+- CI copies all 11 into android/app/src/main/assets/books before Android compilation and checks pack ID, expected entry count, required fields and SHA-256 copy equality.
+- Run #100 passed on code commit fce557cc4a196eca3947bd0bb68ee7aba389238c:
+  https://github.com/z17587772-cpu/-words-android/actions/runs/45029773333
+- Artifact words-validated-debug-apk-100; artifact ID 14756944617.
+- Artifact ZIP SHA-256: cfcb3b46156b9e10b2d2acf89dfef6af4f617b9f90e86eee591299ee54e14c1b
+- Extracted APK size 19,638,765 bytes; SHA-256 92c29f6e82ef78da96bba3afc9538e969e783a141f234a04acbbb1aa2daf367b.
+- The APK was downloaded and manually inspected: all 11 expected assets exist; IDs and counts match; all files parse as JSON; total is 50,698 entries; all embedded bytes match root wordbooks exactly.
+- This run was built with version 1.8.4 / code 25. It is evidence for the asset packaging fix but is not the new 1.8.5 upgrade package.
 
-Latest listening changes in feature branch:
-- Quiz screen hides bottom navigation and ignores system Back until the assessment is completed.
-- Previous-stage playback and TTS are paused before quiz display; no audio controls are offered in the quiz.
-- Quiz prompts/options and explanation text are larger; evidence sentence includes its Chinese translation in both immediate feedback and final review.
-- Daily course card typography and padding increased.
-- Daily archive includes today's assignment; new daily/review starts clear stale archive assignment context.
-- Main scroll surface is reused on refresh to reduce one-frame white flashes and preserve scroll continuity.
-- Resource library now surfaces only resources with explicitly cleared offline-download rights; pending-review candidates remain in the database but are not presented as playable downloads.
-- Failed downloads can be explicitly requeued; retry UI now supports both failed and expired resources.
-- Download worker has longer network timeouts, identity transfer encoding, bounded transient retries and a progress heartbeat.
-- Abandoned downloads are recovered after 45 minutes and returned to the queue; emulator regression coverage added.
-- Terminal download failures no longer cancel the remaining serial download queue.
+## Database v14 content-hash protection
+- books.content_sha256 is added through a non-destructive schema migration.
+- parsePack computes SHA-256 over the exact UTF-8 source JSON.
+- seedBuiltInPack updates on first install, higher pack version, or same version with different content hash.
+- A lower incoming pack version never replaces a higher installed version.
+- installPack reuses matching word IDs, deactivates removed headwords instead of deleting them, and preserves reviews/history/favorites for retained words.
+- Instrumentation tests cover v5-to-v14 migration preservation, same-version content change, downgrade rejection logic and word ID / review / history preservation.
+- Current next regression: run seedBuiltInPack against all 11 packaged assets and verify DB entry counts/hashes and idempotence.
 
-APK installation incident — NOT RESOLVED:
-- Reported device error: java.util.zip.ZipException: invalid stored block lengths.
-- CI-built APKs pass ZIP/CRC and Android signature checks, but the exact file saved on PJX110 has not yet been hashed.
-- Device-side download/transfer corruption and actual installation have not been conclusively distinguished.
-- Do not mark this incident resolved until the exact phone-side APK SHA-256 is compared with the final published APK and installation is tested on the device.
+## Listening and study functionality already present
+- On-device LibriVox and Internet Archive discovery with bounded pagination, deduplication and persisted cursors.
+- Automatic offline downloads restricted to explicit supported item-level CC licenses; LibriVox uncertain-rights candidates stay quarantined.
+- Serial Wi-Fi/unmetered WorkManager download path, file size/SHA-256/duration validation, local resource library and offline playback progress.
+- Storage quota, pinned/recently played protection, stale file reconciliation, duplicate audio hash reuse and license revocation handling.
+- Formal courses are separated from raw discovered resources and TTS demo content.
+- Quiz answer-key separation, course revision snapshots, daily no-repeat planning and spaced-review foundations.
+- Remaining listening gaps: byte-level progress/total size/speed, structured failure details, pause/cancel/restart tests, real approved human-recorded formal courses, transcript alignment, reviewed Chinese translation and teaching QA.
 
-Existing implementation:
-- Automatic on-device LibriVox and Internet Archive metadata discovery.
-- Internet Archive automatic offline download restricted to accepted item-level CC0 1.0, CC BY 4.0 and CC BY-SA 4.0 metadata.
-- LibriVox candidates remain rights-quarantined until item/territory permission is established.
-- Daily WorkManager discovery, provider-ID deduplication, incremental discovery and serial unmetered downloads.
-- Exact-size validation, SHA-256 verification, media duration probing and immutable local publication.
-- Local discovered-resource library, offline playback/resume, 512 MiB quota, pinned/recently played protection and reconciliation.
-- License-revocation protection, shared-file hash deduplication and confirmed local-copy deletion.
-- Database schema v13.
-- Formal lesson packages, Ed25519 signed-catalog verification and strict separation of new lessons from the 1/3/7/14-day review queue.
-- Daily assignment excludes previously assigned episode identities; metadata discovery does not automatically create formal lessons.
+## Latest 1.8.5 changes under validation
+- Version bumped to 1.8.5 / versionCode 26 so existing code-25 installs can receive an upgrade.
+- Added an instrumentation test that seeds all 11 bundled packs into SQLite, checks exact per-pack counts and hashes, totals 50,698 active words, and verifies a second seed is idempotent.
+- CI now checks the expected 1.8.5 package metadata and requires the new asset-seeding test.
+- Latest CI run must be read from:
+  https://github.com/z17587772-cpu/-words-android/actions
+  The previous successful run #100 validates schema v14 and APK contents before this final application-level regression and version bump.
 
-Still outstanding before release:
-1. Complete the 1.8.4 version-code 25 CI run and verify its exact artifact.
-2. Compare the exact APK saved on PJX110 with the final APK SHA-256 and perform a real-device installation test without risking the only copy of user data.
-3. Configure a persistent signing key through protected GitHub Actions secrets if update-in-place across builds is required. Never commit signing material.
-4. Configure LISTENING_CATALOG_PRIVATE_KEY_PEM as a protected Actions secret and pin the matching Base64 X.509 public key in the release build.
-5. Prepare and approve the first real human-recorded course package and matching signed catalog.
-6. Complete transcript sourcing/verification, sentence alignment, Chinese translation, level tagging, question drafting, evidence mapping and human editorial QA.
-7. Publish and verify the signed catalog and package end to end.
-8. Complete real-device checks for background playback, lock screen, Bluetooth/headset controls, battery restrictions, network loss, process death/restart and offline playback.
-9. Add injected failure tests for DownloadManager completion loss, interrupted install, digest mismatch and storage exhaustion.
-10. Review and reconcile feature/main divergence without blind merge or rebase. Keep main unchanged until all required gates pass.
+## Still not verified
+1. Final 1.8.5 / code 26 CI success and exact artifact inspection.
+2. Actual install/upgrade on PJX110 Android 16; no device-side APK hash or install result has been supplied.
+3. Stable signing certificate continuity. If persistent signing secrets are absent, CI may use a runner debug key and update-in-place is not guaranteed.
+4. Real-device background audio, lock-screen, Bluetooth/headset, battery restrictions, process restart, network interruption and offline playback.
+5. Formal production course content and signed catalog activation.
 
-Build environment:
-- JDK 17
-- Android SDK Platform 36
-- Build Tools 35.0.0
-- Gradle 8.13
-
-Release rule:
-- Keep PR #1 Draft until all release gates pass.
-- APK workflow validates archive integrity, package/version metadata, alignment, Android signature and SHA-256 before artifact upload.
-- Release only after successful latest-head CI, APK signature/hash inspection and required device regression checks.
+## Release gate
+- Do not merge PR #1 or change main until user approval.
+- Do not claim that emulator validation proves real-device behavior.
+- Do not ask users to uninstall as the default update fix; protect local learning data.
+- Each session must first commit its plan to PROJECT_PLAN.md; then make small code/test commits; finally update this file and LISTENING_DEVELOPMENT_WORK_LOG.md with actual test evidence, commit IDs, CI URL, artifact ID, sizes and SHA-256.
