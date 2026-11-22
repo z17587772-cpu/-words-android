@@ -8,6 +8,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -60,6 +61,53 @@ class WordsDatabaseMigrationTest {
             assertEquals("No foreign-key violations after migration", false, cursor.moveToFirst())
         }
 
+        helper.close()
+    }
+
+    @Test
+    fun builtInWordbooksSeedAllElevenPacksAndRemainIdempotent() {
+        context.deleteDatabase(DATABASE_NAME)
+        val helper = WordsDatabase(context)
+        val database = helper.writableDatabase
+        val expected = linkedMapOf(
+            "gaokao_standard_2025" to 3097,
+            "highschool_extension_3743" to 3743,
+            "cet4_core" to 3815,
+            "cet6_core" to 5371,
+            "ielts_core" to 4974,
+            "toefl_core" to 6959,
+            "gre_core" to 7485,
+            "kaoyan_core" to 4787,
+            "sat_core" to 4471,
+            "gmat_core" to 2996,
+            "ngsl_nawl_core_3000" to 3000
+        )
+
+        helper.seedBuiltInPack(context)
+        val installed = helper.installedBooks().associateBy { it.id }
+        assertEquals(expected.keys, installed.keys)
+        assertEquals(50_698, scalar(database, "SELECT COUNT(*) FROM words WHERE is_active=1"))
+        expected.forEach { (bookId, expectedCount) ->
+            val assetName = context.assets.list("books").orEmpty().firstOrNull { fileName ->
+                context.assets.open("books/$fileName").bufferedReader(Charsets.UTF_8).use { reader ->
+                    JSONObject(reader.readText()).optString("id") == bookId
+                }
+            } ?: throw AssertionError("Missing bundled asset for $bookId")
+            val pack = context.assets.open("books/$assetName")
+                .bufferedReader(Charsets.UTF_8).use { WordsDatabase.parsePack(it.readText()) }
+            assertEquals(expectedCount, pack.words.size)
+            assertEquals(expectedCount, installed.getValue(bookId).wordCount)
+            assertEquals(pack.contentSha256, database.rawQuery(
+                "SELECT content_sha256 FROM books WHERE id=?", arrayOf(bookId)
+            ).use { cursor -> assertTrue(cursor.moveToFirst()); cursor.getString(0) })
+            assertEquals(expectedCount, database.rawQuery(
+                "SELECT COUNT(*) FROM words WHERE book_id=? AND is_active=1", arrayOf(bookId)
+            ).use { cursor -> assertTrue(cursor.moveToFirst()); cursor.getInt(0) })
+        }
+
+        helper.seedBuiltInPack(context)
+        assertEquals(11, scalar(database, "SELECT COUNT(*) FROM books"))
+        assertEquals(50_698, scalar(database, "SELECT COUNT(*) FROM words WHERE is_active=1"))
         helper.close()
     }
 
