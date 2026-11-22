@@ -5,24 +5,23 @@
 ## 1. 当前项目基线
 
 - 当前开发分支：`feature/listening-mvp`
-- 当前代码 HEAD：`fce557cc4a196eca3947bd0bb68ee7aba389238c`（schema v14 词书哈希更新与 APK 内部资源门禁已提交，CI 正在验证）
+- 当前文档 HEAD：本次计划检查点提交后更新；已验证代码提交：`fce557cc4a196eca3947bd0bb68ee7aba389238c`
 - 稳定主分支：`main`（不得未经明确授权直接修改或合并）
 - PR #1：Draft，保持未合并
 - 应用版本：`1.8.4` / versionCode `25`
 - applicationId：`com.words.app`
-- compileSdk：36；targetSdk：35；数据库 schema：v14（代码与测试已提交；等待当前 CI 完整通过）
+- compileSdk：36；targetSdk：35；数据库 schema：v14（代码、迁移和哈希回归测试已通过 CI）
 - 版本号唯一来源：`android/app/build.gradle.kts`
 
 ### 最新已验证构建
 
-- 工作流： [Actions run #96](https://github.com/z17587772-cpu/-words-android/actions/runs/44916432083)
-- 代码提交：`5509f921420f4f5562eb59df88ffcc7aa47cb4d5`
-- 所有 CI steps 成功：Python 内容管线测试、词书同步和资源检查、Kotlin 主/测试源码编译、API 35 模拟器迁移测试、APK 构建、ZIP/签名/包元数据校验。
-- 产物：`words-validated-debug-apk-96`，artifact ID `14711489596`
-- Artifact ZIP SHA-256：`4553618530e4927b26aaad6c2cb7fb52677f7df1c55eb44e8032f7a4f8aa5955`
-- 解包 APK：19,638,765 bytes；SHA-256：`897bfe47f485493fe7406e4f1a162f64d7c2b948b1ce7cbbb4f10561964de82a`
-- 已直接检查 APK 内部 ZIP：存在 11 个 `assets/books/*.json`，逐个解析 JSON 并核对词书 ID 和词条数量，全部通过。
-- 注意：当前构建使用何种签名仍以 CI 输出为准；未配置固定签名密钥时不能承诺跨版本覆盖安装。APK 真机安装尚未验证。
+- 首次词库同步验证： [Actions run #96](https://github.com/z17587772-cpu/-words-android/actions/runs/44916432083)，代码提交 `5509f921420f4f5562eb59df88ffcc7aa47cb4d5`。
+- 最新 schema v14 验证： [Actions run #100](https://github.com/z17587772-cpu/-words-android/actions/runs/45029773333)，验证提交 `fce557cc4a196eca3947bd0bb68ee7aba389238c`；所有 CI steps 成功，包括 Kotlin 编译、API 35 模拟器迁移/回归测试、APK 构建和 APK 内 11 套词书门禁。
+- 最新 artifact：`words-validated-debug-apk-100`，artifact ID `14756944617`
+- Artifact ZIP SHA-256：`cfcb3b46156b9e10b2d2acf89dfef6af4f617b9f90e86eee591299ee54e14c1b`
+- 解包 APK：19,638,765 bytes；SHA-256：`92c29f6e82ef78da96bba3afc9538e969e783a141f234a04acbbb1aa2daf367b`
+- 已直接下载并检查该 APK 内部 ZIP：11 个词书文件全部存在、均为有效 JSON，ID/词条数正确，合计 50,698 条；每个文件字节均与仓库 `wordbooks/` 对应源文件一致。
+- 注意：该 APK 仍为 1.8.4 / versionCode 25；如果设备已安装 code 25，不能作为覆盖升级包。真机安装和升级仍未验证；签名证书稳定性也仍需确认。
 
 ## 2. 词书数据基线（必须保护）
 
@@ -101,10 +100,12 @@
 - [x] 同步时核对 ID、词条数、关键字段、源/目标 SHA-256。
 - [x] Run #96 成功；实际下载 APK 并验证 11 个内部资源文件。
 - [x] 将 APK 内部词书清单/数量/哈希校验固化为 CI 的构建后步骤（当前 HEAD 已加入，等待运行结果）。
-- [ ] 数据库升至 schema v14，为 books 增加 content_sha256；迁移不得影响现有学习记录。
-- [ ] seedBuiltInPack 对“更高版本”或“同版本不同哈希”更新；对更低版本拒绝降级。
-- [ ] 增加迁移、哈希判断、同版本内容变化、旧版本拒绝降级和学习记录保留测试。
-- [ ] 更新项目状态、主计划和开发日志，再执行完整 CI。
+- [x] 数据库升至 schema v14，为 books 增加 content_sha256；旧版迁移与学习记录保留测试通过。
+- [x] seedBuiltInPack 对“更高版本”或“同版本不同哈希”更新；对更低版本拒绝降级。
+- [x] 增加迁移、哈希判断、同版本内容变化、旧版本拒绝降级和学习记录保留测试（API 35 CI 通过）。
+- [ ] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确，重复初始化幂等。
+- [ ] 把修复包版本提升为 1.8.5 / versionCode 26（确保已安装 1.8.4/code 25 的用户可升级）。
+- [ ] 更新 README、项目状态和开发日志，再执行最终 1.8.5 完整 CI 与 APK 检查。
 
 ### S1 — 背词/随刷回归
 
