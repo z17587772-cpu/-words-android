@@ -8,7 +8,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.json.JSONObject
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -83,18 +82,21 @@ class WordsDatabaseMigrationTest {
             "ngsl_nawl_core_3000" to 3000
         )
 
+        val bundledPacks = context.assets.list("books").orEmpty()
+            .filter { it.endsWith(".json", ignoreCase = true) }
+            .associate { assetName ->
+                val pack = context.assets.open("books/$assetName")
+                    .bufferedReader(Charsets.UTF_8).use { WordsDatabase.parsePack(it.readText()) }
+                pack.id to pack
+            }
+        assertEquals(expected.keys, bundledPacks.keys)
+
         helper.seedBuiltInPack(context)
         val installed = helper.installedBooks().associateBy { it.id }
         assertEquals(expected.keys, installed.keys)
         assertEquals(50_698, scalar(database, "SELECT COUNT(*) FROM words WHERE is_active=1"))
         expected.forEach { (bookId, expectedCount) ->
-            val assetName = context.assets.list("books").orEmpty().firstOrNull { fileName ->
-                context.assets.open("books/$fileName").bufferedReader(Charsets.UTF_8).use { reader ->
-                    JSONObject(reader.readText()).optString("id") == bookId
-                }
-            } ?: throw AssertionError("Missing bundled asset for $bookId")
-            val pack = context.assets.open("books/$assetName")
-                .bufferedReader(Charsets.UTF_8).use { WordsDatabase.parsePack(it.readText()) }
+            val pack = bundledPacks[bookId] ?: throw AssertionError("Missing bundled pack $bookId")
             assertEquals(expectedCount, pack.words.size)
             assertEquals(expectedCount, installed.getValue(bookId).wordCount)
             assertEquals(pack.contentSha256, database.rawQuery(
