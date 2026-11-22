@@ -198,3 +198,37 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 3. Continue the P1 vocabulary/swipe/UI regression plan in `PROJECT_PLAN.md`.
 4. Continue listening download observability (byte progress, total size, failure codes, pause/cancel/resume tests) and course quality/supply work.
 5. Keep normal CI validation active. Do not generate APKs, sign, upload, publish a release, or change version 1.8.5 / code 26 unless the user explicitly authorizes release after project completion.
+
+
+## 2026-11-22 — Pause all APK production; retain version 1.8.5 / code 26
+
+### User instruction
+- No new APK is to be generated or published until the entire project is complete.
+- The app version must stay at 1.8.5 / versionCode 26 during the pause.
+
+### Changes
+- Removed APK assemble/sign/artifact upload steps from `.github/workflows/listening-pr-check.yml`. The workflow continues to run Python checks, source checks, Kotlin compilation and Android emulator instrumentation.
+- Disabled the manual build job in `.github/workflows/android-apk.yml` with a job-level false condition so it cannot accidentally produce APKs.
+- Added CI policy assertions: normal validation must not contain APK build/upload operations, and the manual APK job must remain disabled.
+- Corrected a GitHub Actions expression interpolation issue in the assertion. Run #45030655437 failed at the first version of the policy assertion because GitHub expanded the `${{ false }}` literal before Python saw it. Commit `5011c86` now constructs the dollar sign in Python to avoid expression expansion.
+- Corrected README versionCode from stale 25 to 26 and updated README, project plan, project status, work log and PR description to state that APK production is paused.
+
+### Relevant commits
+- `df24a11` — remove APK production from normal validation workflow.
+- `379af2d` — disable manual APK workflow job.
+- `cec35de` — add CI guard for the paused APK policy.
+- `e5a56de` — fix initial self-referential no-build assertions.
+- `5011c86` — fix expression interpolation in the manual-workflow guard.
+
+### Verification
+- Older run `45030392698` on an unpaused workflow was cancelled after the workflow change; it must not be used as evidence for a release.
+- Run `45030655437` failed only in the static policy check because the workflow expression was expanded; the failure log was inspected.
+- Latest correction is committed, and a fresh validation-only run must pass before the pause policy can be called verified.
+- No new APK is expected from any subsequent development validation run.
+- Version remains 1.8.5 / code 26.
+
+### Next actions
+1. Confirm the latest validation-only Actions run passes the static no-APK guards, Kotlin compile and API 35 instrumentation tests.
+2. Keep the no-package workflows in place throughout feature development.
+3. Continue UI, vocabulary and listening improvements under `PROJECT_PLAN.md`; update the work log at the end of each work session.
+4. Only restore APK production after all product/device gates pass and the user explicitly authorizes release.

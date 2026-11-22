@@ -9,6 +9,8 @@ Words Android v1.8.5 — implementation and validation status
 - Database schema: v14
 APK production: PAUSED — validation only; no APK assemble/sign/upload until project completion and explicit release approval
 Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paused.
+APK production: PAUSED — validation only; no APK assemble/sign/upload until project completion and explicit release approval
+Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paused.
 - Development branch: feature/listening-mvp
 - PR #1: Draft; not merged
 - Stable main is unchanged.
@@ -44,7 +46,7 @@ Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paus
 - Quiz answer-key separation, course revision snapshots, daily no-repeat planning and spaced-review foundations.
 - Remaining listening gaps: byte-level progress/total size/speed, structured failure details, pause/cancel/restart tests, real approved human-recorded formal courses, transcript alignment, reviewed Chinese translation and teaching QA.
 
-## Latest 1.8.5 changes under validation (APK production paused)
+## Latest 1.8.5 changes under validation (APK production paused) (APK production paused)
 - Version bumped to 1.8.5 / versionCode 26 so existing code-25 installs can receive an upgrade.
 - Added an instrumentation test that seeds all 11 bundled packs into SQLite, checks exact per-pack counts and hashes, totals 50,698 active words, and verifies a second seed is idempotent.
 - CI requires the all-11-pack database seeding/idempotence test and validates source code/migrations only. APK build and upload steps are removed from the validation workflow; the manual APK workflow is disabled.
@@ -64,8 +66,15 @@ Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paus
 - Keep versionName 1.8.5 and versionCode 26 unchanged during this pause.
 - Validation-only CI remains active for source compilation, database migration and instrumentation testing.
 
+## APK production pause
+- User explicitly requested no new APK until the whole project is complete.
+- Do not generate, sign, upload or publish a new APK during active development.
+- Keep versionName 1.8.5 and versionCode 26 unchanged during this pause.
+- Validation-only CI remains active for source compilation, migration and instrumentation checks.
+
 ## Release gate
 - Do not merge PR #1 or change main until user approval.
+- Do not produce APKs until the user explicitly authorizes release after project completion; preserve 1.8.5 / code 26.
 - Do not produce any new APK until the user explicitly confirms the project is complete and authorizes release; preserve 1.8.5 / code 26.
 - Do not claim that emulator validation proves real-device behavior.
 - Do not ask users to uninstall as the default update fix; protect local learning data.
