@@ -86,6 +86,13 @@ class WordbookAuditTests(unittest.TestCase):
             for item in result["field_type_errors"]
         ))
 
+    def test_normal_line_breaks_are_not_control_character_errors(self):
+        payload, raw = self.sample()
+        payload["words"][0]["meaning"] = "n. 甲；\nadj. 第一的"
+        result = inspect_payload("sample.json", payload, raw, "sample", 2)
+        self.assertEqual(result["control_character_issues"], [])
+        self.assertEqual(result["multiline_meanings"], 1)
+
     def test_invalid_top_level_or_words_shape_raises(self):
         with self.assertRaises(ValueError):
             inspect_payload("bad.json", [], b"[]")
