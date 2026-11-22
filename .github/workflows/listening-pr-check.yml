@@ -47,6 +47,12 @@ jobs:
       - name: Install content pipeline test dependencies
         run: python -m pip install -r tools/content_pipeline/requirements.txt
 
+      - name: Test deterministic wordbook audit
+        run: python -m unittest discover -s tools -p 'test_audit_wordbooks.py' -v
+
+      - name: Verify committed wordbook quality report
+        run: python tools/audit_wordbooks.py --check
+
       - name: Test continuous content discovery and signed catalog publishing
         run: python -m unittest discover -s tools/content_pipeline -p 'test_*.py' -v
 
