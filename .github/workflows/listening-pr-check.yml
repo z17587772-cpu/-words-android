@@ -392,7 +392,7 @@ jobs:
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
           assert ("assemble" + "Debug") not in workflow, "Validation workflow must not produce APKs"
-          assert "app-debug.apk" not in workflow and "words-debug-apk" not in workflow, "Validation workflow must not upload or publish APK binaries"
+          assert ("app-" + "debug.apk") not in workflow and ("words-" + "debug-apk") not in workflow, "Validation workflow must not upload or publish APK binaries"
           apk_workflow = Path(".github/workflows/android-apk.yml").read_text(encoding="utf-8")
           assert "workflow_dispatch:" in apk_workflow
           assert "if: " + chr(36) + "{{ false }}" in apk_workflow, "Manual APK production must remain disabled until release gates pass"
