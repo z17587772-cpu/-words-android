@@ -31,3 +31,10 @@ The 3,743-row high-school extension remains derived from KyleBing/english-vocabu
 
 ## Processing notes
 Missing examples are left blank. Matching curriculum headwords retain existing database IDs, review counts, history and favorites. Obsolete headwords are deactivated, not physically deleted. importance is a curriculum tier or ordering weight, not measured official exam frequency.
+
+
+## Reproducible data-quality audit
+- Run `python tools/audit_wordbooks.py --write` to regenerate `wordbooks/audit/quality-report.json` and `quality-report.md` from the 11 source packs.
+- CI runs the auditor's unit tests and `--check`; source data changes without refreshed reports fail validation.
+- The 2026-11-22 audit found 4,317 missing phonetic fields and 181 missing POS fields. All 50,698 rows currently have blank examples and example translations; this reflects the existing source-processing policy (missing examples are left blank), but it is a known learning-content coverage gap.
+- Automated repeated-segment and whitespace findings are review candidates only. They must not be batch-deleted without checking meaning, POS, and context.
