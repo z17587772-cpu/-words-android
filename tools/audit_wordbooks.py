@@ -118,7 +118,7 @@ def inspect_payload(
 
         if word_value != word_value.strip():
             trim_issues.append({"index": index, "word": word_value})
-        if any((unicodedata.category(char) == "Cc" and char not in "\\t\\n\\r") or char == "\ufffd" for char in word_value + str(meaning_value or "") + str(row.get("phonetic") or "")):
+        if any((unicodedata.category(char) == "Cc" and char not in "\t\n\r") or char == "\ufffd" for char in word_value + str(meaning_value or "") + str(row.get("phonetic") or "")):
             control_issues.append({"index": index, "word": word_value})
 
         if word_value in exact_seen:
