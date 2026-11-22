@@ -50,6 +50,17 @@ jobs:
       - name: Test deterministic wordbook audit
         run: python -m unittest discover -s tools -p 'test_audit_wordbooks.py' -v
 
+      - name: Generate wordbook quality report for audit verification
+        run: python tools/audit_wordbooks.py --write --output-dir "$RUNNER_TEMP/wordbook-audit"
+
+      - name: Upload generated wordbook audit report (not an APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordbook-quality-audit-${{ github.run_number }}
+          path: ${{ runner.temp }}/wordbook-audit/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Verify committed wordbook quality report
         run: python tools/audit_wordbooks.py --check
 
