@@ -359,8 +359,8 @@ jobs:
           assert "WHERE d.assignment_date<>?" in repository
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
-          assert "assembleDebug" not in workflow, "Validation workflow must not produce APKs"
-          assert "upload-artifact" not in workflow, "Validation workflow must not publish APK artifacts"
+          assert ("assemble" + "Debug") not in workflow, "Validation workflow must not produce APKs"
+          assert ("upload-" + "artifact") not in workflow, "Validation workflow must not publish APK artifacts"
           apk_workflow = Path(".github/workflows/android-apk.yml").read_text(encoding="utf-8")
           assert "workflow_dispatch:" in apk_workflow
           assert "if: ${{ false }}" in apk_workflow, "Manual APK production must remain disabled until release gates pass"
