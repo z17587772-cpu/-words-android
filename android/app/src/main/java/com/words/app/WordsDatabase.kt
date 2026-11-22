@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
-class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 13) {
+class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.db", null, 14) {
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
@@ -20,7 +20,8 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 description TEXT NOT NULL DEFAULT '',
                 version INTEGER NOT NULL DEFAULT 1,
                 installed_at INTEGER NOT NULL,
-                word_count INTEGER NOT NULL DEFAULT 0
+                word_count INTEGER NOT NULL DEFAULT 0,
+                content_sha256 TEXT NOT NULL DEFAULT ''
             )
         """.trimIndent())
         db.execSQL("""
@@ -140,6 +141,9 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
         if (oldVersion < 11) createListeningPackageTables(db)
         if (oldVersion < 12) createListeningDiscoveryTables(db)
         if (oldVersion < 13) createListeningResourcePlaybackTable(db)
+        if (oldVersion < 14 && !hasColumn(db, "books", "content_sha256")) {
+            db.execSQL("ALTER TABLE books ADD COLUMN content_sha256 TEXT NOT NULL DEFAULT ''")
+        }
     }
 
     private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
@@ -587,9 +591,9 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
     }
 
     fun seedBuiltInPack(context: Context) {
-        // Every JSON file in assets/books is an independent offline wordbook.
-        // Newer pack versions are installed on app upgrade while existing review
-        // rows for matching words remain intact.
+        // Each bundled JSON file is an independent offline wordbook. Updates are
+        // detected by both monotonic pack version and exact source-content hash.
+        // Matching word IDs and all learning history remain intact.
         val bookFiles = context.assets.list("books").orEmpty()
             .filter { it.endsWith(".json", ignoreCase = true) }
             .sorted()
@@ -597,10 +601,12 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             val json = context.assets.open("books/$fileName")
                 .bufferedReader(Charsets.UTF_8).use { it.readText() }
             val pack = parsePack(json)
-            val installedVersion = readableDatabase.rawQuery(
-                "SELECT version FROM books WHERE id=?", arrayOf(pack.id)
-            ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else null }
-            if (installedVersion == null || installedVersion < pack.version) {
+            val installed = readableDatabase.rawQuery(
+                "SELECT version,content_sha256 FROM books WHERE id=?", arrayOf(pack.id)
+            ).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getInt(0) to cursor.getString(1) else null
+            }
+            if (shouldInstallPack(installed?.first, installed?.second, pack)) {
                 installPack(pack)
             }
         }
@@ -619,6 +625,7 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
                 put("version", pack.version)
                 put("installed_at", System.currentTimeMillis())
                 put("word_count", pack.words.size)
+                put("content_sha256", pack.contentSha256)
             }
             val bookExists = db.rawQuery("SELECT 1 FROM books WHERE id=?", arrayOf(pack.id)).use { it.moveToFirst() }
             if (bookExists) db.update("books", bookValues, "id=?", arrayOf(pack.id))
@@ -808,6 +815,16 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
     companion object {
         const val BUILTIN_BOOK_ID = "gaokao_standard_2025"
 
+        internal fun shouldInstallPack(
+            installedVersion: Int?,
+            installedContentSha256: String?,
+            incoming: VocabularyPack
+        ): Boolean {
+            if (installedVersion == null) return true
+            if (incoming.version > installedVersion) return true
+            return incoming.version == installedVersion && installedContentSha256 != incoming.contentSha256
+        }
+
         fun parsePack(json: String): VocabularyPack {
             val root = JSONObject(json)
             val wordsJson = root.optJSONArray("words") ?: throw IllegalArgumentException("词书格式错误：缺少 words 数组")
@@ -833,7 +850,12 @@ class WordsDatabase(context: Context) : SQLiteOpenHelper(context, "words_local.d
             }
             val packId = root.optString("id").ifBlank { "imported_${System.currentTimeMillis()}" }
             val name = root.optString("name").ifBlank { "导入词书" }
-            return VocabularyPack(packId, name, root.optString("description"), root.optInt("version", 1), words)
+            val contentSha256 = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(json.toByteArray(Charsets.UTF_8))
+                .joinToString("") { byte -> "%02x".format(byte) }
+            return VocabularyPack(
+                packId, name, root.optString("description"), root.optInt("version", 1), words, contentSha256
+            )
         }
     }
 }
