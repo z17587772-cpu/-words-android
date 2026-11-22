@@ -1,8 +1,16 @@
 # 数据来源与版权声明 / Data Source & Attribution
 
-## 词库数据来源
+## 词库数据来源与适用范围
 
-本仓库所有词库 JSON 均由 **ECDICT** 生成：
+本文件是 ECDICT 衍生考试词书的上游归属声明，适用于从 ECDICT 事实性考试标签派生的考试参考词书，以及这些词条中实际取自 ECDICT 的词典字段。**它不表示本仓库的全部 JSON 词书都由 ECDICT 生成，也不替代各数据包自己的来源/许可声明。**
+
+本仓库 11 套词书的逐包来源和许可边界见 `wordbooks/SOURCES.md`：
+- 2025 新课标词头来自课程标准附录；ECDICT 只提供其音标、词性和释义等词典字段。
+- 高中扩展词书来自 KyleBing/english-vocabulary，按 BSD 3-Clause 单独归属。
+- NGSL/NAWL 词头与排名来自其独立来源；其编纂释义、例句等不随词头一并导入。
+- CET-4、CET-6、IELTS、TOEFL、GRE、考研、SAT、GMAT 等考试参考词表按 ECDICT 事实性标签派生，不代表考试机构官方词表或背书。
+
+ECDICT 项目：
 
 - 项目：ECDICT — Free English to Chinese Dictionary Database
 - 作者：Linwei (skywind3000)
