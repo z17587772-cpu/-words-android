@@ -363,6 +363,7 @@ jobs:
           assert "upload-artifact" not in workflow, "Validation workflow must not publish APK artifacts"
           apk_workflow = Path(".github/workflows/android-apk.yml").read_text(encoding="utf-8")
           assert "workflow_dispatch:" in apk_workflow
+          assert "if: ${{ false }}" in apk_workflow, "Manual APK production must remain disabled until release gates pass"
           assert "pull_request:" not in apk_workflow and "\npush:" not in apk_workflow
           assert "ANDROID_I_WANT_MY_TCG" in workflow
           assert ":app:compileDebugKotlin" in workflow and ":app:compileDebugAndroidTestKotlin" in workflow
