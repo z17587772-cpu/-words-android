@@ -249,7 +249,9 @@ jobs:
           assert "currentItem.mediaId != id" in coordinator
           assert "upgradingV6ToV11PreservesAudioRevisionAndSavedPlayback" in migration_test
           assert "packageImporterCannotPromoteTheSystemTtsDemoToFormalContent" in migration_test
-          assert 'SQLiteOpenHelper(context, "words_local.db", null, 13)' in database
+          assert 'SQLiteOpenHelper(context, "words_local.db", null, 14)' in database
+          assert 'content_sha256' in database and 'shouldInstallPack' in database
+          assert 'sameVersionWordbookContentChangeUpdatesPackAndPreservesLearningHistory' in migration_test
           assert "createListeningDiscoveryTables(db)" in database
           assert "listening_discovered_resources" in database and "listening_provider_state" in database
           assert "ListeningDiscoveryScheduler.schedule(this)" in activity
@@ -261,7 +263,7 @@ jobs:
           assert "fun queueDownload(resourceId: String): Boolean" in discovery_repository
           assert "candidate.first != \"cleared\"" in discovery_repository
           assert "offline_download" in discovery_repository
-          assert "upgradingV5ToV13PreservesVocabularyAndLearningHistory" in migration_test
+          assert "upgradingV5ToV14PreservesVocabularyAndLearningHistory" in migration_test
           assert "listening_discovered_playback" in database
           assert "ListeningResourceAutomation.schedule(this)" in activity
           assert "class InternetArchiveDiscoveryWorker" in resource_automation
@@ -456,6 +458,59 @@ jobs:
       - name: Build debug APK after all validation gates pass
         run: gradle --no-daemon --stacktrace :app:assembleDebug
         working-directory: android
+
+      - name: Verify all wordbooks embedded in the built APK
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import zipfile
+          from pathlib import Path
+
+          expected = {
+              "gaokao_standard_2025.json": ("gaokao_standard_2025", 3097),
+              "highschool_extension_3743.json": ("highschool_extension_3743", 3743),
+              "cet4_core.json": ("cet4_core", 3815),
+              "cet6_core.json": ("cet6_core", 5371),
+              "ielts_core.json": ("ielts_core", 4974),
+              "toefl_core.json": ("toefl_core", 6959),
+              "gre_core.json": ("gre_core", 7485),
+              "kaoyan_core.json": ("kaoyan_core", 4787),
+              "sat_core.json": ("sat_core", 4471),
+              "gmat_core.json": ("gmat_core", 2996),
+              "ngsl_nawl_core_3000.json": ("ngsl_nawl_core_3000", 3000),
+          }
+          apk = Path("android/app/build/outputs/apk/debug/app-debug.apk")
+          total_words = 0
+          with zipfile.ZipFile(apk) as archive:
+              embedded = {
+                  name.removeprefix("assets/books/"): name
+                  for name in archive.namelist()
+                  if name.startswith("assets/books/") and name.endswith(".json")
+              }
+              if set(embedded) != set(expected):
+                  raise SystemExit(
+                      f"APK wordbook inventory mismatch; missing={sorted(set(expected)-set(embedded))}, "
+                      f"unexpected={sorted(set(embedded)-set(expected))}"
+                  )
+              for filename, (expected_id, expected_count) in expected.items():
+                  payload = archive.read(embedded[filename])
+                  source_payload = (Path("wordbooks") / filename).read_bytes()
+                  if payload != source_payload:
+                      raise SystemExit(f"{filename}: APK bytes differ from audited source wordbook")
+                  data = json.loads(payload.decode("utf-8"))
+                  words = data.get("words")
+                  if data.get("id") != expected_id or not isinstance(words, list) or len(words) != expected_count:
+                      raise SystemExit(f"{filename}: incorrect pack ID or entry count")
+                  if any(not isinstance(row, dict) or not row.get("word") or not row.get("meaning") for row in words):
+                      raise SystemExit(f"{filename}: incomplete word/meaning fields")
+                  digest = hashlib.sha256(payload).hexdigest()
+                  total_words += len(words)
+                  print(f"APK_WORDBOOK {filename}: {len(words)} entries sha256={digest}")
+          if total_words != 50698:
+              raise SystemExit(f"Unexpected total word count: {total_words}")
+          print(f"APK verified: {len(expected)} wordbooks, {total_words} entries.")
+          PY
 
       - name: Verify APK archive, package metadata and Android signature
         shell: bash
