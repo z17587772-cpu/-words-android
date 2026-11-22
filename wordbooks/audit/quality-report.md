@@ -17,17 +17,17 @@ All examples and example translations are blank in the current packs. wordbooks/
 
 | Pack | Records | Missing phonetic | Missing POS | Missing example | Duplicate senses | Multi-space meanings | SHA-256 (prefix) |
 |---|---:|---:|---:|---:|---:|---:|---|
-| gaokao_standard_2025.json | 3,097 | 15 | 14 | 3,097 | 0 | 0 | `746b11245f5e` |
-| highschool_extension_3743.json | 3,743 | 3,743 | 1 | 3,743 | 528 | 2,296 | `2cf1c6cfd663` |
-| cet4_core.json | 3,815 | 10 | 1 | 3,815 | 1 | 0 | `6105e4e6ee5d` |
-| cet6_core.json | 5,371 | 25 | 8 | 5,371 | 1 | 0 | `00069bfd7aec` |
-| ielts_core.json | 4,974 | 244 | 20 | 4,974 | 1 | 0 | `83d58f2e75a8` |
-| toefl_core.json | 6,959 | 109 | 57 | 6,959 | 1 | 0 | `ede3afb8cd43` |
-| gre_core.json | 7,485 | 75 | 29 | 7,485 | 1 | 0 | `28bf1dc0e3e0` |
-| kaoyan_core.json | 4,787 | 7 | 4 | 4,787 | 1 | 0 | `842faa1927b5` |
-| sat_core.json | 4,471 | 44 | 14 | 4,471 | 1 | 0 | `c89826d38c45` |
-| gmat_core.json | 2,996 | 13 | 6 | 2,996 | 1 | 0 | `3b2a52d8e8f0` |
-| ngsl_nawl_core_3000.json | 3,000 | 32 | 27 | 3,000 | 0 | 0 | `f31d0df4cdb2` |
+| gaokao_standard_2025.json | 3,097 | 15 | 14 | 3,097 | 0 | 0 | `038814ea2010` |
+| highschool_extension_3743.json | 3,743 | 3,743 | 1 | 3,743 | 528 | 2,296 | `2709cdb83abb` |
+| cet4_core.json | 3,815 | 10 | 1 | 3,815 | 1 | 0 | `29e3fd103278` |
+| cet6_core.json | 5,371 | 25 | 8 | 5,371 | 1 | 0 | `30dbb10498c4` |
+| ielts_core.json | 4,974 | 244 | 20 | 4,974 | 1 | 0 | `55cef561ed88` |
+| toefl_core.json | 6,959 | 109 | 57 | 6,959 | 1 | 0 | `d60cb1b155f3` |
+| gre_core.json | 7,485 | 75 | 29 | 7,485 | 1 | 0 | `1ca5ddcd0482` |
+| kaoyan_core.json | 4,787 | 7 | 4 | 4,787 | 1 | 0 | `998375b6f18a` |
+| sat_core.json | 4,471 | 44 | 14 | 4,471 | 1 | 0 | `a9bea4edc340` |
+| gmat_core.json | 2,996 | 13 | 6 | 2,996 | 1 | 0 | `862f66a72193` |
+| ngsl_nawl_core_3000.json | 3,000 | 32 | 27 | 3,000 | 0 | 0 | `f77eb67c9417` |
 
 ## Findings
 
@@ -38,8 +38,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 0 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 1,701), ɒ (U+0252, 449), æ (U+00E6, 372), ʃ (U+0283, 339), ʌ (U+028C, 198), ʒ (U+0292, 166), ɑ (U+0251, 120), ŋ (U+014B, 107), θ (U+03B8, 70), ð (U+00F0, 48). Source-level notation review required; no automatic replacement.
 - **Frequency:** 263 rows use the documented unavailable sentinel; 263 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 1745
 
 ### highschool_extension_3743.json
 
@@ -55,8 +53,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 2,430), ɒ (U+0252, 552), æ (U+00E6, 494), ʃ (U+0283, 470), ʌ (U+028C, 285), ʒ (U+0292, 216), ɑ (U+0251, 132), ŋ (U+014B, 122), θ (U+03B8, 79), є (U+0454, 61). Source-level notation review required; no automatic replacement.
 - **Frequency:** 783 rows use the documented unavailable sentinel; 783 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 1847
 
 ### cet6_core.json
 
@@ -65,8 +61,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 3,680), ɒ (U+0252, 824), æ (U+00E6, 718), ʃ (U+0283, 714), ʌ (U+028C, 399), ʒ (U+0292, 314), ŋ (U+014B, 184), ɑ (U+0251, 171), θ (U+03B8, 120), є (U+0454, 71). Source-level notation review required; no automatic replacement.
 - **Frequency:** 1,830 rows use the documented unavailable sentinel; 1,830 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 2338
 
 ### ielts_core.json
 
@@ -75,8 +69,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 3,144), ɒ (U+0252, 722), æ (U+00E6, 693), ʃ (U+0283, 587), ʌ (U+028C, 325), ʒ (U+0292, 308), ŋ (U+014B, 217), ɑ (U+0251, 183), θ (U+03B8, 97), є (U+0454, 57). Source-level notation review required; no automatic replacement.
 - **Frequency:** 2,115 rows use the documented unavailable sentinel; 2,115 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 2162
 
 ### toefl_core.json
 
@@ -85,8 +77,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 5,113), æ (U+00E6, 1,084), ɒ (U+0252, 1,074), ʃ (U+0283, 956), ʌ (U+028C, 549), ʒ (U+0292, 462), ŋ (U+014B, 332), ɑ (U+0251, 243), θ (U+03B8, 141), є (U+0454, 78). Source-level notation review required; no automatic replacement.
 - **Frequency:** 3,927 rows use the documented unavailable sentinel; 3,927 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 2436
 
 ### gre_core.json
 
@@ -95,8 +85,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 5,388), æ (U+00E6, 1,291), ɒ (U+0252, 1,226), ʃ (U+0283, 869), ʌ (U+028C, 630), ʒ (U+0292, 513), ɑ (U+0251, 303), ŋ (U+014B, 293), θ (U+03B8, 122), ɔ (U+0254, 104). Source-level notation review required; no automatic replacement.
 - **Frequency:** 5,689 rows use the documented unavailable sentinel; 5,689 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 2551
 
 ### kaoyan_core.json
 
@@ -105,8 +93,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 3,124), ɒ (U+0252, 735), æ (U+00E6, 647), ʃ (U+0283, 565), ʌ (U+028C, 330), ʒ (U+0292, 285), ɑ (U+0251, 165), ŋ (U+014B, 148), θ (U+03B8, 99), є (U+0454, 67). Source-level notation review required; no automatic replacement.
 - **Frequency:** 1,281 rows use the documented unavailable sentinel; 1,281 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 2332
 
 ### sat_core.json
 
@@ -115,8 +101,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 3,248), ɒ (U+0252, 707), æ (U+00E6, 660), ʃ (U+0283, 607), ʌ (U+028C, 341), ʒ (U+0292, 288), ŋ (U+014B, 188), ɑ (U+0251, 179), θ (U+03B8, 95), є (U+0454, 50). Source-level notation review required; no automatic replacement.
 - **Frequency:** 2,195 rows use the documented unavailable sentinel; 2,195 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 1633
 
 ### gmat_core.json
 
@@ -125,8 +109,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 1 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 2,077), æ (U+00E6, 492), ɒ (U+0252, 437), ʃ (U+0283, 341), ʌ (U+028C, 220), ʒ (U+0292, 216), ɑ (U+0251, 135), ŋ (U+014B, 96), θ (U+03B8, 50), є (U+0454, 24). Source-level notation review required; no automatic replacement.
 - **Frequency:** 1,844 rows use the documented unavailable sentinel; 1,844 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 1256
 
 ### ngsl_nawl_core_3000.json
 
@@ -135,8 +117,6 @@ All examples and example translations are blank in the current packs. wordbooks/
 - **Meaning review candidates:** 0 words contain repeated semicolon-separated segments; 0 contain consecutive spaces.
 - **Pronunciation symbol inventory:** ә (U+04D9, 1,783), ɒ (U+0252, 404), ʃ (U+0283, 371), æ (U+00E6, 312), ʌ (U+028C, 212), ʒ (U+0292, 162), ɑ (U+0251, 101), θ (U+03B8, 69), ŋ (U+014B, 66), є (U+0454, 52). Source-level notation review required; no automatic replacement.
 - **Frequency:** 331 rows use the documented unavailable sentinel; 331 ranks are blank.
-- **Structural/data-integrity problems:**
-  - control_character_issues: 1662
 
 ## Cross-pack case variants
 
