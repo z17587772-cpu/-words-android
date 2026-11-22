@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: listening-pr-check-${{ github.event.pull_request.number || github.ref }}
@@ -50,16 +50,31 @@ jobs:
       - name: Test deterministic wordbook audit
         run: python -m unittest discover -s tools -p 'test_audit_wordbooks.py' -v
 
-      - name: Generate wordbook quality report for audit verification
-        run: python tools/audit_wordbooks.py --write --output-dir "$RUNNER_TEMP/wordbook-audit"
+      - name: Regenerate tracked wordbook quality reports on the development branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/listening-mvp'
+        run: python tools/audit_wordbooks.py --write
 
       - name: Upload generated wordbook audit report (not an APK)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/listening-mvp'
         uses: actions/upload-artifact@v4
         with:
           name: wordbook-quality-audit-${{ github.run_number }}
-          path: ${{ runner.temp }}/wordbook-audit/
+          path: wordbooks/audit/
           if-no-files-found: error
           retention-days: 7
+
+      - name: Commit refreshed audit reports to the development branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/listening-mvp'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wordbooks/audit/quality-report.json wordbooks/audit/quality-report.md
+          if git diff --cached --quiet; then
+            echo "Wordbook audit reports are already current."
+            exit 0
+          fi
+          git commit -m "data(audit): refresh generated wordbook quality reports [skip ci]"
+          git push origin "HEAD:${GITHUB_REF}"
 
       - name: Verify committed wordbook quality report
         run: python tools/audit_wordbooks.py --check
