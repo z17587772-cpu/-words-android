@@ -1,6 +1,6 @@
 # Words Android — 全量项目审计、历史计划整合与统一执行路线
 
-> 审计日期：2026-11-22。基线：feature/listening-mvp 分支，HEAD 为 bbe08129aa7e097c413e9fd6af2e69ef31d6ef99。本文件统一当前状态与执行路线；旧专项计划复选框是历史快照，不自动代表今天的待办。开发期间 APK 生产暂停，版本固定为 1.8.5 / versionCode 26。
+> 审计日期：2026-11-22。基线：feature/listening-mvp 分支；本轮开始时 HEAD 为 5ca359c4ae4d1652b2081f163b73c242c65ebfef。本文件统一当前状态与执行路线；旧专项计划复选框是历史快照，不自动代表今天的待办。开发期间 APK 生产暂停，版本固定为 1.8.5 / versionCode 26。
 
 ## 0. 结论摘要
 
@@ -13,24 +13,24 @@ Words 已有大量真实实现：词汇学习、11 套词书、数据库内容�
 4. **严格不重复是最终规则**：旧 roadmap 曾允许耗尽后重复最旧课程，后续 section 22 已明确推翻。新课只给未开始过的 episode；池耗尽则显示没有新课，复习另行安排。
 5. **下载进度不足**：当前 touchDownloadProgress 是 heartbeat，不是百分比/速度；暂停、取消、错误分类、故障注入仍需完善。
 6. **真机未验收**：PJX110 曾报告 ZipException: invalid stored block lengths，没有设备端 SHA-256 对比和实际安装记录；签名连续性未确认。
-7. **当前验证流水线已绿且未产 APK**：[Actions run 45034367082（最新文档同步提交）](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471) 成功；Python、词书同步与校验、Kotlin 编译、API 35 模拟器 instrumentation 均通过；artifact 列表为空（符合停产要求）。
+7. **当前验证流水线已绿且未产 APK**：[Actions run 45037693476（最新基线校验）](https://github.com/z17587772-cpu/-words-android/actions/runs/45037693476) 成功；Python、词书同步与校验、Kotlin 编译、API 35 模拟器 instrumentation 均通过；artifact 列表为空（符合停产要求）。
 
 ### 当前固定基线
 
 | 项目 | 事实 |
 |---|---|
 | 分支 | feature/listening-mvp |
-| HEAD | bbe08129aa7e097c413e9fd6af2e69ef31d6ef99 |
+| HEAD | 5ca359c4ae4d1652b2081f163b73c242c65ebfef |
 | main | 6c1b3a7be4190b9b9de430a4db299b2009a69073，未擅自修改 |
 | PR #1 | Open / Draft / 未合并 |
-| 与 main 差异 | 633 commits ahead / 8 behind，diverged；比较涉及 48 个文件 |
+| 与 main 差异 | 636 commits ahead / 8 behind，diverged；比较涉及 48 个文件 |
 | versionName / versionCode | 1.8.5 / 26（暂停期间固定） |
 | applicationId | com.words.app |
 | compileSdk / targetSdk | 36 / 35 |
 | 数据库 | schema v14 |
 | APK | PAUSED，不 assemble/sign/upload/Release |
 
-分支可见历史读取到 904 条提交记录，时间为 2026-11-18 至 2026-11-22；包括源代码分片上传、修复、CI、文档和功能小步提交，并非 904 项独立功能。分支对比为 633 commits ahead、8 behind。合并前必须审查 main 独有提交，不能盲目 merge/rebase。
+分支可见历史读取到 904 条提交记录，时间为 2026-11-18 至 2026-11-22；包括源代码分片上传、修复、CI、文档和功能小步提交，并非 904 项独立功能。分支对比为 636 commits ahead、8 behind。合并前必须审查 main 独有提交，不能盲目 merge/rebase。
 
 ## 1. 用户确认过的产品要求
 
@@ -196,7 +196,7 @@ Android 官方 CoroutineWorker.setProgress(Data) 支持可观察进度；WorkMan
 
 Android instrumentation 当前 5 类、38 个 @Test：InternetArchiveMetadataPolicyTest 4、ListeningCatalogSyncTest 3、ListeningDiscoveryRepositoryTest 6、ListeningDiscoveryTest 3、WordsDatabaseMigrationTest 22。Python 内容管线两个测试文件共 18 个 test methods。Gradle settings 只 include :app；android/core-tests 未确认纳入当前 Gradle/CI，不计作测试通过数。
 
-当前 HEAD run 45030879471：Python content pipeline、11 套词书同步/校验、answer-key/package/playback boundaries、Kotlin app + androidTest compile、API 35 emulator instrumentation 全部通过；APK artifact 无（符合要求）。
+当前 HEAD run 45037693476：Python content pipeline、11 套词书同步/校验、answer-key/package/playback boundaries、Kotlin app + androidTest compile、API 35 emulator instrumentation 全部通过；APK artifact 无（符合要求）。
 
 它能证明当前覆盖的源码编译与模拟器测试通过；不能证明真机安装、蓝牙、音频焦点、后台限制、真实 provider 长期可用、UI 全面流畅、课程内容质量或正式内容供应已完成。
 
@@ -294,3 +294,36 @@ Words 最终应具备：
 5. 跑受影响测试及完整 validation-only CI，失败先修。
 6. 追加工作日志，更新状态。
 7. APK 生产继续暂停，版本保持 1.8.5 / 26。
+
+
+## 2026-11-22 — Phase 1 词书质量审计执行计划（已先行提交）
+
+### 本轮基线校准
+- 开始时开发分支 HEAD：`5ca359c4ae4d1652b2081f163b73c242c65ebfef`。
+- `main` vs `feature/listening-mvp`：636 commits ahead、8 behind，状态 diverged；不进行 merge/rebase。
+- 最新验证 run [45037693476](https://github.com/z17587772-cpu/-words-android/actions/runs/45037693476) 已成功；词书同步/校验、Python 管线、Kotlin 编译、API 35 模拟器迁移与仪器测试通过。无 APK artifact，符合暂停要求。
+- versionName/versionCode 继续固定为 1.8.5/26。
+
+### 目标
+对 11 套词书源 JSON 执行只读质量审计，建立可复算、可追踪的问题报告。**本轮先发现问题，不自动批量改释义/音标/词性/例句，也不以单一词典源强行覆盖课程标准或专有词汇。**
+
+### 审计范围
+1. 文件结构、JSON 编码、pack id、记录数、必需字段及源文件 SHA-256。
+2. 词头规范：空白、前后空格、大小写规范、Unicode 异常、完全重复、大小写折叠重复。
+3. 字段质量：空释义、疑似占位文本、音标格式异常、词性缺失/异常、例句与译文缺失或错位。
+4. 跨词书重叠：分别报告完全重复、大小写折叠重复、词形不同但可能相关的项；不把正常跨书共用词视为错误。
+5. 来源/许可：逐包关联 SOURCES、LICENSE、NOTICE 和课程标准来源；来源缺失或口径不明列为人工复核，不自行推断授权。
+6. 生成机器可读 JSON 问题清单、Markdown 汇总报告和 SHA-256 清单；统计需由脚本从原始 JSON 重新计算。
+
+### 风险控制
+- 不修改 11 套词书内容、不改变 pack ID/版本/词条顺序，不触碰数据库 schema 或学习记录。
+- 所有问题分级：ERROR（结构/数据损坏）、WARN（疑似缺失或格式问题）、REVIEW（需要人工或来源核实）、INFO（合法的跨词书重复/数据特征）。
+- 音标、词性和例句规则采用“疑似异常”而非机械判错；专名、缩写、词组、无音标合法项不得误删。
+- 不将 50,698 pack records 表述为全局唯一词数；新课标应用记录数仍按 3,097 口径报告。
+- APK 生产继续停用，版本保持 1.8.5/26。
+
+### 验收条件
+- 11/11 文件扫描完成；报告列出每套词书记录数、唯一词头数、空字段数、重复情况、异常样本及文件哈希。
+- 重复扫描输出确定性一致（排序与哈希稳定）。
+- 至少有针对报告生成器的自动化测试：正常数据、空字段、重复词头、恶意/异常 JSON 结构、可接受缺失字段。
+- 不能只因扫描通过便宣称词汇语义质量已合格；语义抽样与修复进入下一轮逐项处理。
