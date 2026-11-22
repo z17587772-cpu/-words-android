@@ -449,10 +449,18 @@ def main() -> int:
         missing = [str(path) for path in (json_path, markdown_path) if not path.is_file()]
         if missing:
             raise SystemExit(f"Committed audit report missing: {', '.join(missing)}")
-        if json_path.read_text(encoding="utf-8") != json_text:
-            raise SystemExit(f"{json_path} is stale; run tools/audit_wordbooks.py --write and commit the updated report")
-        if markdown_path.read_text(encoding="utf-8") != markdown_text:
-            raise SystemExit(f"{markdown_path} is stale; run tools/audit_wordbooks.py --write and commit the updated report")
+        for path, expected_text in ((json_path, json_text), (markdown_path, markdown_text)):
+            actual_text = path.read_text(encoding="utf-8")
+            if actual_text != expected_text:
+                limit = min(len(actual_text), len(expected_text))
+                offset = next((index for index in range(limit) if actual_text[index] != expected_text[index]), limit)
+                actual_excerpt = repr(actual_text[max(0, offset - 60):offset + 120])
+                expected_excerpt = repr(expected_text[max(0, offset - 60):offset + 120])
+                raise SystemExit(
+                    f"{path} is stale (actual chars={len(actual_text)}, expected chars={len(expected_text)}, "
+                    f"first difference at {offset}). Actual: {actual_excerpt}; expected: {expected_excerpt}. "
+                    "Run tools/audit_wordbooks.py --write and commit the updated report."
+                )
         print("Wordbook audit report matches all source packs.")
     if report["global_errors"]:
         for error in report["global_errors"]:
