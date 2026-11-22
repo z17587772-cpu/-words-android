@@ -1,4 +1,4 @@
-name: Validate listening module PR
+name: Validate listening module PR (APK packaging paused)
 
 on:
   pull_request:
@@ -359,11 +359,8 @@ jobs:
           assert "WHERE d.assignment_date<>?" in repository
           assert "correctContent" in (root / "ListeningModels.kt").read_text(encoding="utf-8")
           workflow = Path(".github/workflows/listening-pr-check.yml").read_text(encoding="utf-8")
-          build_step = workflow.index("\n      - name: Build debug APK after all validation gates pass")
-          test_step = workflow.index("\n      - name: Run database migration tests on Android emulator")
-          upload_step = workflow.index("\n      - name: Upload validated debug APK")
-          assert build_step > test_step, "APK must only be assembled after instrumentation tests pass"
-          assert upload_step > build_step and workflow.index("uses: actions/upload-artifact@v4", build_step) > build_step
+          assert "assembleDebug" not in workflow, "Validation workflow must not produce APKs"
+          assert "upload-artifact" not in workflow, "Validation workflow must not publish APK artifacts"
           apk_workflow = Path(".github/workflows/android-apk.yml").read_text(encoding="utf-8")
           assert "workflow_dispatch:" in apk_workflow
           assert "pull_request:" not in apk_workflow and "\npush:" not in apk_workflow
@@ -435,105 +432,6 @@ jobs:
           disable-spellchecker: true
           script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
-      - name: Restore optional persistent APK signing key
-        env:
-          WORDS_SIGNING_KEYSTORE_BASE64: ${{ secrets.WORDS_SIGNING_KEYSTORE_BASE64 }}
-          WORDS_SIGNING_STORE_PASSWORD: ${{ secrets.WORDS_SIGNING_STORE_PASSWORD }}
-          WORDS_SIGNING_KEY_ALIAS: ${{ secrets.WORDS_SIGNING_KEY_ALIAS }}
-          WORDS_SIGNING_KEY_PASSWORD: ${{ secrets.WORDS_SIGNING_KEY_PASSWORD }}
-        run: |
-          if [ -z "$WORDS_SIGNING_KEYSTORE_BASE64" ]; then
-            echo "No persistent signing key configured; use the runner debug key for this validation APK."
-            exit 0
-          fi
-          test -n "$WORDS_SIGNING_STORE_PASSWORD"
-          test -n "$WORDS_SIGNING_KEY_ALIAS"
-          test -n "$WORDS_SIGNING_KEY_PASSWORD"
-          echo "$WORDS_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/words-signing.jks"
-          chmod 600 "$RUNNER_TEMP/words-signing.jks"
-          echo "WORDS_SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/words-signing.jks" >> "$GITHUB_ENV"
-          echo "WORDS_SIGNING_STORE_PASSWORD=$WORDS_SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "WORDS_SIGNING_KEY_ALIAS=$WORDS_SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "WORDS_SIGNING_KEY_PASSWORD=$WORDS_SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
-
-      - name: Build debug APK after all validation gates pass
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
-        working-directory: android
-
-      - name: Verify all wordbooks embedded in the built APK
-        run: |
-          python - <<'PY'
-          import hashlib
-          import json
-          import zipfile
-          from pathlib import Path
-
-          expected = {
-              "gaokao_standard_2025.json": ("gaokao_standard_2025", 3097),
-              "highschool_extension_3743.json": ("highschool_extension_3743", 3743),
-              "cet4_core.json": ("cet4_core", 3815),
-              "cet6_core.json": ("cet6_core", 5371),
-              "ielts_core.json": ("ielts_core", 4974),
-              "toefl_core.json": ("toefl_core", 6959),
-              "gre_core.json": ("gre_core", 7485),
-              "kaoyan_core.json": ("kaoyan_core", 4787),
-              "sat_core.json": ("sat_core", 4471),
-              "gmat_core.json": ("gmat_core", 2996),
-              "ngsl_nawl_core_3000.json": ("ngsl_nawl_core_3000", 3000),
-          }
-          apk = Path("android/app/build/outputs/apk/debug/app-debug.apk")
-          total_words = 0
-          with zipfile.ZipFile(apk) as archive:
-              embedded = {
-                  name.removeprefix("assets/books/"): name
-                  for name in archive.namelist()
-                  if name.startswith("assets/books/") and name.endswith(".json")
-              }
-              if set(embedded) != set(expected):
-                  raise SystemExit(
-                      f"APK wordbook inventory mismatch; missing={sorted(set(expected)-set(embedded))}, "
-                      f"unexpected={sorted(set(embedded)-set(expected))}"
-                  )
-              for filename, (expected_id, expected_count) in expected.items():
-                  payload = archive.read(embedded[filename])
-                  source_payload = (Path("wordbooks") / filename).read_bytes()
-                  if payload != source_payload:
-                      raise SystemExit(f"{filename}: APK bytes differ from audited source wordbook")
-                  data = json.loads(payload.decode("utf-8"))
-                  words = data.get("words")
-                  if data.get("id") != expected_id or not isinstance(words, list) or len(words) != expected_count:
-                      raise SystemExit(f"{filename}: incorrect pack ID or entry count")
-                  if any(not isinstance(row, dict) or not row.get("word") or not row.get("meaning") for row in words):
-                      raise SystemExit(f"{filename}: incomplete word/meaning fields")
-                  digest = hashlib.sha256(payload).hexdigest()
-                  total_words += len(words)
-                  print(f"APK_WORDBOOK {filename}: {len(words)} entries sha256={digest}")
-          if total_words != 50698:
-              raise SystemExit(f"Unexpected total word count: {total_words}")
-          print(f"APK verified: {len(expected)} wordbooks, {total_words} entries.")
-          PY
-
-      - name: Verify APK archive, package metadata and Android signature
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="android/app/build/outputs/apk/debug/app-debug.apk"
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
-          test -s "$APK"
-          unzip -tq "$APK"
-          "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
-          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -F "package: name='com.words.app' versionCode='26' versionName='1.8.5'"
-          echo "APK size:"
-          stat -c '%s bytes' "$APK"
-          echo "APK SHA-256:"
-          sha256sum "$APK"
-
-      - name: Upload validated debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: words-validated-debug-apk-${{ github.run_number }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
+      # APK production is intentionally paused until all product and device release gates pass.
+      # Keep compile and emulator tests active; do not assemble, sign, or upload install packages.
 
