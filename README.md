@@ -5,14 +5,14 @@
 ## 当前版本
 
 - **应用版本：** 1.8.5
-- **versionCode：** 25
+- **versionCode：** 26
 - **Android applicationId：** `com.words.app`
-- **构建状态：** 1.8.4 / code 25 的 APK 已验证包含全部 11 套词书；1.8.5 / code 26 加入词书内容哈希升级、数据库 schema v14 和 APK 内部词书核验，正在进行最终 CI。
+- **构建状态：** 1.8.5 / code 26 保留为当前开发版本号。当前仅运行源码编译、数据库迁移及自动化测试；在产品和真机验收完成前，暂停生成、签名和上传任何新 APK。
 - **唯一版本来源：** `android/app/build.gradle.kts` 中的 `versionName` 与 `versionCode`
 - **听力开发：** [PR #1（Draft，未合并）](https://github.com/z17587772-cpu/-words-android/pull/1)
-- **APK 下载：** [查看最新 GitHub Actions 验证构建](https://github.com/z17587772-cpu/-words-android/actions)。1.8.5 / versionCode 26 构建通过后才作为本轮修复升级包。
+- **安装包产出：** 暂停。当前开发阶段不生成 APK；完成全部功能、回归和真机验收并明确进入发布阶段后，再恢复构建。
 
-版本号以 Android 工程配置为准；Release tag 使用 `v${versionName}`。修改版本时必须同时递增 versionCode，并检查构建产物和 Release。
+版本号以 Android 工程配置为准；当前保留 1.8.5 / versionCode 26，不因暂停 APK 生产而回退。恢复正式安装包生产前，必须完成发布验收并核对签名连续性。
 
 ## 随刷
 - 无限连续浏览，左右滑动卡片切换上一个 / 下一个词。

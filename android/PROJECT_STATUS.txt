@@ -7,6 +7,8 @@ Words Android v1.8.5 — implementation and validation status
 - compileSdk: 36
 - targetSdk: 35
 - Database schema: v14
+APK production: PAUSED — validation only; no APK assemble/sign/upload until project completion and explicit release approval
+Version 1.8.5 / versionCode 26 is intentionally retained while packaging is paused.
 - Development branch: feature/listening-mvp
 - PR #1: Draft; not merged
 - Stable main is unchanged.
@@ -31,7 +33,7 @@ Words Android v1.8.5 — implementation and validation status
 - A lower incoming pack version never replaces a higher installed version.
 - installPack reuses matching word IDs, deactivates removed headwords instead of deleting them, and preserves reviews/history/favorites for retained words.
 - Instrumentation tests cover v5-to-v14 migration preservation, same-version content change, downgrade rejection logic and word ID / review / history preservation.
-- Current next regression: run seedBuiltInPack against all 11 packaged assets and verify DB entry counts/hashes and idempotence.
+- Application-level regression added: run seedBuiltInPack against all 11 packaged assets and verify DB entry counts/hashes and idempotence. The latest validation-only CI run is pending; it must not produce an APK.
 
 ## Listening and study functionality already present
 - On-device LibriVox and Internet Archive discovery with bounded pagination, deduplication and persisted cursors.
@@ -42,23 +44,29 @@ Words Android v1.8.5 — implementation and validation status
 - Quiz answer-key separation, course revision snapshots, daily no-repeat planning and spaced-review foundations.
 - Remaining listening gaps: byte-level progress/total size/speed, structured failure details, pause/cancel/restart tests, real approved human-recorded formal courses, transcript alignment, reviewed Chinese translation and teaching QA.
 
-## Latest 1.8.5 changes under validation
+## Latest 1.8.5 changes under validation (APK production paused)
 - Version bumped to 1.8.5 / versionCode 26 so existing code-25 installs can receive an upgrade.
 - Added an instrumentation test that seeds all 11 bundled packs into SQLite, checks exact per-pack counts and hashes, totals 50,698 active words, and verifies a second seed is idempotent.
-- CI now checks the expected 1.8.5 package metadata and requires the new asset-seeding test.
-- Latest CI run must be read from:
-  https://github.com/z17587772-cpu/-words-android/actions
-  The previous successful run #100 validates schema v14 and APK contents before this final application-level regression and version bump.
+- CI requires the all-11-pack database seeding/idempotence test and validates source code/migrations only. APK build and upload steps are removed from the validation workflow; the manual APK workflow is disabled.
+- Latest validation-only run: https://github.com/z17587772-cpu/-words-android/actions/runs/45030655437 (recheck its final result before claiming success).
+- Previous successful run #100 validates schema v14 migration and the APK asset packaging fix, but it predates the new database seeding test and was version 1.8.4 / code 25. It is historical evidence, not a new release.
 
 ## Still not verified
-1. Final 1.8.5 / code 26 CI success and exact artifact inspection.
+1. Final 1.8.5 / code 26 validation-only CI success, including all-11-pack database seeding and idempotence (no APK artifact is expected).
 2. Actual install/upgrade on PJX110 Android 16; no device-side APK hash or install result has been supplied.
 3. Stable signing certificate continuity. If persistent signing secrets are absent, CI may use a runner debug key and update-in-place is not guaranteed.
 4. Real-device background audio, lock-screen, Bluetooth/headset, battery restrictions, process restart, network interruption and offline playback.
 5. Formal production course content and signed catalog activation.
 
+## APK packaging pause
+- APK production is disabled by user request until the whole project is finished and accepted.
+- Do not generate, sign, upload or publish a new APK during ongoing development.
+- Keep versionName 1.8.5 and versionCode 26 unchanged during this pause.
+- Validation-only CI remains active for source compilation, database migration and instrumentation testing.
+
 ## Release gate
 - Do not merge PR #1 or change main until user approval.
+- Do not produce any new APK until the user explicitly confirms the project is complete and authorizes release; preserve 1.8.5 / code 26.
 - Do not claim that emulator validation proves real-device behavior.
 - Do not ask users to uninstall as the default update fix; protect local learning data.
 - Each session must first commit its plan to PROJECT_PLAN.md; then make small code/test commits; finally update this file and LISTENING_DEVELOPMENT_WORK_LOG.md with actual test evidence, commit IDs, CI URL, artifact ID, sizes and SHA-256.

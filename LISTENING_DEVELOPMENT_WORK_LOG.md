@@ -146,3 +146,55 @@ Adopt the two-lane model documented in `LISTENING_AUTO_DISCOVERY_ARCHITECTURE.md
 - Rechecked the actual YAML ordering: emulator instrumentation step precedes APK assembly, which precedes artifact upload.
 - Rechecked Gradle version 1.8.3 / versionCode 24 and optional persistent signing configuration.
 - Current-head Actions status is still empty through the available GitHub status/run views; the compile, emulator suite and APK artifact have not been observed. This is explicitly not recorded as a successful build.
+
+
+## 2026-11-22 — Persistent handoff, vocabulary rollback protection, and APK production pause
+
+### User instruction
+- Keep a complete, durable record of each session's objective, implementation plan, changed files, commits, test evidence, and unfinished work in GitHub.
+- Do not generate or publish a new APK until the entire project is complete.
+- Keep the current app version at 1.8.5 / versionCode 26 while APK production is paused.
+
+### Work completed in this session
+- Added a project-wide handoff and execution baseline in `PROJECT_PLAN.md`; each future session must read it, write a plan first, commit implementation/tests, and close by updating the work log and project status.
+- Fixed the build pipeline so all 11 source wordbooks are copied to Android assets with ID/count/field/hash checks.
+- Added database schema v14 `books.content_sha256`; same-version changed content updates, lower versions never downgrade, and matching word IDs plus reviews/history remain preserved.
+- Added regression tests for same-version hash changes and all 11 built-in pack database seeding/idempotence.
+- 1.8.5 / versionCode 26 is retained as requested; README's stale code 25 value was corrected.
+- Paused APK production:
+  - `.github/workflows/listening-pr-check.yml` retains source compilation and emulator checks but no longer assembles/signs/uploads an APK.
+  - `.github/workflows/android-apk.yml` manual build job is disabled with a job-level false condition.
+  - CI has static assertions that protect the no-APK policy and require the manual job to stay disabled.
+- Updated `README.md`, `PROJECT_PLAN.md`, `android/PROJECT_STATUS.txt` and this work log to make the packaging pause and retained version explicit.
+- Updated PR #1's description with durable project status and the no-release boundary; PR remains Draft.
+
+### Relevant commits
+- `28aa8a9` project-wide plan and handoff rules.
+- `5509f92` copy and verify all wordbooks in Android assets.
+- `afce141` schema v14 / content-hash upgrade logic.
+- `247ca76` content-hash, downgrade and history-preservation tests.
+- `fce557c` APK-internal wordbook inventory verification (historical packaging validation).
+- `9dc4d97` verified schema v14 and asset audit checkpoint.
+- `7b8ff30`, `081ac4e` all-11-pack database seeding regression (test implementation/refinement).
+- `d19eb77` retain/set version 1.8.5 / code 26.
+- `fed9a1b` enforce seed regression and version metadata in CI.
+- `e8e8950` synchronize README, project status and plan for 1.8.5.
+- `df24a11` remove APK assembly/sign/upload from normal validation.
+- `379af2d` disable manual APK-production job.
+- `cec35de` add CI guard for manual APK job being disabled.
+- `e5a56de` fix self-referential no-APK assertions.
+
+### Validation evidence and limitations
+- Run #100 (`45029773333`) passed schema v14 instrumentation, APK archive/metadata/signature checks and direct wordbook inventory validation; it produced the historical 1.8.4 / code 25 artifact.
+- Run #100 artifact `words-validated-debug-apk-100`, ID `14756944617`; it contains all 11 wordbooks and 50,698 entries. This is evidence for the wordbook packaging repair only; it is not a 1.8.5 install package.
+- Older intermediate runs for 1.8.5 were cancelled as later commits superseded them.
+- Latest validation-only run after APK production was disabled: [run 45030655437](https://github.com/z17587772-cpu/-words-android/actions/runs/45030655437). It must be checked for success; no APK artifact is expected.
+- The schema-v14 database migration and same-version hash logic passed the prior run's tests. The new all-11-pack database seeding/idempotence test was added afterward and still needs its completed run result.
+- No physical PJX110 Android 16 install/upgrade test has been performed. No claim of real-device validation is made.
+
+### Next work
+1. Inspect the result of validation-only run #45030655437; fix any CI/static assertion or instrumentation failure without re-enabling APK production.
+2. Complete the all-11-pack database seeding test: verify pack IDs/counts/content hashes, 50,698 active rows, and idempotent second initialization.
+3. Continue the P1 vocabulary/swipe/UI regression plan in `PROJECT_PLAN.md`.
+4. Continue listening download observability (byte progress, total size, failure codes, pause/cancel/resume tests) and course quality/supply work.
+5. Keep normal CI validation active. Do not generate APKs, sign, upload, publish a release, or change version 1.8.5 / code 26 unless the user explicitly authorizes release after project completion.
