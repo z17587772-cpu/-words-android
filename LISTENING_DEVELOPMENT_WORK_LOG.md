@@ -289,3 +289,36 @@ Created PROJECT_AUDIT_AND_MASTER_ROADMAP.md to unify:
 6. Android 16 physical-device, performance, accessibility, data-upgrade and release gate.
 
 APK production remains paused; version 1.8.5 / code 26 remains fixed.
+
+
+## 2026-11-22 — 全项目审计整合与文档基线校准
+
+### 本轮目标与计划
+- 汇总历次对话中的产品要求、项目记忆、代码实现、历史计划、执行记录和测试证据。
+- 对照当前仓库文件，区分已实现、已验证、未验收和仅有设计方案的事项。
+- 裁决历史路线冲突，建立唯一主路线和跨会话接手规则。
+- 保持 APK 生产暂停，版本固定 1.8.5 / versionCode 26。
+
+### 已完成的文档整理
+- 新增 `PROJECT_AUDIT_AND_MASTER_ROADMAP.md`：统一历史需求、词书数据与来源口径、词汇/随刷现状、听力架构与阻塞、旧计划文件索引、测试证据、外部技术决策、分阶段执行路线和完成标准。
+- 更新 `PROJECT_PLAN.md`：明确审计文件为全项目执行权威入口，保留会话纪律和阶段任务。
+- 更新 `android/PROJECT_STATUS.txt`：收敛当前实现、CI 证据、测试规模、真机缺口和发布暂停状态。
+- 更新 `LISTENING_PRODUCT_ROADMAP.md`：保留历史计划，但标注旧 checklist 不等同于当前状态，并以统一审计为准。
+- 更新 `README.md`：加入项目交接与当前状态入口。
+- 当前分支审计基线校准为 `bbe08129aa7e097c413e9fd6af2e69ef31d6ef99`；最新同步文档提交对应 Actions run 45034367082 成功，artifact 数量为 0，符合暂停 APK 生产的要求。
+
+### 关键结论
+- 11 套词书共 50,698 条 pack records；这不是跨词书去重后的唯一词数。
+- 词书构建同步缺陷已修复；数据库 schema v14 的内容哈希更新、防降级和学习记录保留测试已通过 API 35 模拟器 CI。
+- 原始音频发现/下载和审核后正式课程是两条独立链路；正式课程生产尚未激活。
+- 下载 heartbeat 不是真实字节百分比；需要补齐可观测下载状态机。
+- 严格 no-repeat 新课规则优先于早期“耗尽后循环旧课”的历史计划。
+- PJX110 Android 16 真机安装、ZIP 异常定因、稳定签名连续性仍未关闭。
+
+### 当前验证
+- [Actions run 45034367082](https://github.com/z17587772-cpu/-words-android/actions/runs/45034367082)：成功；本次仅文档更新，APK artifacts 为 0。
+- 当前不生产、不签名、不上传、不发布 APK；版本号保持 1.8.5 / 26。
+
+### 下一步
+- 按统一审计 Phase 1 开始词书语义与字段质量审计；先提交逐项计划和验收条件，再执行数据扫描与抽样。
+- 不得将设计文档、历史提交或模拟器通过误报为真机/内容生产验收。

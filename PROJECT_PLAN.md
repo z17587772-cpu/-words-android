@@ -5,7 +5,7 @@
 ## 1. 当前项目基线
 
 - 当前开发分支：`feature/listening-mvp`
-- 当前开发分支 HEAD：`91b7b8b58e15297ae5e0aa096c21cfea37553b1d`（审计基线；每轮以 GitHub 最新分支为准）
+- 当前开发分支 HEAD：`bbe08129aa7e097c413e9fd6af2e69ef31d6ef99`（审计基线；每轮以 GitHub 最新分支为准）
 - 稳定主分支：`main`（不得未经明确授权直接修改或合并）
 - PR #1：Draft，保持未合并
 - 应用版本：`1.8.5` / versionCode `26`（本轮修复升级版本）
@@ -15,8 +15,8 @@
 
 ### 最新当前 HEAD 验证（开发期，仅验证，不产 APK）
 
-- 当前 HEAD：`91b7b8b58e15297ae5e0aa096c21cfea37553b1d`
-- 最新验证：[Actions run 45030879471](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471)，成功。
+- 当前 HEAD：`bbe08129aa7e097c413e9fd6af2e69ef31d6ef99`
+- 最新验证：[Actions run 45034367082](https://github.com/z17587772-cpu/-words-android/actions/runs/45034367082)，成功。
 - Python 内容管线测试、11 套词书同步/校验、静态安全边界检查、Kotlin 主/测试源码编译、API 35 模拟器迁移/仪器测试全部成功。
 - 本次验证没有 APK artifact，符合用户要求；不能把“无产物”说成构建失败。
 - 版本保持 1.8.5 / code 26；APK assemble/sign/upload/Release 全部暂停。
@@ -102,7 +102,7 @@
 - `247ca76`：增加词书同版本变更、版本防降级、原单词 ID / reviews / history 保留测试。
 - `fce557c`：增加 APK 构建后内部词书清单、数量、字节哈希和总词条数核验，并更新 CI 静态门禁。
 - 已完成的上一轮 APK 实物检查：run #96 的 APK 中确实包含 11 套词书、50,698 条记录，所有 JSON 和源文件字节一致；该包仍为 1.8.4 / code 25，不能用作 code 25 设备的覆盖升级包。
-- 当前 HEAD 的 validation-only CI：[run 45030879471](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471)，Python、Kotlin 编译和 API 35 模拟器测试全部通过；没有 APK artifact。
+- 当前 HEAD 的 validation-only CI：[run 45034367082](https://github.com/z17587772-cpu/-words-android/actions/runs/45034367082)，Python、Kotlin 编译和 API 35 模拟器测试全部通过；没有 APK artifact。
 
 - [x] 在 CI 构建前自动同步 11 套词书到 Android assets。
 - [x] 同步时核对 ID、词条数、关键字段、源/目标 SHA-256。
@@ -111,7 +111,7 @@
 - [x] 数据库升至 schema v14，为 books 增加 content_sha256；旧版迁移与学习记录保留测试通过。
 - [x] seedBuiltInPack 对“更高版本”或“同版本不同哈希”更新；对更低版本拒绝降级。
 - [x] 增加迁移、哈希判断、同版本内容变化、旧版本拒绝降级和学习记录保留测试（API 35 CI 通过）。
-- [x] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确、50,698 条 active rows、重复初始化幂等；当前 run #45030879471 已通过。
+- [x] 增加应用层内置词书初始化测试：11 套均入库、数量与内容哈希正确、50,698 条 active rows、重复初始化幂等；当前 run #45034367082 已通过。
 - [x] 把修复包版本提升为 1.8.5 / versionCode 26（确保已安装 1.8.4/code 25 的用户具备版本号升级路径）。
 - [x] 更新 README、项目状态、开发日志并建立全量审计文件；当前 HEAD validation-only CI 已通过。后续按审计文件 Phase 1–6 执行，APK 继续暂停。
 

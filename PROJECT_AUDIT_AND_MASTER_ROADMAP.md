@@ -1,6 +1,6 @@
 # Words Android — 全量项目审计、历史计划整合与统一执行路线
 
-> 审计日期：2026-11-22。基线：feature/listening-mvp 分支，HEAD 为 91b7b8b58e15297ae5e0aa096c21cfea37553b1d。本文件统一当前状态与执行路线；旧专项计划复选框是历史快照，不自动代表今天的待办。开发期间 APK 生产暂停，版本固定为 1.8.5 / versionCode 26。
+> 审计日期：2026-11-22。基线：feature/listening-mvp 分支，HEAD 为 bbe08129aa7e097c413e9fd6af2e69ef31d6ef99。本文件统一当前状态与执行路线；旧专项计划复选框是历史快照，不自动代表今天的待办。开发期间 APK 生产暂停，版本固定为 1.8.5 / versionCode 26。
 
 ## 0. 结论摘要
 
@@ -13,14 +13,14 @@ Words 已有大量真实实现：词汇学习、11 套词书、数据库内容�
 4. **严格不重复是最终规则**：旧 roadmap 曾允许耗尽后重复最旧课程，后续 section 22 已明确推翻。新课只给未开始过的 episode；池耗尽则显示没有新课，复习另行安排。
 5. **下载进度不足**：当前 touchDownloadProgress 是 heartbeat，不是百分比/速度；暂停、取消、错误分类、故障注入仍需完善。
 6. **真机未验收**：PJX110 曾报告 ZipException: invalid stored block lengths，没有设备端 SHA-256 对比和实际安装记录；签名连续性未确认。
-7. **当前验证流水线已绿且未产 APK**：[Actions run 45030879471](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471) 成功；Python、词书同步与校验、Kotlin 编译、API 35 模拟器 instrumentation 均通过；artifact 列表为空（符合停产要求）。
+7. **当前验证流水线已绿且未产 APK**：[Actions run 45034367082（最新文档同步提交）](https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471) 成功；Python、词书同步与校验、Kotlin 编译、API 35 模拟器 instrumentation 均通过；artifact 列表为空（符合停产要求）。
 
 ### 当前固定基线
 
 | 项目 | 事实 |
 |---|---|
 | 分支 | feature/listening-mvp |
-| HEAD | 91b7b8b58e15297ae5e0aa096c21cfea37553b1d |
+| HEAD | bbe08129aa7e097c413e9fd6af2e69ef31d6ef99 |
 | main | 6c1b3a7be4190b9b9de430a4db299b2009a69073，未擅自修改 |
 | PR #1 | Open / Draft / 未合并 |
 | 与 main 差异 | 633 commits ahead / 8 behind，diverged；比较涉及 48 个文件 |

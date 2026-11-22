@@ -2,7 +2,7 @@ Words Android — 当前工程状态（2026-11-22）
 
 ## 1. 固定基线
 - 分支：feature/listening-mvp
-- 当前 HEAD：91b7b8b58e15297ae5e0aa096c21cfea37553b1d
+- 当前 HEAD：bbe08129aa7e097c413e9fd6af2e69ef31d6ef99
 - PR #1：Draft，未合并
 - main：未修改
 - versionName：1.8.5
@@ -14,7 +14,7 @@ Words Android — 当前工程状态（2026-11-22）
 - 完整项目完成且用户明确授权前，版本保持 1.8.5 / 26
 
 ## 2. 最新当前 HEAD 验证
-- Actions：成功 — https://github.com/z17587772-cpu/-words-android/actions/runs/45030879471
+- Actions：成功 — https://github.com/z17587772-cpu/-words-android/actions/runs/45034367082
 - Python 内容发现/签名测试：通过
 - 11 套词书同步到 Android assets，pack ID/数量/字段/源目标 SHA-256：通过
 - blind-listening answer-key 和课程包/播放安全边界检查：通过
