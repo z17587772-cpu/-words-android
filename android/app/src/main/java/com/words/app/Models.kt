@@ -33,7 +33,8 @@ data class VocabularyPack(
     val name: String,
     val description: String,
     val version: Int,
-    val words: List<PackWord>
+    val words: List<PackWord>,
+    val contentSha256: String = ""
 )
 
 data class PackWord(
